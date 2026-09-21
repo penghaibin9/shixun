@@ -24,6 +24,9 @@ class TeachingRepository:
         stmt = select(m.TeachingClass).where(m.TeachingClass.class_id.in_(class_ids)).order_by(m.TeachingClass.created_at.desc())
         return list(self.session.scalars(stmt))
 
+    def class_course(self, class_id: str):
+        return self.session.scalar(select(m.ClassCourse).where(m.ClassCourse.class_id == class_id))
+
     def members(self, class_id: str, *, search: str = "", status: str = "ACTIVE", sort: str = "student_number", direction: str = "asc", offset: int = 0, limit: int = 100):
         stmt = select(m.ClassMembership).where(m.ClassMembership.class_id == class_id)
         if status: stmt = stmt.where(m.ClassMembership.status == status)

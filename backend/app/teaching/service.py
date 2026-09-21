@@ -1,4 +1,5 @@
 import hashlib
+import json
 import secrets
 from datetime import datetime
 from uuid import NAMESPACE_URL, uuid4, uuid5
@@ -43,6 +44,14 @@ class TeachingService:
         if not self.user.student_id:
             raise ApiError("AUTH.STUDENT_REQUIRED", "当前身份没有关联学生", 403)
         return self.user.student_id
+
+    def require_mutable_roster(self, class_id: str) -> m.TeachingClass:
+        item = self.repo.get(m.TeachingClass, class_id)
+        if not item:
+            raise ApiError("CLASS.NOT_FOUND", "班级不存在", 404)
+        if item.roster_frozen_at:
+            raise ApiError("CLASS.ROSTER_FROZEN", "班级名单已冻结，不能再增删或导入学生", 409, {"class_id": class_id, "frozen_at": item.roster_frozen_at.isoformat()})
+        return item
 
     def audit(self, action: str, aggregate_type: str, aggregate_id: str, payload: dict):
         enqueue_event(self.session, event_type="teaching.audit", aggregate_type=aggregate_type, aggregate_id=aggregate_id, actor_user_id=self.user.user_id, idempotency_key=f"{action}:{aggregate_id}:{uuid4()}", payload={"action": action, **payload})
@@ -114,6 +123,7 @@ class TeachingService:
 
     def add_member(self, class_id: str, body: MemberCreate):
         self.require("teaching.members.write"); self.require_class(class_id)
+        self.require_mutable_roster(class_id)
         existing = self.repo.membership_by_number(class_id, body.student_number)
         if existing:
             if existing.student_id != body.student_id: raise ApiError("MEMBER.NUMBER_CONFLICT", "学号已被班级内其他学生使用", 409)
@@ -126,11 +136,39 @@ class TeachingService:
 
     def remove_member(self, class_id: str, membership_id: str):
         self.require("teaching.members.write"); self.require_class(class_id)
+        self.require_mutable_roster(class_id)
         item = self.repo.membership_by_id(class_id, membership_id) or self.repo.membership(class_id, membership_id)
         if not item: raise ApiError("MEMBER.NOT_FOUND", "班级成员不存在", 404)
         item.status = "REMOVED"
         self.audit("membership.removed", "class_membership", membership_id, {"class_id": class_id, "student_id": item.student_id})
         self.session.commit(); return {"class_membership_id": membership_id, "status": "REMOVED"}
+
+    def freeze_roster(self, class_id: str):
+        self.require("teaching.roster.freeze"); self.require_class(class_id)
+        teaching_class = self.repo.get(m.TeachingClass, class_id)
+        if not teaching_class:
+            raise ApiError("CLASS.NOT_FOUND", "班级不存在", 404)
+        course = self.repo.class_course(class_id)
+        if not course:
+            raise ApiError("CLASS.COURSE_NOT_BOUND", "班级尚未绑定课程，不能冻结名单", 409)
+        members, _ = self.repo.members(class_id, status="ACTIVE", sort="student_number", direction="asc", offset=0, limit=100000)
+        snapshot = [{"student_id": row.student_id, "student_number": row.student_number, "student_name": row.student_name} for row in members]
+        digest = hashlib.sha256(json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        if not teaching_class.roster_frozen_at:
+            teaching_class.roster_frozen_at = now()
+            teaching_class.roster_frozen_by = self.user.user_id
+            teaching_class.roster_snapshot_hash = digest
+            enqueue_event(
+                self.session,
+                event_type="course.roster.frozen",
+                aggregate_type="class_roster",
+                aggregate_id=class_id,
+                actor_user_id=self.user.user_id,
+                idempotency_key=f"course.roster.frozen:{class_id}",
+                payload={"course_id": course.course_id, "class_id": class_id, "member_count": len(snapshot), "snapshot_hash": digest, "frozen_at": teaching_class.roster_frozen_at.isoformat()},
+            )
+            self.session.commit()
+        return {"class_id": class_id, "course_id": course.course_id, "status": "FROZEN", "member_count": len(snapshot), "snapshot_hash": teaching_class.roster_snapshot_hash, "frozen_at": teaching_class.roster_frozen_at, "frozen_by": teaching_class.roster_frozen_by}
 
     def learning_summary(self, class_id: str, membership_id: str):
         self.require("teaching.members.read"); self.require_class(class_id)
@@ -145,6 +183,7 @@ class TeachingService:
 
     def import_members(self, class_id: str, data: bytes, key: str):
         self.require("teaching.members.import"); self.require_class(class_id)
+        self.require_mutable_roster(class_id)
         if not key:
             raise ApiError("REQUEST.IDEMPOTENCY_REQUIRED", "导入必须提供 Idempotency-Key", 400)
         previous = self.repo.import_job(class_id, key)

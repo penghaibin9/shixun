@@ -354,7 +354,7 @@ class RuntimeService:
             stored = models.CheckpointResult(checkpoint_result_id=new_id("cpr"), runtime_instance_id=item.runtime_instance_id, student_id=item.student_id, checkpoint_id=checkpoint["checkpoint_id"], attempt=attempt, status="PASSED" if passed else "FAILED", score_awarded=checkpoint["score"] if passed else 0, max_score=checkpoint["score"], evidence_json=evidence, message=result.get("message", "通过" if passed else checkpoint["failure_message"]), judged_at=now())
             self.session.add(stored)
             event_type = "lab.checkpoint.passed" if passed else "lab.checkpoint.failed"
-            self._event(event_type, instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status=item.status, current_step=int(checkpoint.get("order_no", 0)), raw_score=stored.score_awarded, max_score=stored.max_score, checkpoint_id=checkpoint["checkpoint_id"], checkpoint_status=stored.status, score_awarded=stored.score_awarded), idempotency_key=f"{event_type}:{instance_id}:{checkpoint['checkpoint_id']}:{attempt}")
+            self._event(event_type, instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status=item.status, current_step=int(checkpoint.get("order_no", 0)), raw_score=stored.score_awarded, max_score=stored.max_score, source_id=stored.checkpoint_result_id, checkpoint_id=checkpoint["checkpoint_id"], checkpoint_status=stored.status, score_awarded=stored.score_awarded), idempotency_key=f"{event_type}:{instance_id}:{checkpoint['checkpoint_id']}:{attempt}")
         request.last_activity_at = now()
         self.session.commit()
         return self.instance(instance_id)
@@ -519,8 +519,8 @@ class RuntimeService:
             raise ApiError("RUNTIME.RELEASE_CONTEXT_REQUIRED", "发布上下文缺少课程或班级标识", 409)
         return await self.start(RuntimeStart(lab_release_id=release_id, lab_version_id=version_id, course_id=course_id, class_id=class_id, student_id=student_id, mode="STUDENT"), f"release-start:{release_id}:{student_id}")
 
-    async def register_release_context(self, *, release_id: str, version_id: str, course_id: str, class_id: str, status: str) -> dict:
-        spec = await self.catalog.frozen_version(version_id, course_id)
+    async def register_release_context(self, *, release_id: str, version_id: str, course_id: str, class_id: str, status: str, spec_snapshot: dict | None = None) -> dict:
+        spec = spec_snapshot or await self.catalog.frozen_version(version_id, course_id)
         self._validate_spec(spec, version_id)
         stamp = now()
         item = self.session.get(models.RuntimeReleaseReadModel, release_id)
@@ -546,7 +546,7 @@ class RuntimeService:
         stamp = now()
         request.submission_status, request.submitted_at, request.last_activity_at, request.updated_at = "SUBMITTED", stamp, stamp, stamp
         instance = self.session.get(models.RuntimeInstance, detail["runtime_instance_id"]) if detail.get("runtime_instance_id") else None
-        self._event("lab.submitted", instance_id=instance.runtime_instance_id if instance else None, group_id=instance.runtime_group_id if instance else None, detail=self._projection_payload(request, instance, status=instance.status if instance else request.status, current_step=len(request.spec_snapshot_json.get("steps", [])), raw_score=detail.get("raw_score", 0), max_score=detail.get("max_score", 100), submission_status="SUBMITTED", submitted_at=stamp.isoformat()), idempotency_key=f"lab.submitted:{release_id}:{student_id}")
+        self._event("lab.submitted", instance_id=instance.runtime_instance_id if instance else None, group_id=instance.runtime_group_id if instance else None, detail=self._projection_payload(request, instance, status=instance.status if instance else request.status, current_step=len(request.spec_snapshot_json.get("steps", [])), raw_score=detail.get("raw_score", 0), max_score=detail.get("max_score", 100), source_id=request.runtime_request_id, submission_status="SUBMITTED", submitted_at=stamp.isoformat()), idempotency_key=f"lab.submitted:{release_id}:{student_id}")
         self.session.commit()
         return self._release_student_view(request)
 

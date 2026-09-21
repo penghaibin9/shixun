@@ -39,7 +39,7 @@ def test_mysql_84_g1_g2_main_chain():
     course = client.post("/api/v1/courses", headers=identity("teaching.course.write"), json={"name":"MySQL 验收课程","term":"2026 秋季"})
     assert course.status_code == 201, course.text
     course_id = course.json()["course_id"]
-    teaching = identity("teaching.class.write","teaching.members.import","teaching.members.read","teaching.attendance.write","teaching.attendance.read", course_id=course_id)
+    teaching = identity("teaching.class.write","teaching.members.import","teaching.members.read","teaching.members.write","teaching.roster.freeze","teaching.attendance.write","teaching.attendance.read", course_id=course_id)
     created_class = client.post("/api/v1/classes", headers=teaching, json={"name":"MySQL 验收班","term":"2026 秋季","course_id":course_id})
     assert created_class.status_code == 201, created_class.text
     class_id = created_class.json()["class_id"]; teaching["X-Class-Ids"] = class_id
@@ -55,3 +55,11 @@ def test_mysql_84_g1_g2_main_chain():
     assert signed.status_code == 200
     summary = client.get("/api/v1/attendance/section-summary", headers=teaching).json()["items"][0]
     assert summary["expected"] == 43 and summary["present"] == 1
+    frozen = client.post(f"/api/v1/classes/{class_id}/roster/freeze", headers=teaching)
+    assert frozen.status_code == 200 and frozen.json()["member_count"] == 43
+    blocked = client.post(f"/api/v1/classes/{class_id}/members", headers=teaching, json={"student_id":"late-student","student_number":"late-001","student_name":"迟到名单"})
+    assert blocked.status_code == 409 and blocked.json()["code"] == "CLASS.ROSTER_FROZEN"
+    dispatcher = {"X-User-Id":"service_contract_dispatcher","X-Role":"admin","X-Permissions":"integration:dispatch"}
+    dispatched = client.post("/api/v1/integration/outbox/dispatch", headers=dispatcher, params={"limit":500})
+    assert dispatched.status_code == 200 and dispatched.json()["failed"] == 0
+    assert any(item["event_type"] == "course.roster.frozen" and item["targets"] == ["grading_facts"] for item in dispatched.json()["results"])

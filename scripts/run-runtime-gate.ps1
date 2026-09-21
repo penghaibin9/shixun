@@ -1,11 +1,15 @@
-param([string]$GateScript = 'tests/runtime_gate.py')
+param(
+  [string]$GateScript = 'tests/runtime_gate.py',
+  [ValidatePattern('^[a-zA-Z0-9_]+$')]
+  [string]$DatabaseName = 'yueke_d_dev'
+)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $containerEnv = docker inspect yueke-contract-mysql-dev --format '{{json .Config.Env}}' | ConvertFrom-Json
 $passwordEntry = $containerEnv | Where-Object { $_ -like 'MYSQL_PASSWORD=*' } | Select-Object -First 1
 if (-not $passwordEntry) { throw 'MYSQL_PASSWORD is missing' }
 $escaped = [System.Uri]::EscapeDataString($passwordEntry.Substring('MYSQL_PASSWORD='.Length))
-$env:YUEKE_DATABASE_URL = "mysql+pymysql://yueke_dev:${escaped}@127.0.0.1:13384/yueke_d_dev?charset=utf8mb4"
+$env:YUEKE_DATABASE_URL = "mysql+pymysql://yueke_dev:${escaped}@127.0.0.1:13384/${DatabaseName}?charset=utf8mb4"
 $env:YUEKE_NODE_AGENT_TOKEN = [guid]::NewGuid().ToString('N')
 $env:YUEKE_LAB_CATALOG_URL = 'http://127.0.0.1:18080'
 $env:YUEKE_LAB_CATALOG_TOKEN = [guid]::NewGuid().ToString('N')

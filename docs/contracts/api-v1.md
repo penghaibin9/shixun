@@ -28,10 +28,15 @@ POST   /api/v1/classes/{class_id}/members/import
 DELETE /api/v1/classes/{class_id}/members/{student_id}
 GET    /api/v1/classes/{class_id}/members/import-template
 GET    /api/v1/classes/{class_id}/members/export.xlsx
+POST   /api/v1/classes/{class_id}/roster/freeze
 GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 ```
 
-成员列表必须服务端分页，支持姓名/学号搜索、账号状态过滤及学号/姓名排序。学习汇总由总控聚合 A 的签到/作业/测验、E 的实验状态、F 的总评/风险 ReadModel；未接入的跨域字段返回 `null` 和 `data_status: "PENDING"`，A 不得跨域直连表或自行计算实验成绩与风险。
+成员列表必须服务端分页，支持姓名/学号搜索、账号状态过滤及学号/姓名排序。名单冻结生成按学号排序的 SHA256（文件校验值）快照并发布 `course.roster.frozen`，冻结后加入、移出和导入固定返回 `CLASS.ROSTER_FROZEN`。学习汇总由总控聚合 A 的签到/作业/测验、E 的实验状态、F 的总评/风险 ReadModel；未接入的跨域字段返回 `null` 和 `data_status: "PENDING"`，A 不得跨域直连表或自行计算实验成绩与风险。
+
+## 总控事件投递接口
+
+`POST /api/v1/integration/outbox/dispatch` 仅允许 `service_` 前缀的管理员服务身份并要求 `integration:dispatch` 权限。投递器从 `domain_event_outbox` 读取未发布事件：D 运行事件写入 E 课堂投影并送入 F 成绩事实，A/B 冻结事件送入 F 归档证据，C 的 `lab.release.published` 携带不可变实验规范快照写入 D 发布上下文。任一目标失败时事件保持未发布，可安全重试；各消费者按 `event_id` 幂等。
 
 ## B 课程资源接口
 

@@ -100,6 +100,10 @@ def student_learning_summary(class_id: str, student_id: str, db: Db, user: Curre
 def add_member(class_id: str, body: MemberCreate, db: Db, user: CurrentUser): return service(db, user).add_member(class_id, body)
 
 
+@router.post("/classes/{class_id}/roster/freeze")
+def freeze_roster(class_id: str, db: Db, user: CurrentUser): return service(db, user).freeze_roster(class_id)
+
+
 @router.delete("/classes/{class_id}/members/{membership_id}")
 def remove_member(class_id: str, membership_id: str, db: Db, user: CurrentUser): return service(db, user).remove_member(class_id, membership_id)
 

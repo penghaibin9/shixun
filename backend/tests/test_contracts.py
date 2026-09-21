@@ -12,6 +12,8 @@ def test_frozen_openapi_is_valid_and_has_v1_contracts():
     contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
     assert contract["openapi"].startswith("3.1")
     assert "/api/v1/auth/context" in contract["paths"]
+    assert "/api/v1/classes/{class_id}/roster/freeze" in contract["paths"]
+    assert "/api/v1/integration/outbox/dispatch" in contract["paths"]
     assert "Error" in contract["components"]["schemas"]
 
 

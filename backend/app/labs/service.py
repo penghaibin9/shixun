@@ -315,13 +315,14 @@ class LabService:
             return self._release_view(item, self.repo.publish_config(release_id))
         release = self._release(release_id, lock=True)
         config = self.repo.publish_config(release_id)
+        version = self._version(release.lab_version_id)
         if not config.preflight_json.get("passed"):
             raise ApiError("LAB.PREFLIGHT_REQUIRED", "请先通过发布预检", 409)
         if config.teacher_preview_required and not config.preview_request_id:
             raise ApiError("LAB.TEACHER_PREVIEW_REQUIRED", "教师预演尚未由运行服务受理", 409)
         release.status = "OPEN" if config.opens_at <= now() < config.closes_at else "SCHEDULED"
         release.published_at = now()
-        enqueue_event(self.session, event_type="lab.release.published", aggregate_type="lab_release", aggregate_id=release_id, actor_user_id=self.user.user_id, idempotency_key=idempotency_key, payload={"lab_version_id": release.lab_version_id, "course_id": release.course_id, "class_id": release.class_id, "lesson_id": release.lesson_id})
+        enqueue_event(self.session, event_type="lab.release.published", aggregate_type="lab_release", aggregate_id=release_id, actor_user_id=self.user.user_id, idempotency_key=idempotency_key, payload={"lab_version_id": release.lab_version_id, "course_id": release.course_id, "class_id": release.class_id, "lesson_id": release.lesson_id, "status": release.status, "spec_snapshot": version.spec_json})
         self.session.commit()
         return self._release_view(release, config)
 

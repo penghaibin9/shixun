@@ -45,6 +45,9 @@ class TeachingClass(Base):
     term: Mapped[str] = mapped_column(String(64))
     owner_teacher_id: Mapped[str] = mapped_column(String(36), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
+    roster_frozen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    roster_frozen_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    roster_snapshot_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class ClassCourse(Base):

@@ -10,7 +10,7 @@
 - 网络：`student → business mysql = DENY`、`student A → student B = DENY`、`student → same-group target/grader = ALLOW`。
 - 恢复：重复启动保持同一请求；重建保留 100 分检查点事实；重复销毁成功且最终无残留跃科容器/网络。
 
-执行入口：`scripts/run-runtime-gate.ps1`。
+执行入口：`scripts/run-runtime-gate.ps1`。可用 `-DatabaseName` 指定专属验收库，本次最终集成使用 `yueke_final_dev`。
 
 ## 单节点容量阶梯
 
@@ -29,5 +29,9 @@
 ## 尚未通过
 
 - 流量采集器未部署，capture RPC 返回 501；制品存储基地址未配置时下载/打包返回 503。
-- E 线当前终端仍把 token 放在查询参数，必须改为首帧；D 不提供不安全兼容。
-- C 的 `lab.release.published` 到 D `runtime_release_read_model` 尚需集成事件投递接线。
+- Node Agent（节点代理）仍以门禁进程运行，尚未安装为系统常驻服务。
+
+## 集成收口
+
+- E 线终端已改为 WebSocket（网页双向连接）首帧短期令牌，不再把令牌放入网址。
+- `lab.release.published` 已由总控事件投递器写入 D 的 `runtime_release_read_model`，并使用 C 发布事件携带的不可变规范快照；真实 MySQL（数据库）测试已覆盖。

@@ -22,6 +22,7 @@
     "/api/v1/classes/{class_id}/members/import": {"post": {"summary": "使用统一 XLSX 导入逻辑导入班级学生", "responses": {"202": {"description": "导入任务已创建"}, "403": {"description": "无权操作"}}}},
     "/api/v1/classes/{class_id}/members/import-template": {"get": {"summary": "下载学生导入模板", "responses": {"200": {"description": "XLSX 模板"}, "403": {"description": "无权访问"}}}},
     "/api/v1/classes/{class_id}/members/export.xlsx": {"get": {"summary": "导出本人任课班级学生名单", "responses": {"200": {"description": "XLSX 名单"}, "403": {"description": "无权访问"}}}},
+    "/api/v1/classes/{class_id}/roster/freeze": {"post": {"summary": "冻结班级名单快照", "parameters": [{"name": "class_id", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "名单已冻结"}, "403": {"description": "无权操作"}, "409": {"description": "名单冻结后禁止增删或导入"}}}},
     "/api/v1/classes/{class_id}/students/{student_id}/learning-summary": {"get": {"summary": "聚合单个学生学习汇总", "responses": {"200": {"description": "跨域读取模型", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LearningSummary"}}}}, "403": {"description": "无权访问"}}}},
     "/api/v1/resources": {"get": {"summary": "三维筛选课程资源", "responses": {"200": {"description": "资源分页"}}}, "post": {"summary": "新建课程资源", "responses": {"201": {"description": "已创建"}}}},
     "/api/v1/resources/{resource_id}": {"get": {"summary": "获取资源及最新版本", "responses": {"200": {"description": "资源"}}}},
@@ -64,7 +65,8 @@
     "/api/v1/audit/events": {"get": {"summary": "查询不可变审计事件", "responses": {"200": {"description": "审计事件"}}}},
     "/api/v1/audit/events/ingest": {"post": {"summary": "幂等追加跨域高风险审计事件", "responses": {"200": {"description": "写入结果"}}}},
     "/api/v1/audit/events/export.xlsx": {"get": {"summary": "导出审计事件", "responses": {"200": {"description": "XLSX 审计文件"}}}},
-    "/api/v1/audit/events/export.csv": {"get": {"summary": "导出审计事件兼容文件", "responses": {"200": {"description": "CSV 审计文件"}}}}
+    "/api/v1/audit/events/export.csv": {"get": {"summary": "导出审计事件兼容文件", "responses": {"200": {"description": "CSV 审计文件"}}}},
+    "/api/v1/integration/outbox/dispatch": {"post": {"summary": "投递未发布的跨域契约事件", "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100}}], "responses": {"200": {"description": "逐事件投递结果"}, "403": {"description": "仅受信任集成服务可调用"}}}}
   },
   "components": {
     "parameters": {"ClassId": {"name": "class_id", "in": "query", "required": true, "schema": {"type": "string"}, "description": "必须位于当前用户授权班级范围"}},
