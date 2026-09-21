@@ -4,6 +4,11 @@ const navigation = [
   { to: '/student-home', label: '学生首页' },
   { to: '/lifecycle', label: '教学闭环' },
   { to: '/handoff', label: '协作交接' },
+  { to: '/teacher-grades', label: '成绩管理' },
+  { to: '/analytics', label: '学情分析' },
+  { to: '/archive', label: '课程归档' },
+  { to: '/student-score', label: '我的成绩' },
+  { to: '/admin-audit', label: '审计日志' },
 ]
 </script>
 <template>

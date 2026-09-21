@@ -10,7 +10,30 @@
           "401": {"description": "未认证", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
         }
       }
-    }
+    },
+    "/api/v1/grading/events/consume": {"post": {"summary": "幂等消费上游成绩事实", "responses": {"200": {"description": "消费结果"}}}},
+    "/api/v1/grading/policies/{course_id}": {"get": {"summary": "读取成绩规则", "responses": {"200": {"description": "规则"}}}, "put": {"summary": "发布新成绩规则版本", "responses": {"200": {"description": "新版本"}}}},
+    "/api/v1/grading/courses/{course_id}/recalculate": {"post": {"summary": "重算成绩册", "responses": {"200": {"description": "成绩册"}}}},
+    "/api/v1/grading/courses/{course_id}/post": {"post": {"summary": "确认成绩入账", "responses": {"200": {"description": "已入账"}}}},
+    "/api/v1/gradebook/courses/{course_id}": {"get": {"summary": "读取课程成绩册", "responses": {"200": {"description": "成绩册"}}}},
+    "/api/v1/gradebook/courses/{course_id}/students/{student_id}": {"get": {"summary": "读取单个学生成绩", "responses": {"200": {"description": "学生成绩"}}}},
+    "/api/v1/gradebook/courses/{course_id}/trace/{student_id}": {"get": {"summary": "追溯成绩来源", "responses": {"200": {"description": "来源树"}}}},
+    "/api/v1/gradebook/courses/{course_id}/export.xlsx": {"get": {"summary": "导出课程成绩册", "responses": {"200": {"description": "XLSX 成绩册"}}}},
+    "/api/v1/analytics/courses/{course_id}/overview": {"get": {"summary": "课程学情总览", "responses": {"200": {"description": "学情"}}}},
+    "/api/v1/analytics/courses/{course_id}/sections/{lesson_id}": {"get": {"summary": "按小节读取学情", "responses": {"200": {"description": "小节平均、分布与排行"}}}},
+    "/api/v1/analytics/courses/{course_id}/labs/by-student": {"get": {"summary": "按学生读取实验学情", "responses": {"200": {"description": "学生实验完成统计"}}}},
+    "/api/v1/analytics/courses/{course_id}/labs/by-lab": {"get": {"summary": "按实验读取学情", "responses": {"200": {"description": "实验完成统计"}}}},
+    "/api/v1/analytics/courses/{course_id}/risks": {"get": {"summary": "读取可解释教学风险", "responses": {"200": {"description": "风险与事实依据"}}}},
+    "/api/v1/analytics/courses/{course_id}/learning-summary": {"get": {"summary": "学生管理只读学习摘要", "responses": {"200": {"description": "PENDING/PARTIAL/READY 摘要"}}}},
+    "/api/v1/analytics/courses/{course_id}/export.xlsx": {"get": {"summary": "导出课程学情", "responses": {"200": {"description": "XLSX 多工作表学情文件"}}}},
+    "/api/v1/archives/courses/{course_id}/precheck": {"post": {"summary": "课程归档预检", "responses": {"200": {"description": "门禁结果"}}}},
+    "/api/v1/archives/courses/{course_id}/freeze": {"post": {"summary": "冻结课程归档", "responses": {"200": {"description": "归档清单"}}}},
+    "/api/v1/archives/courses/{course_id}": {"get": {"summary": "读取课程归档", "responses": {"200": {"description": "归档状态与清单"}}}},
+    "/api/v1/archives/courses/{course_id}/manifest": {"get": {"summary": "读取归档清单", "responses": {"200": {"description": "不可变归档清单"}}}},
+    "/api/v1/audit/events": {"get": {"summary": "查询不可变审计事件", "responses": {"200": {"description": "审计事件"}}}},
+    "/api/v1/audit/events/ingest": {"post": {"summary": "幂等追加跨域高风险审计事件", "responses": {"200": {"description": "写入结果"}}}},
+    "/api/v1/audit/events/export.xlsx": {"get": {"summary": "导出审计事件", "responses": {"200": {"description": "XLSX 审计文件"}}}},
+    "/api/v1/audit/events/export.csv": {"get": {"summary": "导出审计事件兼容文件", "responses": {"200": {"description": "CSV 审计文件"}}}}
   },
   "components": {
     "schemas": {

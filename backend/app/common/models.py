@@ -34,3 +34,6 @@ class DomainEventOutbox(Base):
     payload_json: Mapped[dict] = mapped_column(JSON)
     idempotency_key: Mapped[str] = mapped_column(String(255))
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+from app.grading import models as grading_models  # noqa: E402,F401

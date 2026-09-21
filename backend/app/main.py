@@ -4,9 +4,11 @@ from fastapi import FastAPI, Request
 
 from .common.context import CurrentUser
 from .common.errors import ApiError, api_error_handler
+from .grading.api import router as grading_router
 
 app = FastAPI(title="跃科网络空间安全实训平台 API", version="1.0.0", openapi_url="/api/v1/openapi.json")
 app.add_exception_handler(ApiError, api_error_handler)
+app.include_router(grading_router)
 
 
 @app.middleware("http")
