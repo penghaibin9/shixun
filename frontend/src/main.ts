@@ -5,5 +5,6 @@ import router from './app/router'
 import './components/common/base.css'
 import './components/common/teaching.css'
 import './components/common/classroom.css'
+import './app/grading.css'
 
 createApp(App).use(createPinia()).use(router).mount('#app')

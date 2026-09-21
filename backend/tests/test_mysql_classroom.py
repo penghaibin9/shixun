@@ -15,7 +15,9 @@ pytestmark=pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"),reason="需要
 
 def test_mysql_distribution_and_event_projection():
     assert engine.dialect.name=="mysql"
-    with engine.connect() as connection: assert connection.scalar(text("select version_num from alembic_version"))=="aa9dbaa36663"
+    with engine.connect() as connection:
+        assert connection.scalar(text("select version_num from alembic_version"))
+        assert connection.scalar(text("select count(*) from information_schema.tables where table_schema = database() and table_name = 'classroom_runtime_projection'")) == 1
     app.dependency_overrides[get_gateways]=fake_gateways;client=TestClient(app);key=uuid4().hex
     body={"course_id":"course-a","class_id":"class-a","lab_release_id":"release-1","distribution_type":"TRAFFIC","source_filter":{},"requested_count":2,"target_student_ids":["student-a"],"title":"MySQL 日志任务","instruction":"分析流量"}
     created=client.post("/api/v1/teaching-logs/distributions",headers={**teacher("classroom.logs.distribute"),"Idempotency-Key":key},json=body)

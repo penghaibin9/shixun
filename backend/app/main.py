@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 
 from .common.context import CurrentUser
 from .common.errors import ApiError, api_error_handler, validation_error_handler
+from .grading.api import router as grading_router
 from .lab_classroom.api import router as classroom_router
 from .labs.api import router as labs_router
 from .resources.api import router as resources_router
@@ -19,6 +20,7 @@ app.include_router(resources_router)
 app.include_router(labs_router)
 app.include_router(runtime_router)
 app.include_router(classroom_router)
+app.include_router(grading_router)
 
 
 @app.middleware("http")

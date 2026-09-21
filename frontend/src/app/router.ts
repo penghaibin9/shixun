@@ -21,6 +21,7 @@ import TeacherInstancesView from '../modules/lab-classroom/TeacherInstancesView.
 import TeacherLogsView from '../modules/lab-classroom/TeacherLogsView.vue'
 import StudentLabView from '../modules/lab-classroom/StudentLabView.vue'
 import StudentLogView from '../modules/lab-classroom/StudentLogView.vue'
+import GradingView from './views/GradingView.vue'
 
 export default createRouter({ history: createWebHistory(), routes: [
   { path: '/', redirect: '/teacher-dashboard' },
@@ -63,4 +64,9 @@ export default createRouter({ history: createWebHistory(), routes: [
   { path: '/teacher-logs', component: TeacherLogsView },
   { path: '/student-lab', component: StudentLabView },
   { path: '/student-log', component: StudentLogView },
+  { path: '/teacher-grades', name: 'teacher-grades', component: GradingView, meta: { page: 'grades' } },
+  { path: '/analytics', name: 'analytics', component: GradingView, meta: { page: 'analytics' } },
+  { path: '/archive', name: 'archive', component: GradingView, meta: { page: 'archive' } },
+  { path: '/student-score', name: 'student-score', component: GradingView, meta: { page: 'student' } },
+  { path: '/admin-audit', name: 'admin-audit', component: GradingView, meta: { page: 'audit' } },
 ] })

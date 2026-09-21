@@ -46,3 +46,4 @@ class DomainEventOutbox(Base):
 
 # Import domain models so Alembic and tests see the complete metadata graph.
 from app.resources import models as resource_models  # noqa: E402,F401
+from app.grading import models as grading_models  # noqa: E402,F401

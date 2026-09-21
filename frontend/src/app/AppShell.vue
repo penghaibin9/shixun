@@ -28,6 +28,11 @@ const navigation = [
   { to: '/admin/instances', label: '实例运维' },
   { to: '/admin/alerts', label: '告警中心' },
   { to: '/admin/recovery', label: '异常恢复' },
+  { to: '/teacher-grades', label: '成绩管理' },
+  { to: '/analytics', label: '学情分析' },
+  { to: '/archive', label: '课程归档' },
+  { to: '/student-score', label: '我的成绩' },
+  { to: '/admin-audit', label: '审计日志' },
 ]
 const resourceNavigation = [
   { to: '/resources', label: '资源总览' }, { to: '/course-blueprint', label: '课程蓝图' },
