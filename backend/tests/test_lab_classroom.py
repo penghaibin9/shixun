@@ -9,7 +9,8 @@ from sqlalchemy.pool import StaticPool
 from app.common.models import Base, DomainEventOutbox
 from app.database import get_session
 from app.lab_classroom.gateway import GatewayBundle, get_gateways
-from app.lab_classroom.models import RuntimeProjection
+from app.lab_classroom.models import ConsumedRuntimeEvent, RuntimeProjection
+from app.lab_classroom.schemas import RuntimeEventIn
 from app.main import app
 
 
@@ -82,7 +83,20 @@ def test_runtime_event_projection_idempotency_and_learning_read_model(client_db)
     assert client.post("/api/v1/classroom/events/runtime",headers=headers,json=event).json()["status"]=="ALREADY_CONSUMED"
     summary=client.get("/api/v1/classroom/read-model/students/student-a/learning-summary?class_id=class-a",headers=teacher("classroom.readmodel.read")).json()
     assert summary["experiment"]["running"]==1 and summary["grade"]["score"]==88
-    with sessions() as db: assert db.scalar(select(RuntimeProjection.status))=="RUNNING"
+    with sessions() as db:
+        assert db.scalar(select(RuntimeProjection.status))=="RUNNING"
+        assert db.scalar(select(ConsumedRuntimeEvent.event_type))=="lab.instance.started"
+
+
+@pytest.mark.parametrize("event_type", ["lab.instance.started", "lab.instance.failed", "lab.instance.destroyed", "lab.checkpoint.passed", "lab.checkpoint.failed", "lab.submitted"])
+def test_p0_runtime_event_names_are_accepted(event_type):
+    model=RuntimeEventIn(event_id="evt",event_type=event_type,aggregate_id="runtime-a",actor_user_id="system",occurred_at="2026-09-21T12:00:00",idempotency_key="stable",payload={})
+    assert model.event_type==event_type
+
+
+def test_legacy_alert_without_p0_equivalent_is_rejected():
+    with pytest.raises(ValueError):
+        RuntimeEventIn(event_id="evt",event_type="runtime.alert",aggregate_id="runtime-a",actor_user_id="system",occurred_at="2026-09-21T12:00:00",idempotency_key="stable",payload={})
 
 
 def test_log_distribution_references_artifacts_and_only_target_downloads(client_db):

@@ -141,8 +141,14 @@ class ClassroomService:
     def consume_event(self, event: RuntimeEventIn):
         self.require("classroom.events.consume")
         if self.repo.consumed(event.event_id): return {"event_id": event.event_id, "status": "ALREADY_CONSUMED"}
-        payload = event.payload; required = {"lab_release_id", "course_id", "class_id", "student_id"}
-        if not required <= payload.keys(): raise ApiError("EVENT.INVALID_PAYLOAD", "运行事件缺少课堂投影字段", 422, {"required": sorted(required)})
+        payload = dict(event.payload); required = {"lab_release_id", "course_id", "class_id", "student_id", "runtime_instance_id", "status"}
+        missing = sorted(key for key in required if key not in payload or (key != "runtime_instance_id" and payload[key] is None))
+        if "current_step" not in payload and "step" not in payload: missing.append("step")
+        if "raw_score" not in payload and "score" not in payload: missing.append("score")
+        if missing: raise ApiError("EVENT.INVALID_PAYLOAD", "运行事件缺少课堂投影字段", 422, {"required": sorted(required | {"step", "score"}), "missing": missing})
+        payload.setdefault("current_step", payload.get("step", 0)); payload.setdefault("raw_score", payload.get("score", 0))
+        implied_status = {"lab.instance.started":"RUNNING", "lab.instance.failed":"FAILED", "lab.instance.destroyed":"DESTROYED", "lab.submitted":"SUBMITTED"}.get(event.event_type)
+        if implied_status: payload["status"] = implied_status
         projection = self.repo.projection(payload["lab_release_id"], payload["student_id"])
         if not projection:
             projection = self.repo.add(m.RuntimeProjection(projection_id=str(uuid4()), lab_release_id=payload["lab_release_id"], course_id=payload["course_id"], class_id=payload["class_id"], student_id=payload["student_id"], runtime_instance_id=payload.get("runtime_instance_id"), status=payload.get("status", "NOT_STARTED"), current_step=payload.get("current_step", 0), total_steps=payload.get("total_steps", 0), raw_score=payload.get("raw_score", 0), max_score=payload.get("max_score", 100), started_at=as_datetime(payload.get("started_at")), last_activity_at=as_datetime(payload.get("last_activity_at")), updated_at=now()))

@@ -20,6 +20,6 @@ def test_mysql_distribution_and_event_projection():
     body={"course_id":"course-a","class_id":"class-a","lab_release_id":"release-1","distribution_type":"TRAFFIC","source_filter":{},"requested_count":2,"target_student_ids":["student-a"],"title":"MySQL 日志任务","instruction":"分析流量"}
     created=client.post("/api/v1/teaching-logs/distributions",headers={**teacher("classroom.logs.distribute"),"Idempotency-Key":key},json=body)
     assert created.status_code==201,created.text
-    event={"event_id":str(uuid4()),"event_type":"runtime.started","aggregate_id":"runtime-mysql","actor_user_id":"system","occurred_at":"2026-09-21T12:00:00","idempotency_key":key,"payload":{"lab_release_id":"release-1","course_id":"course-a","class_id":"class-a","student_id":f"student-{key[:6]}","runtime_instance_id":"runtime-mysql","status":"RUNNING"}}
+    event={"event_id":str(uuid4()),"event_type":"lab.instance.started","aggregate_id":"runtime-mysql","actor_user_id":"system","occurred_at":"2026-09-21T12:00:00","idempotency_key":key,"payload":{"lab_release_id":"release-1","course_id":"course-a","class_id":"class-a","student_id":f"student-{key[:6]}","runtime_instance_id":"runtime-mysql","status":"RUNNING","step":0,"score":0}}
     assert client.post("/api/v1/classroom/events/runtime",headers=teacher("classroom.events.consume"),json=event).status_code==200
     app.dependency_overrides.clear()
