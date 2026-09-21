@@ -5,8 +5,6 @@ from pathlib import Path
 
 from app.common.context import UserContext
 from app.common.models import FileObject
-from sqlalchemy import select
-
 from .database import create_session_factory
 from .models import LabDefinition, LabExplainDiagram, LabKnowledgePoint, LabQuestionKnowledgeMap, LabTemplate
 from .schemas import LabCreate, LabDefinitionSpec
@@ -46,7 +44,8 @@ def seed_rsa() -> None:
             content = DIAGRAM.read_bytes()
             session.add(FileObject(file_id="file_rsa_diagram", storage_provider="BUNDLED", bucket="lab-assets", object_key=DIAGRAM.name, original_name="RSA 数字签名讲解图.svg", mime_type="image/svg+xml", size_bytes=len(content), sha256=hashlib.sha256(content).hexdigest(), created_by=context.user_id, created_at=datetime.now()))
             session.commit()
-        knowledge = session.scalar(select(LabKnowledgePoint).where(LabKnowledgePoint.course_id == COURSE_ID, LabKnowledgePoint.title == "RSA 密钥对与数字签名"))
+        # 验收和跨域引用使用冻结标识；不能因同名草稿已存在而跳过规范数据。
+        knowledge = session.get(LabKnowledgePoint, "kp_rsa_signature")
         if not knowledge:
             knowledge = LabKnowledgePoint(knowledge_point_id="kp_rsa_signature", course_id=COURSE_ID, title="RSA 密钥对与数字签名", explain_text="先对原始数据计算 SHA-256 摘要，再使用私钥签名；接收方用公钥验签并比对摘要。实验判定同时检查签名文件和验签结果。", created_by=context.user_id, created_at=datetime.now(), updated_at=datetime.now())
             session.add(knowledge)

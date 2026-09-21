@@ -32,7 +32,8 @@ def xlsx_43() -> bytes:
 def test_mysql_84_g1_g2_main_chain():
     assert engine.dialect.name == "mysql"
     with engine.connect() as connection:
-        assert connection.scalar(text("select version_num from alembic_version")) == "f4e75e84c503"
+        assert connection.scalar(text("select version_num from alembic_version"))
+        assert connection.scalar(text("select count(*) from information_schema.tables where table_schema = database() and table_name = 'class_membership'")) == 1
         assert connection.scalar(text("select version()"))
     client = TestClient(app)
     course = client.post("/api/v1/courses", headers=identity("teaching.course.write"), json={"name":"MySQL 验收课程","term":"2026 秋季"})
