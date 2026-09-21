@@ -4,5 +4,5 @@
   "version": "0.1.0",
   "scripts": {"build": "vue-tsc -b && vite build", "dev": "vite", "test": "vitest run", "test:e2e": "playwright test"},
   "dependencies": {"@vitejs/plugin-vue": "^5.2.3", "pinia": "^2.2.6", "vue": "^3.5.13", "vue-router": "^4.5.0"},
-  "devDependencies": {"@playwright/test": "^1.63.0", "@vue/test-utils": "^2.4.6", "jsdom": "^25.0.1", "typescript": "^5.7.2", "vite": "^6.0.5", "vitest": "^2.1.8", "vue-tsc": "^2.2.0"}
+  "devDependencies": {"@playwright/test": "^1.63.0", "@vue/test-utils": "^2.4.6", "exceljs": "^4.4.0", "jsdom": "^25.0.1", "typescript": "^5.7.2", "vite": "^6.0.5", "vitest": "^2.1.8", "vue-tsc": "^2.2.0"}
 }
