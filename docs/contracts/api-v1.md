@@ -42,9 +42,11 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 
 已落地 `/resources` 与 `/questions` 全部冻结接口。资源查询支持 `course_id`、`status`、`name`、`resource_type` 三维组合过滤；写入须分别具备 `resources:write`、`resources:review`、`resources:freeze` 权限。教师课程范围来自 `UserContext`，学生只能读取 `PUBLISHED`（已发布）或 `FROZEN`（已冻结）资源。
 
-资源版本只新增不覆盖，文件必须引用公共 `file_object.file_id`，且请求的 SHA256（文件校验值）必须与文件对象一致。发布顺序为 `DRAFT（草稿） -> PENDING_REVIEW（待审核） -> PUBLISHED（已发布） -> FROZEN（已冻结）`；制作人与审核人必须不同。
+`POST /api/v1/resources/files` 接收受限类型的真实文件，按流式写入受控目录，同时计算 SHA256（文件校验值）、大小和媒体类型并登记公共 `file_object`（文件对象）；同内容重复上传复用已有文件对象。`GET /api/v1/resources/{resource_id}/download` 只允许下载受控目录中的已登记版本文件，学生只能下载已发布或已冻结资源。`GET /api/v1/resources/readiness` 返回 PPT（演示文稿）、理论/实验视频、实验文件包、题型覆盖和已审核题目数的动态就绪度。
 
-完整性审计按 37 个理论课时的 PPT（演示文稿）/视频/题型/审核，以及 12 个实验课时的介绍/文件包/视频/题型实时计算 196 个检查点。`blocking > 0` 时 `POST /api/v1/resources/delivery/freeze` 固定返回 `RESOURCE.DELIVERY_BLOCKED`，清单可导出 JSON（结构化数据）和 XLSX（电子表格）。
+资源版本只新增不覆盖，文件必须引用公共 `file_object.file_id`，且请求的 SHA256（文件校验值）必须与文件对象一致。资源类型与真实文件媒体类型必须一致。发布顺序为 `DRAFT（草稿） -> PENDING_REVIEW（待审核） -> PUBLISHED（已发布） -> FROZEN（已冻结）`；制作人与审核人必须不同。
+
+完整性审计按 37 个理论课时的 PPT（演示文稿）/视频/题型/审核，以及 12 个实验课时的介绍/文件包/视频/题型实时计算 196 个检查点。PPT（演示文稿）、视频和实验文件包必须由同一已发布版本提供文件、专项质量证据与独立审核记录；实验介绍必须同时具备目的、环境、原理和步骤摘要；已发布题目必须有非空答案、解析、课时映射和独立审核人。每个检查点返回可追溯的资源、版本、文件、审核或题目标识。`blocking > 0` 时 `POST /api/v1/resources/delivery/freeze` 固定返回 `RESOURCE.DELIVERY_BLOCKED`，清单可导出 JSON（结构化数据）和 XLSX（电子表格）。
 
 ## C 线实验定义接口
 

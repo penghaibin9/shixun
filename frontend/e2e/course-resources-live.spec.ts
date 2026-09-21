@@ -13,3 +13,18 @@ test('真实 MySQL 资源目录可由浏览器读取', async ({ page }) => {
   await expect(page.getByText('196')).toBeVisible()
   await expect(page.getByText('真实阻断项')).toBeVisible()
 })
+
+test('浏览器上传真实文件并建立草稿版本', async ({ page }) => {
+  test.skip(process.env.E2E_REAL_API !== '1', '仅在真实后端与 MySQL 验收时运行')
+  const suffix = Date.now().toString()
+  await page.goto('/resources')
+  await page.getByRole('button', { name: '＋ 新增资源' }).click()
+  await page.getByPlaceholder('例如：第 1.1 课时演示文稿').fill(`浏览器上传讲义 ${suffix}`)
+  await page.locator('input[type="file"]').setInputFiles({ name: `lesson-${suffix}.pptx`, mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', buffer: Buffer.from(`PK\u0003\u0004playwright-${suffix}`) })
+  await page.getByRole('button', { name: '上传并建立草稿版本' }).click()
+  await expect(page.getByText('真实文件已上传并登记为草稿版本')).toBeVisible()
+  const row = page.getByRole('row').filter({ hasText: `浏览器上传讲义 ${suffix}` })
+  await expect(row).toContainText('PPT（演示文稿）')
+  await expect(row).toContainText('草稿')
+  await expect(row.getByRole('button', { name: '下载' })).toBeVisible()
+})

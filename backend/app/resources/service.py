@@ -1,5 +1,6 @@
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
 
 from openpyxl import Workbook
@@ -17,6 +18,7 @@ from .models import (LabFilePack, LessonResource, PptAsset, Question, QuestionBa
 from .media import probe_local_video
 from .repository import ResourceRepository
 from .schemas import QuestionCreate, QuestionPatch, ResourceCreate, VersionCreate
+from .storage import archive_file_count, save_upload, upload_root
 
 QUESTION_TYPES = {"FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE"}
 
@@ -41,7 +43,69 @@ class ResourceService:
         items = self.repo.list_resources(course_id=course_id, status=status, name=name, resource_type=resource_type)
         if self.user.role == "student":
             items = [item for item in items if item.status in {"PUBLISHED", "FROZEN"}]
-        return {"items": [self.resource_dict(item) for item in items], "page": 1, "page_size": len(items), "total": len(items)}
+        values = []
+        for item in items:
+            value = self.resource_dict(item)
+            latest = self.repo.latest_version(item.resource_id)
+            value["latest_version"] = self.version_dict(latest) if latest else None
+            values.append(value)
+        return {"items": values, "page": 1, "page_size": len(items), "total": len(items)}
+
+    async def upload_file(self, course_id: str, upload) -> dict:
+        self._course(course_id, "resources:write")
+        stored = await save_upload(upload)
+        existing = self.session.scalar(select(FileObject).where(FileObject.sha256 == stored["sha256"], FileObject.size_bytes == stored["size_bytes"]))
+        if existing:
+            stored["path"].unlink(missing_ok=True)
+            if existing.storage_provider == "local":
+                existing_path = Path(existing.object_key).resolve()
+                root = upload_root()
+                if existing.bucket == "course-resources" and existing_path.is_file() and root in existing_path.parents:
+                    return self.file_dict(existing)
+            raise ApiError("RESOURCE.FILE_CONTENT_CONFLICT", "相同内容已由其他受控存储登记，不能跨域复用", 409)
+        item = FileObject(file_id=str(uuid4()), storage_provider="local", bucket="course-resources", object_key=str(stored["path"]), original_name=stored["original_name"], mime_type=stored["mime_type"], size_bytes=stored["size_bytes"], sha256=stored["sha256"], created_by=self.user.user_id, created_at=now())
+        self.session.add(item)
+        self.session.commit()
+        return self.file_dict(item)
+
+    def download(self, resource_id: str) -> tuple[str, str, str]:
+        item = self._managed_resource(resource_id, "resources:read")
+        if self.user.role == "student" and item.status not in {"PUBLISHED", "FROZEN"}:
+            raise ApiError("RESOURCE.NOT_FOUND", "资源不存在或不可访问", 404)
+        version = self.repo.latest_version(resource_id)
+        if not version:
+            raise ApiError("RESOURCE.VERSION_REQUIRED", "资源尚无文件版本", 409)
+        file_object = self.session.get(FileObject, version.file_id)
+        if not file_object or file_object.storage_provider != "local":
+            raise ApiError("RESOURCE.FILE_STORAGE_UNAVAILABLE", "资源文件当前不能由本节点下载", 503)
+        path = Path(file_object.object_key).resolve()
+        root = upload_root()
+        if not path.is_file() or root not in path.parents:
+            raise ApiError("RESOURCE.FILE_NOT_AVAILABLE", "资源文件不存在或已移出受控存储目录", 404)
+        return str(path), file_object.original_name, file_object.mime_type
+
+    def readiness(self, course_id: str) -> dict:
+        self._course(course_id)
+        lessons = self.repo.lessons(course_id)
+        kinds = {row.lesson_id: row.lesson_kind for row in lessons}
+        audit = self.audit(course_id, persist=False)
+
+        def count(requirement: str, kind: str) -> int:
+            return sum(check["passed"] for check in audit["checks"] if check["requirement"] == requirement and kinds.get(check["lesson_id"]) == kind)
+
+        question_total = sum(len(items) for items in self.repo.question_evidence(course_id).values())
+        return {
+            "course_id": course_id,
+            "theory_lessons": 37,
+            "lab_lessons": 12,
+            "ppt": {"ready": count("PPT", "THEORY"), "required": 37},
+            "theory_video": {"ready": count("VIDEO", "THEORY"), "required": 37},
+            "lab_file": {"ready": count("LAB_FILE", "LAB"), "required": 12},
+            "lab_video": {"ready": count("VIDEO", "LAB"), "required": 12},
+            "question_lessons": {"ready": sum(check["passed"] for check in audit["checks"] if check["requirement"] == "QUESTION_BANK"), "required": 49},
+            "published_questions": {"ready": question_total, "required": 196},
+            "blocking": audit["blocking"],
+        }
 
     def get_resource(self, resource_id: str) -> dict:
         item = self.repo.get_resource(resource_id)
@@ -73,9 +137,19 @@ class ResourceService:
         file_object = self.session.get(FileObject, data.file_id)
         if not file_object or file_object.sha256 != data.sha256:
             raise ApiError("RESOURCE.FILE_SHA256_MISMATCH", "文件不存在或 SHA256（文件校验值）不匹配", 422)
+        if file_object.bucket != "course-resources":
+            raise ApiError("RESOURCE.FILE_SCOPE_MISMATCH", "文件对象不属于课程资源受控存储", 422)
+        allowed_mime = {
+            "PPT": {"application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+            "VIDEO": {"video/mp4", "video/webm", "video/quicktime"},
+            "LAB_FILE": {"application/zip", "application/x-tar", "application/gzip"},
+        }
+        if item.resource_type not in allowed_mime or file_object.mime_type not in allowed_mime[item.resource_type]:
+            raise ApiError("RESOURCE.FILE_TYPE_MISMATCH", "上传文件类型与资源类型不匹配", 422, {"resource_type": item.resource_type, "mime_type": file_object.mime_type})
         latest = self.repo.latest_version(resource_id)
         version = ResourceVersion(resource_version_id=str(uuid4()), resource_id=resource_id, version_no=(latest.version_no + 1 if latest else 1), file_id=data.file_id, status="DRAFT", sha256=data.sha256, created_by=self.user.user_id, created_at=now(), reviewed_by=None, reviewed_at=None, published_at=None)
         self.repo.add(version)
+        self.session.flush()
         if item.resource_type == "VIDEO":
             if file_object.storage_provider != "local":
                 raise ApiError("RESOURCE.VIDEO_PROBE_PENDING", "对象存储视频须由媒体解析任务写入真实时长后再建版本", 409)
@@ -84,10 +158,11 @@ class ResourceService:
         elif item.resource_type == "PPT":
             self.repo.add(PptAsset(ppt_asset_id=str(uuid4()), resource_version_id=version.resource_version_id, knowledge_complete=False, layout_overflow_passed=False, animation_occlusion_passed=False, copyright_noted=False, checked_by=None, checked_at=None))
         elif item.resource_type == "LAB_FILE":
-            if not data.lab_file_count:
-                raise ApiError("RESOURCE.LAB_FILE_COUNT_REQUIRED", "实验文件包必须记录文件数量", 422)
-            self.repo.add(LabFilePack(lab_file_pack_id=str(uuid4()), resource_version_id=version.resource_version_id, file_count=data.lab_file_count, total_size_bytes=file_object.size_bytes))
-        item.updated_at = now()
+            file_count = archive_file_count(file_object.object_key, file_object.mime_type)
+            if data.lab_file_count is not None and data.lab_file_count != file_count:
+                raise ApiError("RESOURCE.LAB_FILE_COUNT_MISMATCH", "填写的文件数量与真实压缩包不一致", 422, {"actual_file_count": file_count})
+            self.repo.add(LabFilePack(lab_file_pack_id=str(uuid4()), resource_version_id=version.resource_version_id, file_count=file_count, total_size_bytes=file_object.size_bytes))
+        item.status, item.updated_at = "DRAFT", now()
         enqueue_event(self.session, event_type="resource.version.created", aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-version:{version.resource_version_id}", payload={"resource_version_id": version.resource_version_id, "version_no": version.version_no, "sha256": version.sha256})
         self.session.commit()
         return self.version_dict(version)
@@ -205,30 +280,43 @@ class ResourceService:
     def audit(self, course_id: str, *, persist: bool = True) -> dict:
         self._course(course_id)
         lessons = self.repo.lessons(course_id)
-        assets, coverage, counts, durations = self.repo.asset_counts(course_id), self.repo.question_coverage(course_id), self.repo.question_counts(course_id), self.repo.video_durations(course_id)
+        evidence = self.repo.asset_evidence(course_id)
+        question_evidence = self.repo.question_evidence(course_id)
         checks, blockers = [], []
         for lesson in lessons:
+            lesson_assets = evidence.get(lesson.lesson_id, {})
+            lesson_questions = question_evidence.get(lesson.lesson_id, [])
+            question_types = {item["question_type"] for item in lesson_questions}
+            questions_pass = question_types == QUESTION_TYPES and len(lesson_questions) == 4
             if lesson.lesson_kind == "THEORY":
                 requirements = {"PPT": "PPT", "VIDEO": "讲解视频", "QUESTION_BANK": "四类题型", "REVIEW": "审核发布"}
                 passed = {
-                    "PPT": "PPT" in assets.get(lesson.lesson_id, set()),
-                    "VIDEO": "VIDEO" in assets.get(lesson.lesson_id, set()) and durations.get(lesson.lesson_id, 0) > 0,
-                    "QUESTION_BANK": coverage.get(lesson.lesson_id, set()) == QUESTION_TYPES and counts.get(lesson.lesson_id, 0) == 4,
-                    "REVIEW": {"PPT", "VIDEO"}.issubset(assets.get(lesson.lesson_id, set())) and coverage.get(lesson.lesson_id, set()) == QUESTION_TYPES and counts.get(lesson.lesson_id, 0) == 4,
+                    "PPT": bool(lesson_assets.get("PPT")),
+                    "VIDEO": bool(lesson_assets.get("VIDEO")),
+                    "QUESTION_BANK": questions_pass,
+                    "REVIEW": bool(lesson_assets.get("PPT")) and bool(lesson_assets.get("VIDEO")) and questions_pass,
                 }
             else:
-                requirements = {"INTRO": "介绍三段", "LAB_FILE": "实验文件", "VIDEO": "讲解视频", "QUESTION_BANK": "四类题型"}
+                requirements = {"INTRO": "介绍四段", "LAB_FILE": "实验文件", "VIDEO": "讲解视频", "QUESTION_BANK": "四类题型"}
                 passed = {
-                    "INTRO": bool(lesson.purpose and lesson.environment and lesson.principle),
-                    "LAB_FILE": "LAB_FILE" in assets.get(lesson.lesson_id, set()),
-                    "VIDEO": "VIDEO" in assets.get(lesson.lesson_id, set()) and durations.get(lesson.lesson_id, 0) > 0,
-                    "QUESTION_BANK": coverage.get(lesson.lesson_id, set()) == QUESTION_TYPES and counts.get(lesson.lesson_id, 0) == 4,
+                    "INTRO": bool(lesson.purpose and lesson.environment and lesson.principle and lesson.steps_summary),
+                    "LAB_FILE": bool(lesson_assets.get("LAB_FILE")),
+                    "VIDEO": bool(lesson_assets.get("VIDEO")),
+                    "QUESTION_BANK": questions_pass,
                 }
             for key, label in requirements.items():
-                check = {"lesson_id": lesson.lesson_id, "lesson_code": lesson.lesson_code, "requirement": key, "passed": passed[key]}
+                if key == "QUESTION_BANK":
+                    item_evidence = lesson_questions
+                elif key == "REVIEW":
+                    item_evidence = lesson_assets.get("PPT", []) + lesson_assets.get("VIDEO", []) + lesson_questions
+                elif key == "INTRO":
+                    item_evidence = [{"lesson_resource_id": lesson.lesson_resource_id}] if passed[key] else []
+                else:
+                    item_evidence = lesson_assets.get(key, [])
+                check = {"lesson_id": lesson.lesson_id, "lesson_code": lesson.lesson_code, "requirement": key, "passed": passed[key], "evidence": item_evidence}
                 checks.append(check)
                 if not passed[key]: blockers.append(f"{lesson.lesson_code} 缺少{label}")
-        result = {"course_id": course_id, "total": len(checks), "pass": sum(x["passed"] for x in checks), "warning": 0, "blocking": len(blockers), "blocking_items": blockers, "procurement_mapping": self.procurement_mapping(), "checked_at": now().isoformat() + "Z"}
+        result = {"course_id": course_id, "total": len(checks), "pass": sum(x["passed"] for x in checks), "warning": 0, "blocking": len(blockers), "blocking_items": blockers, "checks": checks, "procurement_mapping": self.procurement_mapping(), "checked_at": now().isoformat() + "Z"}
         if persist:
             self.repo.add(ResourceQualityCheck(resource_quality_check_id=str(uuid4()), course_id=course_id, resource_version_id=None, check_type="COURSE_AUDIT", result="PASS" if not blockers else "BLOCKING", details_json=result, checked_by=self.user.user_id, checked_at=now()))
             enqueue_event(self.session, event_type="resource.audit.completed", aggregate_type="course_resource", aggregate_id=course_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-audit:{uuid4()}", payload={"blocking": len(blockers), "pass": result["pass"], "total": result["total"]})
@@ -284,6 +372,10 @@ class ResourceService:
     @staticmethod
     def version_dict(item: ResourceVersion) -> dict:
         return {"resource_version_id": item.resource_version_id, "version_no": item.version_no, "file_id": item.file_id, "status": item.status, "sha256": item.sha256, "created_by": item.created_by, "created_at": item.created_at.isoformat()}
+
+    @staticmethod
+    def file_dict(item: FileObject) -> dict:
+        return {"file_id": item.file_id, "original_name": item.original_name, "mime_type": item.mime_type, "size_bytes": item.size_bytes, "sha256": item.sha256}
 
     @staticmethod
     def lesson_dict(item) -> dict:

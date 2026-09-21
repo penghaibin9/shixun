@@ -1,7 +1,7 @@
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,16 @@ def list_resources(user: CurrentUser, session: Session = Depends(get_session), c
 @router.post("/resources", status_code=201)
 def create_resource(data: ResourceCreate, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).create_resource(data)
+
+
+@router.post("/resources/files", status_code=201)
+async def upload_resource_file(user: CurrentUser, course_id: str = Form(...), file: UploadFile = File(...), session: Session = Depends(get_session)):
+    return await service(session, user).upload_file(course_id, file)
+
+
+@router.get("/resources/readiness")
+def resource_readiness(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
+    return service(session, user).readiness(course_id)
 
 
 @router.get("/resources/theory-lessons")
@@ -78,6 +88,12 @@ def get_resource(resource_id: str, user: CurrentUser, session: Session = Depends
     return service(session, user).get_resource(resource_id)
 
 
+@router.get("/resources/{resource_id}/download")
+def download_resource(resource_id: str, user: CurrentUser, session: Session = Depends(get_session)):
+    path, name, mime_type = service(session, user).download(resource_id)
+    return FileResponse(path, filename=name, media_type=mime_type)
+
+
 @router.post("/resources/{resource_id}/versions", status_code=201)
 def create_version(resource_id: str, data: VersionCreate, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).create_version(resource_id, data)
@@ -113,6 +129,10 @@ def list_questions(user: CurrentUser, session: Session = Depends(get_session), c
     svc = service(session, user); svc._course(course_id)
     rows = session.execute(select(Question, QuestionLessonMap.lesson_id, QuestionExplanation.explanation).join(QuestionBank, QuestionBank.question_bank_id == Question.question_bank_id).join(QuestionLessonMap, QuestionLessonMap.question_id == Question.question_id).join(QuestionExplanation, QuestionExplanation.question_id == Question.question_id).where(QuestionBank.course_id == course_id)).all()
     items = [svc.question_dict(q, lesson_id, explanation) for q, lesson_id, explanation in rows if user.role != "student" or q.status == "PUBLISHED"]
+    if user.role == "student":
+        for item in items:
+            item.pop("answer", None)
+            item.pop("explanation", None)
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 

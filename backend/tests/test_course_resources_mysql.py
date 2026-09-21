@@ -11,7 +11,7 @@ from app.common.models import DomainEventOutbox, FileObject
 from app.common.context import UserContext
 from app.main import app
 from app.resources.catalog import COURSE_ID
-from app.resources.models import Question, QuestionBank, QuestionExplanation, QuestionLessonMap, QuestionOption, Resource, ResourceDeliveryManifest, ResourceVersion, VideoAsset
+from app.resources.models import PptAsset, Question, QuestionBank, QuestionExplanation, QuestionLessonMap, QuestionOption, Resource, ResourceDeliveryManifest, ResourceVersion, VideoAsset
 from app.resources.service import ResourceService
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要专属 MySQL 集成库")
@@ -51,6 +51,76 @@ def test_mysql_catalog_audit_manifest_and_freeze_blocker(client):
     assert frozen.json()["code"] == "RESOURCE.DELIVERY_BLOCKED"
 
 
+def test_real_file_upload_version_download_and_readiness(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("YUEKE_RESOURCE_UPLOAD_DIR", str(tmp_path))
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    suffix = uuid4().hex[:8]
+    resource_id = file_id = None
+    content = b"PK\x03\x04real-pptx-upload-" + suffix.encode()
+    try:
+        uploaded = client.post(
+            "/api/v1/resources/files",
+            headers=HEADERS,
+            data={"course_id": COURSE_ID},
+            files={"file": (f"lesson-{suffix}.pptx", content, "application/vnd.openxmlformats-officedocument.presentationml.presentation")},
+        )
+        assert uploaded.status_code == 201
+        file_data = uploaded.json(); file_id = file_data["file_id"]
+        assert file_data["size_bytes"] == len(content)
+        assert len(file_data["sha256"]) == 64
+
+        duplicate = client.post(
+            "/api/v1/resources/files",
+            headers=HEADERS,
+            data={"course_id": COURSE_ID},
+            files={"file": (f"copy-{suffix}.pptx", content, "application/vnd.openxmlformats-officedocument.presentationml.presentation")},
+        )
+        assert duplicate.status_code == 201 and duplicate.json()["file_id"] == file_id
+
+        resource = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": "lesson_theory_3_2", "name": f"真实上传讲义 {suffix}", "resource_type": "PPT"})
+        assert resource.status_code == 201
+        resource_id = resource.json()["resource_id"]
+        version = client.post(f"/api/v1/resources/{resource_id}/versions", headers=HEADERS, json={"file_id": file_id, "sha256": file_data["sha256"]})
+        assert version.status_code == 201
+
+        listed = client.get("/api/v1/resources", headers=HEADERS, params={"course_id": COURSE_ID, "name": suffix}).json()
+        assert listed["total"] == 1 and listed["items"][0]["latest_version"]["file_id"] == file_id
+        downloaded = client.get(f"/api/v1/resources/{resource_id}/download", headers=HEADERS)
+        assert downloaded.status_code == 200 and downloaded.content == content
+        student_headers = {"X-User-Id": "student_b", "X-Role": "student", "X-Student-Id": "student_b", "X-Course-Ids": COURSE_ID, "X-Permissions": "resources:read"}
+        student_download = client.get(f"/api/v1/resources/{resource_id}/download", headers=student_headers)
+        assert student_download.status_code == 404
+
+        readiness = client.get("/api/v1/resources/readiness", headers=HEADERS)
+        assert readiness.status_code == 200
+        assert readiness.json()["published_questions"]["required"] == 196
+        assert readiness.json()["ppt"]["required"] == 37
+
+        mismatch = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": "lesson_theory_3_2", "name": f"类型不符 {suffix}", "resource_type": "VIDEO"})
+        mismatch_id = mismatch.json()["resource_id"]
+        mismatch_version = client.post(f"/api/v1/resources/{mismatch_id}/versions", headers=HEADERS, json={"file_id": file_id, "sha256": file_data["sha256"]})
+        assert mismatch_version.status_code == 422 and mismatch_version.json()["code"] == "RESOURCE.FILE_TYPE_MISMATCH"
+        with Session(engine) as session:
+            session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id == mismatch_id))
+            session.execute(delete(Resource).where(Resource.resource_id == mismatch_id))
+            session.commit()
+
+        unsupported = client.post("/api/v1/resources/files", headers=HEADERS, data={"course_id": COURSE_ID}, files={"file": ("bad.exe", b"bad", "application/octet-stream")})
+        assert unsupported.status_code == 422 and unsupported.json()["code"] == "RESOURCE.FILE_TYPE_UNSUPPORTED"
+    finally:
+        with Session(engine) as session:
+            if resource_id:
+                version_ids = list(session.scalars(select(ResourceVersion.resource_version_id).where(ResourceVersion.resource_id == resource_id)))
+                if version_ids:
+                    session.execute(delete(PptAsset).where(PptAsset.resource_version_id.in_(version_ids)))
+                session.execute(delete(ResourceVersion).where(ResourceVersion.resource_id == resource_id))
+                session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id == resource_id))
+                session.execute(delete(Resource).where(Resource.resource_id == resource_id))
+            if file_id:
+                session.execute(delete(FileObject).where(FileObject.file_id == file_id))
+            session.commit()
+
+
 def test_three_dimension_filter_sha_duration_and_frozen_immutability(client, tmp_path):
     engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
     suffix = uuid4().hex[:8]
@@ -60,7 +130,7 @@ def test_three_dimension_filter_sha_duration_and_frozen_immutability(client, tmp
     video_path = tmp_path / f"video-{suffix}.mp4"
     video_path.write_bytes(b"not-a-real-video")
     with Session(engine) as session:
-        session.add(FileObject(file_id=file_id, storage_provider="local", bucket="tests", object_key=str(video_path), original_name="真实解析样例.mp4", mime_type="video/mp4", size_bytes=123, sha256=sha, created_by="teacher_b", created_at=datetime.utcnow()))
+        session.add(FileObject(file_id=file_id, storage_provider="local", bucket="course-resources", object_key=str(video_path), original_name="真实解析样例.mp4", mime_type="video/mp4", size_bytes=123, sha256=sha, created_by="teacher_b", created_at=datetime.utcnow()))
         session.commit()
     try:
         for name, resource_type in [(f"RSA 视频 {suffix}", "VIDEO"), (f"RSA 讲义 {suffix}", "PPT")]:
@@ -106,6 +176,11 @@ def test_question_coverage_requires_four_published_types(client):
         item = next(row for row in coverage["items"] if row["lesson_id"] == lesson_id)
         assert item["passed"] is True
         assert set(item["types"]) == {"FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE"}
+        student_headers = {"X-User-Id": "student_b", "X-Role": "student", "X-Student-Id": "student_b", "X-Course-Ids": COURSE_ID, "X-Permissions": "resources:read"}
+        student_questions = client.get("/api/v1/questions", headers=student_headers).json()["items"]
+        own_questions = [row for row in student_questions if row["question_id"] in question_ids]
+        assert len(own_questions) == 4
+        assert all("answer" not in row and "explanation" not in row for row in own_questions)
     finally:
         with Session(engine) as session:
             session.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(question_ids)))
