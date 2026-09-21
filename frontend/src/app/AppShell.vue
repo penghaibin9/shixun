@@ -1,7 +1,12 @@
 <script setup lang="ts">
 const navigation = [
   { to: '/teacher-dashboard', label: '教师工作台' },
+  { to: '/lab-live', label: '实验课堂' },
+  { to: '/teacher-instances', label: '实验实例' },
+  { to: '/teacher-logs', label: '教学日志' },
   { to: '/student-home', label: '学生首页' },
+  { to: '/student-lab', label: '我的实验' },
+  { to: '/student-log', label: '我的日志任务' },
   { to: '/lifecycle', label: '教学闭环' },
   { to: '/handoff', label: '协作交接' },
 ]

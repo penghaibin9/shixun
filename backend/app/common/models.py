@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, JSON, String, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, Index, JSON, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -25,6 +25,7 @@ class FileObject(Base):
 
 class DomainEventOutbox(Base):
     __tablename__ = "domain_event_outbox"
+    __table_args__ = (Index("uq_outbox_event_idempotency", "event_type", "idempotency_key", unique=True), Index("ix_outbox_unpublished", "published_at", "occurred_at"))
     event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     event_type: Mapped[str] = mapped_column(String(128))
     aggregate_type: Mapped[str] = mapped_column(String(64))

@@ -3,6 +3,7 @@ from sqlalchemy import engine_from_config, pool
 from os import getenv
 
 from app.common.models import Base
+from app.lab_classroom import models as classroom_models  # noqa: F401
 
 config = context.config
 target_metadata = Base.metadata
