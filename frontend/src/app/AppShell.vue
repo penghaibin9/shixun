@@ -15,6 +15,14 @@ const navigation = [
   { to: '/course-knowledge', label: '知识点讲解图' },
   { to: '/lab-builder', label: '创建实验' },
   { to: '/handoff', label: '协作交接' },
+  { to: '/admin/overview', label: '运行总览' },
+  { to: '/admin/nodes', label: '计算节点' },
+  { to: '/admin/images', label: '镜像仓库' },
+  { to: '/admin/scheduler', label: '调度队列' },
+  { to: '/admin/network', label: '网络隔离' },
+  { to: '/admin/instances', label: '实例运维' },
+  { to: '/admin/alerts', label: '告警中心' },
+  { to: '/admin/recovery', label: '异常恢复' },
 ]
 const resourceNavigation = [
   { to: '/resources', label: '资源总览' }, { to: '/course-blueprint', label: '课程蓝图' },

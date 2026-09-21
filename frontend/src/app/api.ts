@@ -17,7 +17,7 @@ export type LabRelease = { lab_release_id: string; lab_version_id: string; cours
 
 const devHeaders: HeadersInit = import.meta.env.DEV ? {
   'X-User-Id': 'user_teacher_demo', 'X-Role': 'teacher', 'X-Teacher-Id': 'teacher_demo',
-  'X-Permissions': 'labs.read,labs.write,labs.publish,labs.knowledge.write',
+  'X-Permissions': 'labs.read,labs.write,labs.publish,labs.knowledge.write,runtime.read,runtime.start,runtime.preview,runtime.destroy,runtime.rebuild,runtime.extend,runtime.rejudge,runtime.terminal,infrastructure.read,infrastructure.write',
   'X-Course-Ids': 'course_data_security', 'X-Class-Ids': 'class_netsec_2301',
 } : {}
 
@@ -94,3 +94,17 @@ export async function createRelease(versionId: string): Promise<LabRelease> {
 }
 export async function preflightRelease(releaseId: string): Promise<{ passed: boolean; checks: Record<string, boolean> }> { return request(`/api/v1/lab-releases/${releaseId}/preflight`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preflight') } }) }
 export async function teacherPreview(releaseId: string): Promise<{ status: string; runtime_request_id: string }> { return request(`/api/v1/lab-releases/${releaseId}/teacher-preview`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preview') } }) }
+
+export type RuntimeNode = { node_id: string; name: string; status: string; scheduling_paused: boolean; weight: number; cpu_total: number; memory_total_mb: number; last_seen_at: string | null; capacity: null | { cpu_available: number; memory_available_mb: number; running_groups: number; image_digests: string[] } }
+export type RuntimeImage = { image_id: string; name: string; tag: string; digest: string; size_bytes: number; scan_status: string; startup_check_status: string; teaching_validation_status: string; enabled: boolean }
+export type RuntimeInstanceSummary = { runtime_instance_id: string; student_id: string | null; lab_version_id: string; node_id: string; node_key: string; status: string; started_at: string | null; expires_at: string }
+export type RuntimeQueueItem = { queue_id: string; runtime_request_id: string; status: string; priority: number; attempts: number; student_id: string | null; reason: string | null; enqueued_at: string }
+export type RuntimeEvent = { event_type: string; runtime_instance_id: string | null; detail: Record<string, unknown>; occurred_at: string }
+export type RuntimeOverview = { nodes_ready: number; running_instances: number; failed_instances: number; destroyed_instances: number; queued_groups: number }
+
+export async function runtimeOverview(): Promise<RuntimeOverview> { return request('/api/v1/infrastructure/overview') }
+export async function runtimeNodes(): Promise<RuntimeNode[]> { return (await request<{ items: RuntimeNode[] }>('/api/v1/infrastructure/nodes')).items }
+export async function runtimeImages(): Promise<RuntimeImage[]> { return (await request<{ items: RuntimeImage[] }>('/api/v1/infrastructure/images')).items }
+export async function runtimeInstances(): Promise<RuntimeInstanceSummary[]> { return (await request<{ items: RuntimeInstanceSummary[] }>('/api/v1/runtime-instances')).items }
+export async function runtimeQueue(): Promise<RuntimeQueueItem[]> { return (await request<{ items: RuntimeQueueItem[] }>('/api/v1/infrastructure/queue')).items }
+export async function runtimeEvents(): Promise<RuntimeEvent[]> { return (await request<{ items: RuntimeEvent[] }>('/api/v1/infrastructure/events')).items }

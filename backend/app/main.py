@@ -8,6 +8,7 @@ from .common.errors import ApiError, api_error_handler, validation_error_handler
 from .labs.api import router as labs_router
 from .resources.api import router as resources_router
 from .teaching.api import router as teaching_router
+from .runtime.api import router as runtime_router
 
 app = FastAPI(title="跃科网络空间安全实训平台 API", version="1.0.0", openapi_url="/api/v1/openapi.json")
 app.add_exception_handler(ApiError, api_error_handler)
@@ -15,6 +16,7 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(teaching_router)
 app.include_router(resources_router)
 app.include_router(labs_router)
+app.include_router(runtime_router)
 
 
 @app.middleware("http")
