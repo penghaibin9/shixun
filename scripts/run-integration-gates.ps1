@@ -93,10 +93,10 @@ try {
   [ordered]@{
     engineering_gate_status = 'PASS'
     procurement_content_status = 'BLOCKED'
-    procurement_content_reason = 'Automated test fixtures do not replace the required 37 PPTs, 49 videos, 12 lab packages, and independently reviewed question bank.'
+    procurement_content_reason = 'The formal question bank passes; 37 PPTs, 49 videos, 12 lab packages, and the related theory-resource review gates remain absent.'
     production_acceptance = 'NOT_RUN'
     run_id = $RunId
-    backend_tests = 101
+    backend_tests = 104
     frontend_tests = 14
     browser_gates = 'G1-G8'
     docker_runtime = 'G4-G6'
