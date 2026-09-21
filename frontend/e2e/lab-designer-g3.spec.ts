@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('G3：模板到 RSA 不可变版本与 JSON 导出', async ({ page }) => {
+  test.skip(process.env.E2E_REAL_API !== '1', '仅在真实后端与 MySQL 验收时运行')
   await page.goto('/lab-templates')
   await expect(page.getByRole('heading', { name: '实验模板库' })).toBeVisible()
   await expect(page.getByText('双机密码学实验', { exact: true })).toBeVisible()

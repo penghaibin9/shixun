@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('D 线管理员基础设施页面读取真实 API 事实', async ({ page }) => {
+  test.skip(process.env.E2E_REAL_RUNTIME !== '1', '仅在真实 Docker 浏览器门禁中运行')
   await page.goto('/admin/overview')
   await expect(page.getByRole('heading', { name: '运行总览' })).toBeVisible()
   await expect(page.getByText('运行实例', { exact: true })).toBeVisible()

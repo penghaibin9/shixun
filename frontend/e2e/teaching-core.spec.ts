@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs'
 
 
 test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page, browser }, testInfo) => {
+  test.skip(process.env.E2E_REAL_API !== '1', '仅在真实后端与 MySQL 验收时运行')
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('学生导入')
   sheet.addRow(['学号*', '姓名*', '班级', '手机号（可选）', '邮箱（可选）'])

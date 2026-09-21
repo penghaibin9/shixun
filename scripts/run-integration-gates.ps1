@@ -44,13 +44,33 @@ function Initialize-GateDatabase([string]$DatabaseName) {
   }
 }
 
-$previousPythonPath = $env:PYTHONPATH
-$previousPath = $env:PATH
-$previousRealApi = $env:E2E_REAL_API
-$previousUploadDir = $env:YUEKE_RESOURCE_UPLOAD_DIR
+$gateEnvironmentNames = @(
+  'PATH',
+  'PYTHONPATH',
+  'E2E_REAL_API',
+  'E2E_REAL_CLASSROOM',
+  'E2E_REAL_GRADING',
+  'E2E_REAL_RUNTIME',
+  'YUEKE_AGENT_ALLOWED_DIGESTS',
+  'YUEKE_DATABASE_URL',
+  'YUEKE_GATE_API_URL',
+  'YUEKE_GATE_IMAGE_DIGEST',
+  'YUEKE_GRADING_BASE_URL',
+  'YUEKE_INTERNAL_RUNTIME_TOKEN',
+  'YUEKE_LAB_CATALOG_TOKEN',
+  'YUEKE_LAB_CATALOG_URL',
+  'YUEKE_NODE_AGENT_TOKEN',
+  'YUEKE_RESOURCE_UPLOAD_DIR',
+  'YUEKE_RUNTIME_BASE_URL',
+  'YUEKE_TEACHING_BASE_URL'
+)
+$previousEnvironment = @{}
+foreach ($name in $gateEnvironmentNames) {
+  $previousEnvironment[$name] = [System.Environment]::GetEnvironmentVariable($name, 'Process')
+}
 try {
   $env:PYTHONPATH = Join-Path $repoRoot 'backend'
-  $env:PATH = "$(Split-Path -Parent $python);$previousPath"
+  $env:PATH = "$(Split-Path -Parent $python);$($previousEnvironment['PATH'])"
   $env:YUEKE_RESOURCE_UPLOAD_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "yueke-integration-$RunId"
   foreach ($databaseName in $databaseNames) { Initialize-GateDatabase $databaseName }
 
@@ -93,11 +113,13 @@ try {
   [ordered]@{
     engineering_gate_status = 'PASS'
     procurement_content_status = 'BLOCKED'
-    procurement_content_reason = 'The formal question bank and 12 lab packages pass; 37 PPTs, 49 videos, and 37 theory-resource review gates remain absent.'
+    procurement_content_reason = '正式题库、12 套实验文件包和 37 份理论课件已通过；49 个讲解视频仍缺失。'
     production_acceptance = 'NOT_RUN'
     run_id = $RunId
-    backend_tests = 113
-    frontend_tests = 14
+    backend_regression = 'PASS'
+    frontend_contracts = 'PASS'
+    frontend_unit_tests = 'PASS'
+    frontend_build = 'PASS'
     browser_gates = 'G1-G8'
     docker_runtime = 'G4-G6'
     classroom_students = 43
@@ -105,8 +127,11 @@ try {
     databases = $databaseNames
   } | ConvertTo-Json -Depth 3
 } finally {
-  $env:PYTHONPATH = $previousPythonPath
-  $env:PATH = $previousPath
-  $env:E2E_REAL_API = $previousRealApi
-  $env:YUEKE_RESOURCE_UPLOAD_DIR = $previousUploadDir
+  foreach ($name in $gateEnvironmentNames) {
+    if ($null -eq $previousEnvironment[$name]) {
+      Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+    } else {
+      [System.Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], 'Process')
+    }
+  }
 }

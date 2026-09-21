@@ -23,17 +23,29 @@ docker exec -e "MYSQL_PWD=$rootPassword" yueke-contract-mysql-dev mysql -uroot -
 if ($LASTEXITCODE -ne 0) { throw 'G8 gate database preparation failed' }
 
 $escaped = [System.Uri]::EscapeDataString($databasePassword)
-$env:YUEKE_DATABASE_URL = "mysql+pymysql://yueke_dev:${escaped}@127.0.0.1:13384/${DatabaseName}?charset=utf8mb4"
-$env:YUEKE_RUNTIME_BASE_URL = 'http://127.0.0.1:18003'
-$env:YUEKE_TEACHING_BASE_URL = 'http://127.0.0.1:18003'
-$env:YUEKE_GRADING_BASE_URL = 'http://127.0.0.1:18003'
-$env:YUEKE_RESOURCE_UPLOAD_DIR = Join-Path ([System.IO.Path]::GetTempPath()) 'yueke-g8-gate-artifacts'
-$env:E2E_REAL_GRADING = '1'
-$previousPythonPath = $env:PYTHONPATH
-$previousPath = $env:PATH
+$gateEnvironmentNames = @(
+  'PATH',
+  'PYTHONPATH',
+  'E2E_REAL_GRADING',
+  'YUEKE_DATABASE_URL',
+  'YUEKE_GRADING_BASE_URL',
+  'YUEKE_RESOURCE_UPLOAD_DIR',
+  'YUEKE_RUNTIME_BASE_URL',
+  'YUEKE_TEACHING_BASE_URL'
+)
+$previousEnvironment = @{}
+foreach ($name in $gateEnvironmentNames) {
+  $previousEnvironment[$name] = [System.Environment]::GetEnvironmentVariable($name, 'Process')
+}
 try {
+  $env:YUEKE_DATABASE_URL = "mysql+pymysql://yueke_dev:${escaped}@127.0.0.1:13384/${DatabaseName}?charset=utf8mb4"
+  $env:YUEKE_RUNTIME_BASE_URL = 'http://127.0.0.1:18003'
+  $env:YUEKE_TEACHING_BASE_URL = 'http://127.0.0.1:18003'
+  $env:YUEKE_GRADING_BASE_URL = 'http://127.0.0.1:18003'
+  $env:YUEKE_RESOURCE_UPLOAD_DIR = Join-Path ([System.IO.Path]::GetTempPath()) 'yueke-g8-gate-artifacts'
+  $env:E2E_REAL_GRADING = '1'
   $env:PYTHONPATH = Join-Path $repoRoot 'backend'
-  $env:PATH = "$(Split-Path -Parent $python);$previousPath"
+  $env:PATH = "$(Split-Path -Parent $python);$($previousEnvironment['PATH'])"
   Push-Location (Join-Path $repoRoot 'backend')
   try {
     & $python -m alembic upgrade head
@@ -51,6 +63,11 @@ try {
     Pop-Location
   }
 } finally {
-  $env:PYTHONPATH = $previousPythonPath
-  $env:PATH = $previousPath
+  foreach ($name in $gateEnvironmentNames) {
+    if ($null -eq $previousEnvironment[$name]) {
+      Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+    } else {
+      [System.Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], 'Process')
+    }
+  }
 }
