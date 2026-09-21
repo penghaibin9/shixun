@@ -1,0 +1,10 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { classroomApi, type ApiError } from '../../app/api'
+type Assignment={assignment_id:string;status:string;assigned_at:string;downloaded_at?:string;distribution:{title:string;instruction:string;due_at?:string;distribution_type:string}}
+const items=ref<Assignment[]>([]), error=ref(''), loading=ref(true)
+async function load(){loading.value=true;error.value='';try{items.value=(await classroomApi<{items:Assignment[]}>('/api/v1/teaching-logs/my-assignments','student')).items}catch(e){error.value=(e as ApiError).message}finally{loading.value=false}}
+async function download(item:Assignment){try{const r=await classroomApi<{download_url:string}>(`/api/v1/teaching-logs/my-assignments/${item.assignment_id}/download`,'student');window.open(r.download_url,'_blank','noopener');await load()}catch(e){error.value=(e as ApiError).message}}
+onMounted(load)
+</script>
+<template><div class="stack"><header class="page-header"><div><h1>我的日志任务</h1><p>下载教师分发的审计或流量日志，按要求完成分析。</p></div><button class="yk-button" @click="load">刷新</button></header><div v-if="loading" class="card">正在加载任务…</div><div v-if="error" class="pending-panel">日志任务服务待就绪：{{error}}</div><section v-if="!loading&&!items.length&&!error" class="card muted">暂无日志任务。</section><section v-for="item in items" :key="item.assignment_id" class="card"><header class="page-header"><div><h2>{{item.distribution.title}}</h2><p>{{item.distribution.instruction}}</p></div><span class="status" :class="{done:item.status==='DOWNLOADED'}">{{item.status==='DOWNLOADED'?'已下载':'待下载'}}</span></header><div class="detail-list"><span>日志类型</span><b>{{item.distribution.distribution_type==='TRAFFIC'?'流量日志':'审计日志'}}</b><span>截止时间</span><b>{{item.distribution.due_at||'未设置'}}</b></div><button class="yk-button primary" @click="download(item)">下载日志包</button></section></div></template>

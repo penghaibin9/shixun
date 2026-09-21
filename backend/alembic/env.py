@@ -14,6 +14,7 @@ from app.resources import models as resource_models  # noqa: F401
 from app.teaching import models as teaching_models  # noqa: F401
 from app.labs import models as lab_models  # noqa: F401 - 注册 C 线表元数据
 from app.runtime import models as runtime_models  # noqa: F401 - 注册 D 线表元数据
+from app.lab_classroom import models as classroom_models  # noqa: F401
 
 config = context.config
 target_metadata = Base.metadata
