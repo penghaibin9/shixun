@@ -262,6 +262,6 @@ if len(set(resource_ids)) != 37 or total_ppt_resources != 37:
     raise RuntimeError(f"正式理论课件资源数量不正确：{result}")
 if readiness["ppt"] != {"ready": 37, "required": 37}:
     raise RuntimeError(f"正式理论课件就绪度不正确：{result}")
-if (audit["total"], audit["pass"], audit["blocking"]) != (196, 110, 86):
+if audit["total"] != 196 or audit["pass"] < 110 or audit["blocking"] != 196 - audit["pass"]:
     raise RuntimeError(f"课程动态审计未达到题库、实验包和理论课件基线：{result}")
 print(json.dumps(result, ensure_ascii=False, indent=2))

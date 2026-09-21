@@ -50,6 +50,25 @@ const errorRowText = (rowNumber: number | null) => rowNumber && rowNumber > 0 ? 
 const questionTabs = computed(() => [{ label: '题库总览', value: 'overview' }, { label: '批量导入', value: 'import' }, { label: `待审核（${questionReviewTotal.value}）`, value: 'review' }])
 const isOwnQuestion = (item: QuestionReviewItem) => typeof item.can_review === 'boolean' ? !item.can_review : (!!resourceUserId && item.created_by === resourceUserId)
 const questionCreatorText = (item: QuestionReviewItem) => isOwnQuestion(item) ? '本人提交' : '其他教师'
+const lessonResources = (lessonId: string, type?: string) => resources.value.filter(item => item.lesson_id === lessonId && (!type || item.resource_type === type))
+const latestLessonResource = (lessonId: string, type: string) => lessonResources(lessonId, type).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+function resourceStateText(lessonId: string, type: string) {
+  const item = latestLessonResource(lessonId, type)
+  if (!item) return '待上传'
+  if (!item.latest_version) return '待建版本'
+  return statusText(item.status)
+}
+function lessonAssetSummary(lessonId: string) {
+  const items = lessonResources(lessonId)
+  if (!items.length) return '尚无资源'
+  const published = items.filter(item => ['PUBLISHED', 'FROZEN'].includes(item.status)).length
+  return `${published} 项已发布 / ${items.length} 项已登记`
+}
+function durationText(seconds?: number) {
+  if (!seconds || seconds < 1) return '尚未解析'
+  const minutes = Math.floor(seconds / 60), rest = seconds % 60
+  return `${minutes} 分 ${String(rest).padStart(2, '0')} 秒`
+}
 
 async function load() {
   loading.value = true; error.value = ''
@@ -175,17 +194,18 @@ onMounted(load); watch(page, load)
       </template>
       <template v-else-if="page === 'blueprint'">
         <div class="chapter-grid"><div v-for="chapter in 7" :key="chapter" class="card chapter-card"><span class="badge">第 {{ chapter }} 章</span><b>{{ chapterCounts[chapter] || 0 }}</b><span>理论课时</span></div></div>
-        <div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>章节</th><th>知识点</th><th>资源状态</th></tr></thead><tbody><tr v-for="item in theory" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>第 {{ item.chapter_no }} 章</td><td>{{ item.title }}</td><td><span class="badge">待上传真实内容</span></td></tr></tbody></table></div>
+        <div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>章节</th><th>知识点</th><th>资源状态</th></tr></thead><tbody><tr v-for="item in theory" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>第 {{ item.chapter_no }} 章</td><td>{{ item.title }}</td><td><span class="badge">{{ lessonAssetSummary(item.lesson_id) }}</span></td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'theory'">
-        <div class="lesson-grid"><article v-for="item in theory" :key="item.lesson_id" class="card lesson-card"><div><span class="badge">第 {{ item.chapter_no }} 章</span><span class="badge warn">真实内容待上传</span></div><h3>{{ item.lesson_code }} {{ item.title }}</h3><p>PPT（演示文稿） · 真实讲解视频 · 四类题型 · 独立审核</p></article></div>
+        <div class="lesson-grid"><article v-for="item in theory" :key="item.lesson_id" class="card lesson-card"><div><span class="badge">第 {{ item.chapter_no }} 章</span><span class="badge">PPT（演示文稿）：{{ resourceStateText(item.lesson_id, 'PPT') }}</span><span class="badge">视频：{{ resourceStateText(item.lesson_id, 'VIDEO') }}</span></div><h3>{{ item.lesson_code }} {{ item.title }}</h3><p>四类题型与独立审核结果以完整性审计为准。</p></article></div>
       </template>
       <template v-else-if="page === 'labs'">
         <div class="card core-map"><b>8 类核心实验映射</b><span v-for="core in [...new Set(labs.map(x => x.core_experiment))]" :key="core || ''" class="badge">{{ core }}</span></div>
-        <div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>核心实验</th><th>主题</th><th>结构化介绍</th><th>真实内容</th></tr></thead><tbody><tr v-for="item in labs" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>{{ item.core_experiment }}</td><td>{{ item.title }}</td><td><details><summary>查看介绍</summary><p><b>目的：</b>{{ item.purpose }}</p><p><b>环境：</b>{{ item.environment }}</p><p><b>原理：</b>{{ item.principle }}</p></details></td><td><span class="badge warn">文件/视频/题库待上传</span></td></tr></tbody></table></div>
+        <div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>核心实验</th><th>主题</th><th>结构化介绍</th><th>真实内容</th></tr></thead><tbody><tr v-for="item in labs" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>{{ item.core_experiment }}</td><td>{{ item.title }}</td><td><details><summary>查看介绍</summary><p><b>目的：</b>{{ item.purpose }}</p><p><b>环境：</b>{{ item.environment }}</p><p><b>原理：</b>{{ item.principle }}</p></details></td><td><span class="badge">文件包：{{ resourceStateText(item.lesson_id, 'LAB_FILE') }}</span><span class="badge">视频：{{ resourceStateText(item.lesson_id, 'VIDEO') }}</span></td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'ppt' || page === 'video'">
         <div class="grid grid-4 summary-grid"><div class="card kpi"><span>要求课时</span><b>{{ page === 'ppt' ? 37 : 49 }}</b></div><div class="card kpi"><span>已登记真实文件</span><b>{{ resources.filter(r => r.resource_type === (page === 'ppt' ? 'PPT' : 'VIDEO') && r.latest_version).length }}</b></div><div class="card kpi"><span>门禁通过</span><b>{{ page === 'ppt' ? readiness?.ppt.ready : (readiness?.theory_video.ready || 0) + (readiness?.lab_video.ready || 0) }}</b></div><div class="card kpi"><span>{{ page === 'ppt' ? '人工抽检' : '真实时长' }}</span><b>按证据核验</b></div></div><div class="state-panel">只有已上传、已解析、已独立审核并发布的真实教学{{ page === 'ppt' ? '演示文稿' : '视频' }}才计入门禁。</div>
+        <div v-if="page === 'video'" class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>视频名称</th><th>发布状态</th><th>媒体解析时长</th><th>画面</th></tr></thead><tbody><tr v-for="item in resources.filter(resource => resource.resource_type === 'VIDEO')" :key="item.resource_id"><td>{{ lessons.find(lesson => lesson.lesson_id === item.lesson_id)?.lesson_code || '课程级' }}</td><td>{{ item.name }}</td><td><span class="badge">{{ statusText(item.status) }}</span></td><td>{{ durationText(item.latest_version?.video?.duration_seconds) }}</td><td>{{ item.latest_version?.video?.width && item.latest_version?.video?.height ? `${item.latest_version.video.width}×${item.latest_version.video.height}` : '尚未解析' }}</td></tr><tr v-if="!resources.some(resource => resource.resource_type === 'VIDEO')"><td colspan="5" class="empty-cell">尚无真实视频资源。</td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'questions'">
         <p v-if="questionImportError" class="status-error">{{ questionImportError }}</p>

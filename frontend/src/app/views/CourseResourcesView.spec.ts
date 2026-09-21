@@ -30,6 +30,26 @@ describe('课程资源页面', () => {
     expect(wrapper.findAll('tbody tr')).toHaveLength(37)
   })
 
+  it('视频中心展示媒体解析的真实时长与分辨率', async () => {
+    const video = {
+      resource_id: 'video-1', course_id: 'course_data_security', lesson_id: 't0', name: '1.1 正式讲解视频', resource_type: 'VIDEO', status: 'PUBLISHED', created_at: '2026-09-21T10:00:00',
+      latest_version: { resource_version_id: 'version-1', version_no: 1, file_id: 'file-1', status: 'PUBLISHED', sha256: 'a'.repeat(64), video: { duration_seconds: 2416, width: 1920, height: 1080, probed_at: '2026-09-21T10:01:00' } },
+    }
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.includes('course-blueprint')) return json({ items: [...theory, ...labs], total: 49, chapter_counts: {} })
+      if (path.includes('readiness')) return json({ ...readiness, theory_video: { ready: 1, required: 37 }, blocking: 194 })
+      return json({ items: [video], total: 1 })
+    }))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/course-videos', component: CourseResourcesView, meta: { page: 'video' } }] })
+    await router.push('/course-videos'); await router.isReady()
+    const wrapper = mount(CourseResourcesView, { global: { plugins: [router] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('40 分 16 秒')
+    expect(wrapper.text()).toContain('1920×1080')
+    expect(wrapper.text()).toContain('已发布')
+  })
+
   it('通过上传弹窗建立真实文件草稿版本', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input)

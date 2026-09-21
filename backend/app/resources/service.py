@@ -42,6 +42,16 @@ from .schemas import QuestionCreate, QuestionPatch, ResourceCreate, VersionCreat
 from .storage import archive_file_count, save_upload, upload_root
 
 QUESTION_TYPES = {"FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE"}
+THEORY_VIDEO_MIN_SECONDS = 35 * 60
+THEORY_VIDEO_MAX_SECONDS = 45 * 60
+
+
+def qualified_theory_videos(items: list[dict]) -> list[dict]:
+    return [
+        item
+        for item in items
+        if THEORY_VIDEO_MIN_SECONDS <= int(item.get("duration_seconds") or 0) <= THEORY_VIDEO_MAX_SECONDS
+    ]
 
 
 def now() -> datetime:
@@ -580,15 +590,17 @@ class ResourceService:
         for lesson in lessons:
             lesson_assets = evidence.get(lesson.lesson_id, {})
             lesson_questions = question_evidence.get(lesson.lesson_id, [])
+            video_evidence = lesson_assets.get("VIDEO", [])
             question_types = {item["question_type"] for item in lesson_questions}
             questions_pass = question_types == QUESTION_TYPES and len(lesson_questions) == 4
             if lesson.lesson_kind == "THEORY":
-                requirements = {"PPT": "PPT", "VIDEO": "讲解视频", "QUESTION_BANK": "四类题型", "REVIEW": "审核发布"}
+                video_evidence = qualified_theory_videos(video_evidence)
+                requirements = {"PPT": "PPT", "VIDEO": "35～45分钟讲解视频", "QUESTION_BANK": "四类题型", "REVIEW": "审核发布"}
                 passed = {
                     "PPT": bool(lesson_assets.get("PPT")),
-                    "VIDEO": bool(lesson_assets.get("VIDEO")),
+                    "VIDEO": bool(video_evidence),
                     "QUESTION_BANK": questions_pass,
-                    "REVIEW": bool(lesson_assets.get("PPT")) and bool(lesson_assets.get("VIDEO")) and questions_pass,
+                    "REVIEW": bool(lesson_assets.get("PPT")) and bool(video_evidence) and questions_pass,
                 }
             else:
                 requirements = {"INTRO": "介绍四段", "LAB_FILE": "实验文件", "VIDEO": "讲解视频", "QUESTION_BANK": "四类题型"}
@@ -602,9 +614,11 @@ class ResourceService:
                 if key == "QUESTION_BANK":
                     item_evidence = lesson_questions
                 elif key == "REVIEW":
-                    item_evidence = lesson_assets.get("PPT", []) + lesson_assets.get("VIDEO", []) + lesson_questions
+                    item_evidence = lesson_assets.get("PPT", []) + video_evidence + lesson_questions
                 elif key == "INTRO":
                     item_evidence = [{"lesson_resource_id": lesson.lesson_resource_id}] if passed[key] else []
+                elif key == "VIDEO":
+                    item_evidence = video_evidence
                 else:
                     item_evidence = lesson_assets.get(key, [])
                 check = {"lesson_id": lesson.lesson_id, "lesson_code": lesson.lesson_code, "requirement": key, "passed": passed[key], "evidence": item_evidence}
@@ -743,9 +757,17 @@ class ResourceService:
     def resource_dict(item: Resource) -> dict:
         return {"resource_id": item.resource_id, "course_id": item.course_id, "lesson_id": item.lesson_id, "name": item.name, "resource_type": item.resource_type, "status": item.status, "created_by": item.created_by, "created_at": item.created_at.isoformat()}
 
-    @staticmethod
-    def version_dict(item: ResourceVersion) -> dict:
-        return {"resource_version_id": item.resource_version_id, "version_no": item.version_no, "file_id": item.file_id, "status": item.status, "sha256": item.sha256, "created_by": item.created_by, "created_at": item.created_at.isoformat()}
+    def version_dict(self, item: ResourceVersion) -> dict:
+        result = {"resource_version_id": item.resource_version_id, "version_no": item.version_no, "file_id": item.file_id, "status": item.status, "sha256": item.sha256, "created_by": item.created_by, "created_at": item.created_at.isoformat()}
+        video = self.session.scalar(select(VideoAsset).where(VideoAsset.resource_version_id == item.resource_version_id))
+        if video:
+            result["video"] = {
+                "duration_seconds": video.duration_seconds,
+                "width": video.width,
+                "height": video.height,
+                "probed_at": video.probed_at.isoformat(),
+            }
+        return result
 
     @staticmethod
     def file_dict(item: FileObject) -> dict:

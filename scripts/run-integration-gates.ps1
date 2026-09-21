@@ -7,6 +7,14 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $repoRoot 'backend/.venv/Scripts/python.exe'
 if (-not (Test-Path -LiteralPath $python)) { throw 'Backend virtual environment is missing' }
+$ffprobeCommand = Get-Command ffprobe -ErrorAction SilentlyContinue
+$ffprobe = if ($ffprobeCommand) { $ffprobeCommand.Source } else {
+  Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Microsoft/WinGet/Packages') -Recurse -Filter 'ffprobe.exe' -ErrorAction SilentlyContinue |
+    Where-Object FullName -Match 'Gyan\.FFmpeg_' |
+    Sort-Object FullName -Descending |
+    Select-Object -ExpandProperty FullName -First 1
+}
+if (-not $ffprobe) { throw 'ffprobe is required for the formal course-video gate' }
 
 $containerEnv = docker inspect yueke-contract-mysql-dev --format '{{json .Config.Env}}' | ConvertFrom-Json
 $rootEntry = $containerEnv | Where-Object { $_ -like 'MYSQL_ROOT_PASSWORD=*' } | Select-Object -First 1
@@ -53,6 +61,7 @@ $gateEnvironmentNames = @(
   'E2E_REAL_RUNTIME',
   'YUEKE_AGENT_ALLOWED_DIGESTS',
   'YUEKE_DATABASE_URL',
+  'YUEKE_FFPROBE',
   'YUEKE_GATE_API_URL',
   'YUEKE_GATE_IMAGE_DIGEST',
   'YUEKE_GRADING_BASE_URL',
@@ -70,7 +79,8 @@ foreach ($name in $gateEnvironmentNames) {
 }
 try {
   $env:PYTHONPATH = Join-Path $repoRoot 'backend'
-  $env:PATH = "$(Split-Path -Parent $python);$($previousEnvironment['PATH'])"
+  $env:YUEKE_FFPROBE = $ffprobe
+  $env:PATH = "$(Split-Path -Parent $ffprobe);$(Split-Path -Parent $python);$($previousEnvironment['PATH'])"
   $env:YUEKE_RESOURCE_UPLOAD_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "yueke-integration-$RunId"
   foreach ($databaseName in $databaseNames) { Initialize-GateDatabase $databaseName }
 
@@ -112,8 +122,8 @@ try {
 
   [ordered]@{
     engineering_gate_status = 'PASS'
-    procurement_content_status = 'BLOCKED'
-    procurement_content_reason = '正式题库、12 套实验文件包和 37 份理论课件已通过；49 个讲解视频仍缺失。'
+    procurement_content_status = 'PASS_AUTOMATED'
+    procurement_content_reason = '37 份理论课件、196 道题、12 套实验文件包和 49 个真实讲解视频已通过自动化内容门禁；外部教研专家人工抽检不在本次工程验收内。'
     production_acceptance = 'NOT_RUN'
     run_id = $RunId
     backend_regression = 'PASS'

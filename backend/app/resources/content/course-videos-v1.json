@@ -1,0 +1,42 @@
+{
+  "version": "1.0.0",
+  "courseId": "course_data_security",
+  "title": "数据安全技术基础课程讲解视频生产规范",
+  "narration": {
+    "voice": "Microsoft Huihui Desktop",
+    "theoryRate": -4,
+    "denseTheoryRate": -2,
+    "denseTheoryConceptThreshold": 5,
+    "labRate": -1,
+    "language": "zh-CN",
+    "method": "Windows SAPI 离线语音合成",
+    "transcriptRequired": true,
+    "subtitleRequired": true
+  },
+  "video": {
+    "container": "mp4",
+    "videoCodec": "h264",
+    "audioCodec": "aac",
+    "subtitleCodec": "mov_text",
+    "width": 1280,
+    "height": 720
+  },
+  "durationPolicy": {
+    "theoryTargetSeconds": 2400,
+    "theoryMinimumSeconds": 2100,
+    "theoryMaximumSeconds": 2700,
+    "labMinimumSeconds": 600
+  },
+  "sources": {
+    "theory": "backend/app/resources/content/theory-ppts-v1.json",
+    "theoryVisuals": "outputs/01a0c33f-d483-7ac0-aa95-632194b582d5/theory-ppts-v1",
+    "labs": "backend/app/resources/content/lab-packs-v1.json",
+    "questions": "backend/app/resources/content/question-bank-v1.json"
+  },
+  "reviewPolicy": {
+    "authorCannotReview": true,
+    "ffprobeRequired": true,
+    "databaseApprovalRequired": true,
+    "productionAcceptanceRequiresHumanSampling": true
+  }
+}

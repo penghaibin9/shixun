@@ -1,0 +1,3 @@
+outputs/01a0c33f-d483-7ac0-aa95-632194b582d5/course-videos-v1/*.mp4 binary
+outputs/01a0c33f-d483-7ac0-aa95-632194b582d5/course-videos-v1/*.srt -text
+outputs/01a0c33f-d483-7ac0-aa95-632194b582d5/course-videos-v1/*-transcript.txt -text

@@ -1,5 +1,6 @@
 from app.resources.catalog import LAB_LESSONS, THEORY_LESSONS, lesson_rows
 from app.resources.media import parse_ffprobe_payload
+from app.resources.service import qualified_theory_videos
 
 
 def test_theory_catalog_is_exactly_37_with_required_chapter_shape_and_text():
@@ -25,3 +26,15 @@ def test_lab_catalog_has_12_structured_introductions_and_core_mapping():
 def test_video_duration_is_parsed_from_ffprobe_payload():
     duration, width, height = parse_ffprobe_payload('{"format":{"duration":"2416.4"},"streams":[{"codec_type":"video","width":1920,"height":1080}]}')
     assert (duration, width, height) == (2416, 1920, 1080)
+
+
+def test_theory_video_gate_accepts_only_approximately_40_minutes():
+    items = [
+        {"resource_id": "too-short", "duration_seconds": 2099},
+        {"resource_id": "minimum", "duration_seconds": 2100},
+        {"resource_id": "target", "duration_seconds": 2400},
+        {"resource_id": "maximum", "duration_seconds": 2700},
+        {"resource_id": "too-long", "duration_seconds": 2701},
+        {"resource_id": "invalid", "duration_seconds": None},
+    ]
+    assert [item["resource_id"] for item in qualified_theory_videos(items)] == ["minimum", "target", "maximum"]
