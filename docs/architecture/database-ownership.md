@@ -4,7 +4,7 @@
 |---|---|---|
 | 总控 | `file_object`、`domain_event_outbox`；后续认证表使用 `auth_*` | 认证、公共文件及可靠事件投递 |
 | A | `course*`、`class*`、`teaching_*`、`attendance_*`、`poll*`、`assignment*`、`quiz*` | 课程、章节、课时和归班事实仅此处创建；教师学生管理必须复用 `class_membership` |
-| B | `resource*`、`lesson_resource`、`ppt_asset`、`video_asset`、`lab_file_pack`、`question*` | `lesson_resource` 仅保存资源扩展，课程/课时字段引用 A；文件必须引用 `file_id` |
+| B | `resource*`、`lesson_resource`、`ppt_asset`、`video_asset`、`lab_file_pack`、`question*` | `lesson_resource` 仅保存资源扩展和 A 的课程/课时外键，不保存课时标题、编号、类型、章节；文件必须引用 `file_id` |
 | C | `lab_definition`、`lab_version`、`lab_scene*`、`lab_dag_*`、`lab_checkpoint`、`lab_release`、`lab_template`、`lab_knowledge_point`、`lab_explain_diagram`、`lab_image_binding`、`lab_publish_config`、`lab_question_knowledge_map` | 定义而不启动实例 |
 | D | `runtime_*`、`infra_*`、`checkpoint_result` | 仅 D 可操作容器运行时 |
 | E | `classroom_*`、`teaching_log_distribution_*`、`student_log_assignment` | 仅保留必要课堂事实 |

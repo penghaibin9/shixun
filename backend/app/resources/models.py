@@ -48,7 +48,6 @@ class LessonResource(Base):
     __tablename__ = "lesson_resource"
     __table_args__ = (
         UniqueConstraint("course_id", "lesson_id", name="uq_lesson_resource_contract"),
-        Index("ix_lesson_resource_kind", "course_id", "lesson_kind", "lesson_code"),
         ForeignKeyConstraint(
             ["course_id", "lesson_id"],
             ["course_lesson.course_id", "course_lesson.lesson_id"],
@@ -59,10 +58,6 @@ class LessonResource(Base):
     lesson_resource_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     course_id: Mapped[str] = mapped_column(String(36))
     lesson_id: Mapped[str] = mapped_column(String(36))
-    lesson_kind: Mapped[str] = mapped_column(String(16))
-    chapter_no: Mapped[int | None] = mapped_column(Integer)
-    lesson_code: Mapped[str] = mapped_column(String(16))
-    title: Mapped[str] = mapped_column(String(255))
     purpose: Mapped[str | None] = mapped_column(Text)
     environment: Mapped[str | None] = mapped_column(Text)
     principle: Mapped[str | None] = mapped_column(Text)

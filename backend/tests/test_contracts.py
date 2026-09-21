@@ -52,6 +52,12 @@ def test_database_tables_have_exactly_one_frozen_owner():
     assert set(claimed) == set(Base.metadata.tables)
 
 
+def test_lesson_resource_is_only_a_resource_extension_of_a_curriculum():
+    columns = set(Base.metadata.tables["lesson_resource"].columns.keys())
+    assert {"course_id", "lesson_id", "purpose", "environment", "principle", "steps_summary"} <= columns
+    assert {"lesson_kind", "chapter_no", "lesson_code", "title"}.isdisjoint(columns)
+
+
 def test_context_requires_identity_and_returns_frozen_shape():
     client = TestClient(app)
     assert client.get("/api/v1/auth/context").json()["code"] == "AUTH.UNAUTHENTICATED"

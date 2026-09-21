@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, func, select
+from sqlalchemy import create_engine, delete, func, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -50,6 +50,9 @@ def create_course(client: TestClient, suffix: str) -> str:
 
 def test_mysql_curriculum_authority_foreign_key_service_scope_and_b_title_read():
     engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    extension_columns = {column["name"] for column in inspect(engine).get_columns("lesson_resource")}
+    assert {"course_id", "lesson_id", "purpose", "environment", "principle", "steps_summary"} <= extension_columns
+    assert {"lesson_kind", "chapter_no", "lesson_code", "title"}.isdisjoint(extension_columns)
     client = TestClient(app)
     suffix = uuid4().hex[:8]
     course_ids: list[str] = []
