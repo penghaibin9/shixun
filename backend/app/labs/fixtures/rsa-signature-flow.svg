@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+  <title id="title">RSA 数字签名讲解图</title>
+  <desc id="desc">原始数据经过 SHA-256 摘要后由私钥签名，并使用公钥验签。</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#4267d5"/></marker></defs>
+  <rect width="960" height="420" rx="24" fill="#f8faff"/>
+  <g font-family="Microsoft YaHei, sans-serif" text-anchor="middle">
+    <rect x="55" y="85" width="190" height="90" rx="16" fill="#fff" stroke="#8da5ef" stroke-width="2"/><text x="150" y="125" font-size="22" fill="#244fc0">原始数据</text><text x="150" y="153" font-size="15" fill="#667085">message.txt</text>
+    <rect x="385" y="85" width="190" height="90" rx="16" fill="#fff" stroke="#8da5ef" stroke-width="2"/><text x="480" y="125" font-size="22" fill="#244fc0">SHA-256 摘要</text><text x="480" y="153" font-size="15" fill="#667085">hash(message)</text>
+    <rect x="715" y="85" width="190" height="90" rx="16" fill="#eefaf5" stroke="#6ab993" stroke-width="2"/><text x="810" y="125" font-size="22" fill="#087d4e">私钥签名</text><text x="810" y="153" font-size="15" fill="#667085">signature.bin</text>
+    <path d="M245 130H375" stroke="#4267d5" stroke-width="4" marker-end="url(#arrow)"/><path d="M575 130H705" stroke="#4267d5" stroke-width="4" marker-end="url(#arrow)"/>
+    <rect x="275" y="270" width="410" height="92" rx="16" fill="#fff7e9" stroke="#ddb15e" stroke-width="2"/><text x="480" y="310" font-size="22" fill="#9b6500">公钥验签 → Verified OK</text><text x="480" y="340" font-size="15" fill="#667085">命令返回值 + 签名文件存在</text>
+    <path d="M810 175C810 235 700 255 690 285" stroke="#4267d5" stroke-width="4" fill="none" marker-end="url(#arrow)"/>
+  </g>
+</svg>
+

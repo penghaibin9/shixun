@@ -1,0 +1,19 @@
+{
+  "course_id": "course_data_security",
+  "lab_hours": 12,
+  "mapping": [
+    {"lesson_no": "01", "topic": "AES/DES 基础加解密", "family": "SYMMETRIC_CRYPTO", "lab_definition_id": null},
+    {"lesson_no": "02", "topic": "AES ECB/CBC 模式对比", "family": "SYMMETRIC_CRYPTO", "lab_definition_id": null},
+    {"lesson_no": "03", "topic": "RSA 密钥生成与加解密", "family": "ASYMMETRIC_CRYPTO", "lab_definition_id": "lab_rsa"},
+    {"lesson_no": "04", "topic": "RSA 数字签名与验签", "family": "ASYMMETRIC_CRYPTO", "lab_definition_id": "lab_rsa"},
+    {"lesson_no": "05", "topic": "MD5/SHA 文件完整性", "family": "HASH", "lab_definition_id": null},
+    {"lesson_no": "06", "topic": "Base64 编解码", "family": "ENCODING", "lab_definition_id": null},
+    {"lesson_no": "07", "topic": "LSB 图片隐写", "family": "STEGANOGRAPHY", "lab_definition_id": null},
+    {"lesson_no": "08", "topic": "数据库角色与权限", "family": "DATABASE_ACCESS", "lab_definition_id": null},
+    {"lesson_no": "09", "topic": "敏感数据脱敏", "family": "DATA_MASKING", "lab_definition_id": null},
+    {"lesson_no": "10", "topic": "数据备份与恢复", "family": "BACKUP_RECOVERY", "lab_definition_id": null},
+    {"lesson_no": "11", "topic": "日志审计与溯源", "family": "AUDIT", "lab_definition_id": null},
+    {"lesson_no": "12", "topic": "数据安全综合实验", "family": "COMPREHENSIVE", "lab_definition_id": null}
+  ],
+  "note": "第一阶段只将 RSA 实验做到最深；其余课时后续复用同一 schema，不创建第二套结构。"
+}

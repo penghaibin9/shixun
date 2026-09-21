@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yueke.example/contracts/lab-definition-v1.schema.json",
+  "title": "跃科实验定义 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lab_definition_id", "version", "name", "duration_minutes", "total_score", "nodes", "networks", "image_bindings", "steps", "edges", "checkpoints", "runtime_policy"],
+  "properties": {
+    "lab_definition_id": {"type": "string", "minLength": 1, "maxLength": 36},
+    "version": {"type": "integer", "minimum": 1},
+    "name": {"type": "string", "minLength": 1, "maxLength": 160},
+    "duration_minutes": {"type": "integer", "minimum": 5, "maximum": 240},
+    "total_score": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "nodes": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/node"}},
+    "networks": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/network"}},
+    "image_bindings": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/image_binding"}},
+    "steps": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/step"}},
+    "edges": {"type": "array", "maxItems": 256, "items": {"$ref": "#/$defs/edge"}},
+    "checkpoints": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/checkpoint"}},
+    "runtime_policy": {"$ref": "#/$defs/runtime_policy"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "key": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$"},
+    "network": {
+      "type": "object", "additionalProperties": false,
+      "required": ["network_key", "cidr_policy", "internet_access", "egress_allowlist", "student_isolation"],
+      "properties": {"network_key": {"$ref": "#/$defs/key"}, "cidr_policy": {"type": "string"}, "internet_access": {"type": "boolean"}, "egress_allowlist": {"type": "array", "items": {"type": "string"}}, "student_isolation": {"type": "boolean"}}
+    },
+    "node": {
+      "type": "object", "additionalProperties": false,
+      "required": ["node_key", "display_name", "role", "network_env", "network_keys", "device_model", "image_id", "image_digest", "cpu_limit", "memory_mb", "ip_policy", "ports", "startup_command", "mounts"],
+      "properties": {"node_key": {"$ref": "#/$defs/key"}, "display_name": {"type": "string"}, "role": {"type": "string"}, "network_env": {"enum": ["ISOLATED", "SHARED", "CUSTOM"]}, "network_keys": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/key"}}, "device_model": {"type": "string"}, "image_id": {"type": "string"}, "image_digest": {"$ref": "#/$defs/digest"}, "cpu_limit": {"type": "number", "exclusiveMinimum": 0}, "memory_mb": {"type": "integer", "minimum": 128}, "ip_policy": {"type": "string"}, "ports": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 65535}}, "startup_command": {"type": "string", "maxLength": 512}, "mounts": {"type": "array", "items": {"type": "string"}}, "position_x": {"type": "integer", "minimum": 0}, "position_y": {"type": "integer", "minimum": 0}}
+    },
+    "image_binding": {
+      "type": "object", "additionalProperties": false, "required": ["node_key", "infra_image_id", "digest"],
+      "properties": {"node_key": {"$ref": "#/$defs/key"}, "infra_image_id": {"type": "string"}, "digest": {"$ref": "#/$defs/digest"}}
+    },
+    "step": {
+      "type": "object", "additionalProperties": false, "required": ["node_key", "name", "description", "order_no"],
+      "properties": {"node_key": {"$ref": "#/$defs/key"}, "name": {"type": "string"}, "description": {"type": "string"}, "order_no": {"type": "integer", "minimum": 0}}
+    },
+    "edge": {
+      "type": "object", "additionalProperties": false, "required": ["from_node_key", "to_node_key"],
+      "properties": {"from_node_key": {"$ref": "#/$defs/key"}, "to_node_key": {"$ref": "#/$defs/key"}}
+    },
+    "checkpoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["checkpoint_id", "dag_node_id", "name", "score", "judge_type", "judge_target", "judge_config_json", "failure_message", "timeout_seconds", "order_no"],
+      "properties": {"checkpoint_id": {"$ref": "#/$defs/key"}, "dag_node_id": {"$ref": "#/$defs/key"}, "name": {"type": "string"}, "score": {"type": "integer", "minimum": 0}, "judge_type": {"enum": ["FILE_HASH", "COMMAND_EXIT", "FILE_EXISTS", "PORT_LISTEN", "HTTP_RESPONSE"]}, "judge_target": {"type": "string", "maxLength": 512}, "judge_config_json": {"type": "object"}, "failure_message": {"type": "string", "maxLength": 512}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 300}, "order_no": {"type": "integer", "minimum": 0}}
+    },
+    "runtime_policy": {
+      "type": "object", "additionalProperties": false, "required": ["max_attempts", "timeout_minutes"],
+      "properties": {"max_attempts": {"type": "integer", "minimum": 1, "maximum": 10}, "timeout_minutes": {"type": "integer", "minimum": 5, "maximum": 240}}
+    }
+  }
+}
+

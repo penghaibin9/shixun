@@ -10,6 +10,10 @@ const navigation = [
   { to: '/student-course', label: '我的课程' },
   { to: '/student-attendance', label: '课堂签到' },
   { to: '/student-quiz', label: '学生作业与测验' },
+  { to: '/labs', label: '实验总览' },
+  { to: '/lab-templates', label: '实验模板库' },
+  { to: '/course-knowledge', label: '知识点讲解图' },
+  { to: '/lab-builder', label: '创建实验' },
   { to: '/handoff', label: '协作交接' },
 ]
 const resourceNavigation = [

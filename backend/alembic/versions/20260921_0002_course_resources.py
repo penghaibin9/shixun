@@ -1,7 +1,7 @@
 """create course resource domain tables and 37/12 requirement catalog
 
 Revision ID: 20260921_0002
-Revises: 20260921_0001
+Revises: f4e75e84c503
 Create Date: 2026-09-21
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from app.resources.catalog import lesson_rows
 
 revision = "20260921_0002"
-down_revision = "20260921_0001"
-branch_labels = ("course_resources",)
+down_revision = "f4e75e84c503"
+branch_labels = None
 depends_on = None
 
 

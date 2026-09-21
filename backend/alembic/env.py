@@ -1,9 +1,18 @@
+from os import getenv
+from pathlib import Path
+import sys
+
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-from os import getenv
+
+BACKEND_ROOT = str(Path(__file__).resolve().parents[1])
+if BACKEND_ROOT not in sys.path:
+    sys.path.insert(0, BACKEND_ROOT)
 
 from app.common.models import Base
+from app.resources import models as resource_models  # noqa: F401
 from app.teaching import models as teaching_models  # noqa: F401
+from app.labs import models as lab_models  # noqa: F401 - 注册 C 线表元数据
 
 config = context.config
 target_metadata = Base.metadata

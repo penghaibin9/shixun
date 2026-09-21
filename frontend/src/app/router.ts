@@ -11,6 +11,10 @@ import StudentCourseView from './views/StudentCourseView.vue'
 import StudentAttendanceView from './views/StudentAttendanceView.vue'
 import StudentQuizView from './views/StudentQuizView.vue'
 import CourseResourcesView from './views/CourseResourcesView.vue'
+import LabsView from './views/LabsView.vue'
+import LabTemplatesView from './views/LabTemplatesView.vue'
+import LabKnowledgeView from './views/LabKnowledgeView.vue'
+import LabBuilderView from './views/LabBuilderView.vue'
 
 export default createRouter({ history: createWebHistory(), routes: [
   { path: '/', redirect: '/teacher-dashboard' },
@@ -36,4 +40,8 @@ export default createRouter({ history: createWebHistory(), routes: [
   { path: '/course-procurement', name: 'course-procurement', component: CourseResourcesView, meta: { page: 'procurement' } },
   { path: '/course-resource-audit', name: 'course-resource-audit', component: CourseResourcesView, meta: { page: 'audit' } },
   { path: '/course-delivery', name: 'course-delivery', component: CourseResourcesView, meta: { page: 'delivery' } },
+  { path: '/labs', component: LabsView },
+  { path: '/lab-templates', component: LabTemplatesView },
+  { path: '/course-knowledge', component: LabKnowledgeView },
+  { path: '/lab-builder', component: LabBuilderView },
 ] })

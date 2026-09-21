@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 
 from .common.context import CurrentUser
 from .common.errors import ApiError, api_error_handler, validation_error_handler
+from .labs.api import router as labs_router
 from .resources.api import router as resources_router
 from .teaching.api import router as teaching_router
 
@@ -13,6 +14,7 @@ app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(teaching_router)
 app.include_router(resources_router)
+app.include_router(labs_router)
 
 
 @app.middleware("http")
