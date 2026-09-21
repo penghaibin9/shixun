@@ -44,6 +44,19 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 
 已落地 `/resources` 与 `/questions` 全部冻结接口。资源查询支持 `course_id`、`status`、`name`、`resource_type` 三维组合过滤；写入须分别具备 `resources:write`、`resources:review`、`resources:freeze` 权限。教师课程范围来自 `UserContext`，学生只能读取 `PUBLISHED`（已发布）或 `FROZEN`（已冻结）资源。
 
+题库批量导入与独立审核接口冻结为：
+
+```text
+GET  /api/v1/questions/import-template.xlsx
+POST /api/v1/questions/import
+GET  /api/v1/questions/import-jobs/{job_id}
+GET  /api/v1/questions/import-jobs/{job_id}/error-rows.xlsx
+GET  /api/v1/questions/review-queue
+POST /api/v1/questions/{question_id}/review
+```
+
+模板固定预置 49 个课时、每课时填空/单选/多选/判断各 1 行，共 196 行。导入请求必须携带基于文件内容摘要的 `Idempotency-Key`（幂等键）；同一键与同一文件返回同一任务，同一键对应不同内容固定返回冲突。服务端逐行校验课时、题型、题干、选项、答案和解析，并拒绝公式及以 `= + - @` 开头的危险单元格。任一行失败时整批不写入题目，任务保存全部逐行错误并可导出 XLSX（电子表格）错误明细；整批通过后 196 题统一进入 `PENDING_REVIEW`（待审核）队列。审核人必须具备 `resources:review` 权限、属于同一课程范围且不能是题目创建人；驳回必须填写原因，通过后题目发布。被驳回题目由原作者修改后重新进入 `PENDING_REVIEW`（待审核）队列，仍须由其他审核人复核后方可发布。
+
 `POST /api/v1/resources/files` 接收受限类型的真实文件，按流式写入受控目录，同时计算 SHA256（文件校验值）、大小和媒体类型并登记公共 `file_object`（文件对象）；同内容重复上传复用已有文件对象。`GET /api/v1/resources/{resource_id}/download` 只允许下载受控目录中的已登记版本文件，学生只能下载已发布或已冻结资源。`GET /api/v1/resources/readiness` 返回 PPT（演示文稿）、理论/实验视频、实验文件包、题型覆盖和已审核题目数的动态就绪度。
 
 资源版本只新增不覆盖，文件必须引用公共 `file_object.file_id`，且请求的 SHA256（文件校验值）必须与文件对象一致。资源类型与真实文件媒体类型必须一致。发布顺序为 `DRAFT（草稿） -> PENDING_REVIEW（待审核） -> PUBLISHED（已发布） -> FROZEN（已冻结）`；制作人与审核人必须不同。

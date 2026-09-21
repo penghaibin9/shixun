@@ -43,6 +43,13 @@ TEACHING_AUDIT_ACTIONS = {
     "assignment.created", "assignment.published", "assignment.submitted",
     "quiz.created", "quiz.published", "quiz.completed",
 }
+COURSE_RESOURCE_AUDIT_EVENTS = {
+    "resource.created", "resource.version.created", "resource.submit.review",
+    "resource.approve", "resource.reject", "resource.publish",
+    "resource.audit.completed", "resource.delivery.frozen",
+    "question.created", "question.updated", "question.published", "question.rejected",
+    "question.import.completed", "question.import.validation_failed",
+}
 
 
 class OutboxDispatcher:
@@ -152,6 +159,24 @@ class OutboxDispatcher:
                         class_id=payload.get("class_id"),
                         student_id=payload.get("student_id"),
                         result="SUCCESS",
+                        occurred_at=event.occurred_at,
+                        details={"event_type": event.event_type, "payload": payload},
+                    ))
+                    targets.append("audit_event")
+                if event.event_type in COURSE_RESOURCE_AUDIT_EVENTS:
+                    payload = envelope["payload"]
+                    GradingService(self.session, context, self.request_id, "internal").ingest_audit(AuditIngest(
+                        source_event_id=event.event_id,
+                        actor_user_id=event.actor_user_id,
+                        actor_role=payload.get("actor_role") or "service",
+                        action=event.event_type,
+                        resource_type=event.aggregate_type,
+                        resource_id=event.aggregate_id,
+                        course_id=payload.get("course_id"),
+                        class_id=payload.get("class_id"),
+                        student_id=payload.get("student_id"),
+                        result="SUCCESS",
+                        reason=payload.get("comment"),
                         occurred_at=event.occurred_at,
                         details={"event_type": event.event_type, "payload": payload},
                     ))

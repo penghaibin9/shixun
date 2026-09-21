@@ -77,6 +77,8 @@ def test_parser_reports_formula_mismatch_and_answer_errors_by_excel_row():
     assert "QUESTION_IMPORT.MULTIPLE_ANSWER_COUNT" in row_errors(rows, 4)
 
     exported = load_workbook(BytesIO(error_rows_bytes(rows)))['错误行']
+    assert [cell.value for cell in exported[1]][-2:] == ["错误字段", "错误原因"]
+    assert "错误代码" not in [cell.value for cell in exported[1]]
     assert exported['E2'].data_type != 'f'
     assert exported['E2'].value == "'=1+1"
 

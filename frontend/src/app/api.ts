@@ -102,9 +102,10 @@ export const resourceApi = {
   download: (resourceId: string) => resourceDownload(`/api/v1/resources/${resourceId}/download`),
   coverage: () => resourceRequest<{ items: { lesson_id: string; lesson_code: string; types: string[]; passed: boolean }[]; total: number; passed: number }>('/api/v1/questions/coverage'),
   questionImportTemplate: () => resourceDownload('/api/v1/questions/import-template.xlsx?course_id=course_data_security'),
-  importQuestions: (file: File) => {
+  importQuestions: async (file: File) => {
     const body = new FormData(); body.append('course_id', 'course_data_security'); body.append('file', file)
-    return resourceRequest<QuestionImportJob>('/api/v1/questions/import', { method: 'POST', body, headers: { 'Idempotency-Key': `questions-${file.name}-${file.size}-${file.lastModified}` } })
+    const idempotencyKey = await fileIdempotencyKey('questions', file)
+    return resourceRequest<QuestionImportJob>('/api/v1/questions/import', { method: 'POST', body, headers: { 'Idempotency-Key': idempotencyKey } })
   },
   questionImportJob: (jobId: string) => resourceRequest<QuestionImportJob>(`/api/v1/questions/import-jobs/${jobId}`),
   questionImportErrors: (jobId: string) => resourceDownload(`/api/v1/questions/import-jobs/${jobId}/error-rows.xlsx`),

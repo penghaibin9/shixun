@@ -332,7 +332,7 @@ def error_rows_bytes(rows: Iterable[dict]) -> bytes:
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "错误行"
-    sheet.append(["原行号", *HEADERS, "错误字段", "错误代码", "错误原因"])
+    sheet.append(["原行号", *HEADERS, "错误字段", "错误原因"])
     for item in rows:
         errors = item.get("errors") or []
         if not errors:
@@ -343,7 +343,6 @@ def error_rows_bytes(rows: Iterable[dict]) -> bytes:
                 item.get("row_number", ""),
                 *[_safe_export_text(raw.get(header, "")) for header in HEADERS],
                 "\n".join(str(error.get("field", "")) for error in errors),
-                "\n".join(str(error.get("code", "")) for error in errors),
                 "\n".join(str(error.get("message", "")) for error in errors),
             ]
         )

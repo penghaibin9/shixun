@@ -146,7 +146,7 @@ class ResourceService:
         stamp = now()
         item = Resource(resource_id=str(uuid4()), **data.model_dump(), status="DRAFT", created_by=self.user.user_id, created_at=stamp, updated_at=stamp)
         self.repo.add(item)
-        enqueue_event(self.session, event_type="resource.created", aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-created:{item.resource_id}", payload={"course_id": item.course_id, "lesson_id": item.lesson_id, "resource_type": item.resource_type})
+        enqueue_event(self.session, event_type="resource.created", aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-created:{item.resource_id}", payload={"course_id": item.course_id, "lesson_id": item.lesson_id, "resource_type": item.resource_type, "actor_role": self.user.role})
         self.session.commit()
         return self.resource_dict(item)
 
@@ -187,7 +187,7 @@ class ResourceService:
             if lesson:
                 lesson.linked_file_pack_id = pack.lab_file_pack_id
         item.status, item.updated_at = "DRAFT", now()
-        enqueue_event(self.session, event_type="resource.version.created", aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-version:{version.resource_version_id}", payload={"resource_version_id": version.resource_version_id, "version_no": version.version_no, "sha256": version.sha256})
+        enqueue_event(self.session, event_type="resource.version.created", aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-version:{version.resource_version_id}", payload={"course_id": item.course_id, "resource_version_id": version.resource_version_id, "version_no": version.version_no, "sha256": version.sha256, "actor_role": self.user.role})
         self.session.commit()
         return self.version_dict(version)
 
@@ -235,7 +235,7 @@ class ResourceService:
             item.status = latest.status = "PUBLISHED"
             latest.published_at = now()
         event_type = f"resource.{action.replace('-', '.')}"
-        enqueue_event(self.session, event_type=event_type, aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"{event_type}:{latest.resource_version_id}", payload={"course_id": item.course_id, "resource_version_id": latest.resource_version_id})
+        enqueue_event(self.session, event_type=event_type, aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"{event_type}:{latest.resource_version_id}", payload={"course_id": item.course_id, "resource_version_id": latest.resource_version_id, "actor_role": self.user.role, "comment": comment})
         self.session.commit()
         return self.resource_dict(item)
 
@@ -392,6 +392,7 @@ class ResourceService:
                         "question_type": normalized["question_type"],
                         "import_job_id": job.import_job_id,
                         "source_row_number": parsed["row_number"],
+                        "actor_role": self.user.role,
                     },
                 )
             self.repo.add(
@@ -422,6 +423,7 @@ class ResourceService:
                 "total_rows": job.total_rows,
                 "success_count": job.success_count,
                 "failure_count": job.failure_count,
+                "actor_role": self.user.role,
             },
         )
         self.session.commit()
@@ -475,7 +477,7 @@ class ResourceService:
         for index, option in enumerate(data.options):
             values = option.model_dump()
             self.repo.add(QuestionOption(question_option_id=str(uuid4()), question_id=question.question_id, option_key=str(values.get("key", index + 1)), option_text=str(values.get("text", "")), is_correct=bool(values.get("is_correct", False))))
-        enqueue_event(self.session, event_type="question.created", aggregate_type="question", aggregate_id=question.question_id, actor_user_id=self.user.user_id, idempotency_key=f"question-created:{question.question_id}", payload={"course_id": data.course_id, "lesson_id": data.lesson_id, "question_type": data.question_type})
+        enqueue_event(self.session, event_type="question.created", aggregate_type="question", aggregate_id=question.question_id, actor_user_id=self.user.user_id, idempotency_key=f"question-created:{question.question_id}", payload={"course_id": data.course_id, "lesson_id": data.lesson_id, "question_type": data.question_type, "actor_role": self.user.role})
         self.session.commit()
         return self.question_dict(question, data.lesson_id, data.explanation)
 
@@ -495,11 +497,11 @@ class ResourceService:
         if data.explanation is not None:
             self.session.get(QuestionExplanation, question_id).explanation = data.explanation
         if question.status == "REJECTED":
-            question.status = "DRAFT"
+            question.status = "PENDING_REVIEW"
             question.reviewed_by = None
             question.reviewed_at = None
-            question.submitted_at = None
-        enqueue_event(self.session, event_type="question.updated", aggregate_type="question", aggregate_id=question.question_id, actor_user_id=self.user.user_id, idempotency_key=f"question-updated:{question.question_id}:{uuid4()}", payload={"course_id": bank.course_id})
+            question.submitted_at = now()
+        enqueue_event(self.session, event_type="question.updated", aggregate_type="question", aggregate_id=question.question_id, actor_user_id=self.user.user_id, idempotency_key=f"question-updated:{question.question_id}:{uuid4()}", payload={"course_id": bank.course_id, "actor_role": self.user.role})
         self.session.commit()
         return {"question_id": question.question_id, "status": question.status}
 
@@ -536,7 +538,7 @@ class ResourceService:
             aggregate_id=question.question_id,
             actor_user_id=self.user.user_id,
             idempotency_key=f"question-review:{review.question_review_id}",
-            payload={"course_id": bank.course_id, "lesson_id": mapping.lesson_id, "decision": decision, "comment": comment},
+            payload={"course_id": bank.course_id, "lesson_id": mapping.lesson_id, "decision": decision, "comment": comment, "actor_role": self.user.role},
         )
         self.session.commit()
         return {"question_id": question.question_id, "status": question.status, "reviewed_by": question.reviewed_by, "reviewed_at": reviewed_at.isoformat()}
@@ -591,7 +593,7 @@ class ResourceService:
         result = {"course_id": course_id, "total": len(checks), "pass": sum(x["passed"] for x in checks), "warning": 0, "blocking": len(blockers), "blocking_items": blockers, "checks": checks, "procurement_mapping": self.procurement_mapping(), "checked_at": now().isoformat() + "Z"}
         if persist:
             self.repo.add(ResourceQualityCheck(resource_quality_check_id=str(uuid4()), course_id=course_id, resource_version_id=None, check_type="COURSE_AUDIT", result="PASS" if not blockers else "BLOCKING", details_json=result, checked_by=self.user.user_id, checked_at=now()))
-            enqueue_event(self.session, event_type="resource.audit.completed", aggregate_type="course_resource", aggregate_id=course_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-audit:{uuid4()}", payload={"blocking": len(blockers), "pass": result["pass"], "total": result["total"]})
+            enqueue_event(self.session, event_type="resource.audit.completed", aggregate_type="course_resource", aggregate_id=course_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-audit:{uuid4()}", payload={"course_id": course_id, "blocking": len(blockers), "pass": result["pass"], "total": result["total"], "actor_role": self.user.role})
             self.session.commit()
         return result
 
@@ -614,7 +616,7 @@ class ResourceService:
         for resource in self.repo.list_resources(course_id=course_id, status="PUBLISHED", name=None, resource_type=None):
             resource.status = "FROZEN"
             for version in self.session.scalars(select(ResourceVersion).where(ResourceVersion.resource_id == resource.resource_id, ResourceVersion.status == "PUBLISHED")): version.status = "FROZEN"
-        enqueue_event(self.session, event_type="resource.delivery.frozen", aggregate_type="course_resource", aggregate_id=course_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-delivery:{course_id}:{row.version_no}", payload={"course_id": course_id, "manifest_id": row.resource_delivery_manifest_id, "version_no": row.version_no})
+        enqueue_event(self.session, event_type="resource.delivery.frozen", aggregate_type="course_resource", aggregate_id=course_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-delivery:{course_id}:{row.version_no}", payload={"course_id": course_id, "manifest_id": row.resource_delivery_manifest_id, "version_no": row.version_no, "actor_role": self.user.role})
         self.session.commit()
         return manifest
 

@@ -274,7 +274,8 @@ def test_question_xlsx_import_idempotency_error_rows_and_independent_review(clie
         assert errors.status_code == 200 and errors.content.startswith(b"PK")
         error_sheet = load_workbook(BytesIO(errors.content))["错误行"]
         assert error_sheet.cell(2, 1).value == 2
-        assert "QUESTION_IMPORT.STEM_REQUIRED" in error_sheet.cell(2, 13).value
+        assert [cell.value for cell in error_sheet[1]][-2:] == ["错误字段", "错误原因"]
+        assert "题干不能为空" in error_sheet.cell(2, 13).value
 
         with Session(engine) as session:
             bank = session.scalar(select(QuestionBank).where(QuestionBank.course_id == course_id))
@@ -341,6 +342,16 @@ def test_question_xlsx_import_idempotency_error_rows_and_independent_review(clie
 
         queue_after = client.get("/api/v1/questions/review-queue", headers=reviewer_headers, params={"course_id": course_id, "page_size": 200})
         assert queue_after.status_code == 200 and queue_after.json()["total"] == 194
+        resubmitted = client.patch(
+            f"/api/v1/questions/{second['question_id']}",
+            headers=author_headers,
+            json={"stem": "补充限定条件后的题干"},
+        )
+        assert resubmitted.status_code == 200 and resubmitted.json()["status"] == "PENDING_REVIEW"
+        reopened_queue = client.get("/api/v1/questions/review-queue", headers=reviewer_headers, params={"course_id": course_id, "page_size": 200})
+        assert reopened_queue.status_code == 200 and reopened_queue.json()["total"] == 195
+        rereviewed = client.post(f"/api/v1/questions/{second['question_id']}/review", headers=reviewer_headers)
+        assert rereviewed.status_code == 200 and rereviewed.json()["status"] == "PUBLISHED"
 
         with Session(engine) as session:
             question_ids = list(session.scalars(select(Question.question_id).where(Question.question_bank_id == bank_id)))

@@ -159,7 +159,7 @@ onMounted(load); watch(page, load)
 
 <template>
   <div class="resource-page">
-    <YkPageHeader :title="titles[page][0]" :description="titles[page][1]"><template #actions><div v-if="page === 'questions'" class="actions"><button class="yk-button" @click="downloadQuestionTemplate">下载 XLSX（电子表格）模板</button><button class="yk-button primary" @click="openQuestionImport">批量导入题目</button></div><button v-if="page === 'audit'" class="yk-button primary" @click="runAudit">重新执行全量审计</button><button v-if="page === 'delivery'" class="yk-button primary" @click="freezeDelivery">冻结交付版本</button></template></YkPageHeader>
+    <YkPageHeader :title="titles[page][0]" :description="titles[page][1]"><template #actions><div v-if="page === 'questions'" class="actions"><button class="yk-button" @click="load">题型覆盖检查</button><button class="yk-button" @click="downloadQuestionTemplate">下载 XLSX（电子表格）模板</button><button class="yk-button primary" @click="openQuestionImport">批量导入题目</button></div><button v-if="page === 'audit'" class="yk-button primary" @click="runAudit">重新执行全量审计</button><button v-if="page === 'delivery'" class="yk-button primary" @click="freezeDelivery">冻结交付版本</button></template></YkPageHeader>
     <div v-if="loading" class="state-panel">正在读取课程资源事实…</div>
     <div v-else-if="error" class="state-panel error-state"><b>暂时无法加载</b><span>{{ error }}</span><button class="yk-button" @click="load">重试</button></div>
     <template v-else>

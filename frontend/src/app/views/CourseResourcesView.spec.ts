@@ -16,7 +16,7 @@ async function mountQuestions() {
   return wrapper
 }
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 describe('课程资源页面', () => {
   it('从接口渲染 37/12 蓝图而非前端写死完成状态', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(String(input).includes('course-blueprint') ? { items: [...theory, ...labs], total: 49, chapter_counts: {} } : { items: [], total: 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
@@ -58,6 +58,8 @@ describe('课程资源页面', () => {
   })
 
   it('下载模板并只接收 XLSX 题库文件，逐行显示导入错误', async () => {
+    const digest = vi.fn(async () => new Uint8Array(32).fill(0xab).buffer)
+    vi.stubGlobal('crypto', { subtle: { digest } } as unknown as Crypto)
     const job = { job_id: 'job-196', status: 'VALIDATION_FAILED', total_count: 196, imported_count: 0, error_count: 2, review_queue_count: 0, original_filename: 'questions.xlsx', error_rows: [{ row_number: 8, field: '课时编号', code: 'UNKNOWN_LESSON', message: '课时编号不存在' }, { row_number: 19, field: '正确答案*', code: 'ANSWER_REQUIRED', message: '答案不能为空' }] }
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input)
@@ -77,6 +79,11 @@ describe('课程资源页面', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const wrapper = await mountQuestions()
 
+    const coverageCallsBefore = fetchMock.mock.calls.filter(call => String(call[0]).includes('questions/coverage')).length
+    await wrapper.findAll('button').find(button => button.text() === '题型覆盖检查')!.trigger('click')
+    await flushPromises()
+    expect(fetchMock.mock.calls.filter(call => String(call[0]).includes('questions/coverage'))).toHaveLength(coverageCallsBefore + 1)
+
     await wrapper.findAll('button').find(button => button.text() === '下载 XLSX（电子表格）模板')!.trigger('click')
     await flushPromises()
     expect(fetchMock.mock.calls.some(call => String(call[0]).includes('/questions/import-template.xlsx?course_id=course_data_security'))).toBe(true)
@@ -91,15 +98,22 @@ describe('课程资源页面', () => {
     Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array([80, 75, 3, 4])], 'questions.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', lastModified: 1 })], configurable: true })
     await input.trigger('change')
     await wrapper.findAll('form').find(form => form.text().includes('导入 196 行题库数据'))!.trigger('submit')
+    await vi.waitFor(() => expect(fetchMock.mock.calls.some(call => String(call[0]).endsWith('/questions/import'))).toBe(true))
     await flushPromises()
     const importCall = fetchMock.mock.calls.find(call => String(call[0]).endsWith('/questions/import'))
     expect(importCall?.[1]?.body).toBeInstanceOf(FormData)
-    expect(new Headers(importCall?.[1]?.headers).get('Idempotency-Key')).toContain('questions-questions.xlsx')
+    expect(digest).toHaveBeenCalledWith('SHA-256', expect.any(ArrayBuffer))
+    expect(new Headers(importCall?.[1]?.headers).get('Idempotency-Key')).toBe(`questions-${'ab'.repeat(32)}`)
     expect(wrapper.text()).toContain('文件数据行196')
     expect(wrapper.text()).toContain('第 8 行')
     expect(wrapper.text()).toContain('课时编号不存在')
     expect(wrapper.text()).toContain('第 19 行')
     expect(wrapper.text()).not.toContain('UNKNOWN_LESSON')
+
+    await wrapper.findAll('button').find(button => button.text() === '下载错误明细')!.trigger('click')
+    await flushPromises()
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes('/questions/import-jobs/job-196/error-rows.xlsx'))).toBe(true)
+    expect(createUrl).toHaveBeenCalled()
   })
 
   it('独立审核队列禁止创建人自审并支持填写原因后驳回', async () => {

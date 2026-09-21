@@ -10,7 +10,7 @@
 
 总控投递器按冻结路由消费事件箱：`lab.instance.*`、`lab.checkpoint.*`、`lab.submitted` 投影至 E；成绩事实事件和 `course.roster.frozen`、`resource.delivery.frozen` 送至 F；`lab.release.published` 送至 D。只有全部目标成功后才写 `published_at`，部分成功可依靠消费者幂等安全重试。
 
-B 课程资源域追加事件：`resource.created`、`resource.version.created`、`resource.submit.review`、`resource.approve`、`resource.reject`、`resource.publish`、`resource.audit.completed`、`resource.delivery.frozen`、`question.created`、`question.updated`、`question.published`。事件载荷只携带冻结标识和必要摘要，不携带文件二进制或永久公开地址。
+B 课程资源域追加事件：`resource.created`、`resource.version.created`、`resource.submit.review`、`resource.approve`、`resource.reject`、`resource.publish`、`resource.audit.completed`、`resource.delivery.frozen`、`question.created`、`question.updated`、`question.published`、`question.rejected`、`question.import.completed`、`question.import.validation_failed`。事件载荷只携带冻结标识和必要摘要，不携带文件二进制或永久公开地址。题库导入完成/失败事件使用导入任务标识作为聚合标识；单题创建、发布和驳回事件使用题目标识作为聚合标识。上述 B 域事件由总控投递器幂等归档至公共 `audit_event`（审计事件）表，成功归档后才标记事件箱已发布。
 
 C 线新增事件：`lab.definition.created`、`lab.version.cloned`、`lab.version.updated`、`lab.version.validated`、`lab.version.published`、`lab.template.created`、`lab.knowledge.created`、`lab.knowledge.updated`、`lab.release.created`、`lab.release.preflighted`、`lab.release.preview.requested`。正式发布继续使用首批冻结事件 `lab.release.published`。
 

@@ -38,6 +38,8 @@ def test_runtime_events_reach_classroom_and_grading_and_release_reaches_runtime(
         release_event = add_event(session, "lab.release.published", release_id, {"lab_version_id":f"version_{suffix}","course_id":course_id,"class_id":class_id,"status":"OPEN","spec_snapshot":spec})
         checkpoint_event = add_event(session, "lab.checkpoint.passed", instance_id, {"lab_release_id":release_id,"course_id":course_id,"class_id":class_id,"student_id":student_id,"runtime_instance_id":instance_id,"status":"RUNNING","step":1,"score":20,"source_id":f"checkpoint_{suffix}","raw_score":20,"max_score":20})
         audit_event = add_event(session, "classroom.audit.requested", instance_id, {"action":"runtime.rebuild","course_id":course_id,"class_id":class_id,"student_id":student_id,"reason":"课堂异常处置"})
+        question_import_event = add_event(session, "question.import.completed", f"import_{suffix}", {"course_id": course_id, "total_rows": 196, "success_count": 196, "failure_count": 0, "actor_role": "teacher"})
+        question_review_event = add_event(session, "question.published", f"question_{suffix}", {"course_id": course_id, "lesson_id": f"lesson_{suffix}", "decision": "APPROVED", "actor_role": "teacher"})
     client = TestClient(app)
     denied = client.post("/api/v1/integration/outbox/dispatch", headers={"X-User-Id":"teacher_spoof","X-Role":"teacher","X-Permissions":"integration:dispatch"})
     assert denied.status_code == 403 and denied.json()["code"] == "AUTH.INTERNAL_SERVICE_REQUIRED"
@@ -47,6 +49,8 @@ def test_runtime_events_reach_classroom_and_grading_and_release_reaches_runtime(
     assert selected[release_event]["targets"] == ["runtime_release_context"]
     assert selected[checkpoint_event]["targets"] == ["classroom_projection", "grading_facts"]
     assert selected[audit_event]["targets"] == ["audit_event"]
+    assert selected[question_import_event]["targets"] == ["audit_event"]
+    assert selected[question_review_event]["targets"] == ["audit_event"]
     assert selected[release_event]["status"] == selected[checkpoint_event]["status"] == selected[audit_event]["status"] == "PUBLISHED"
     with Session(engine) as session:
         assert session.get(RuntimeReleaseReadModel, release_id)
@@ -55,6 +59,10 @@ def test_runtime_events_reach_classroom_and_grading_and_release_reaches_runtime(
         assert grade and float(grade.normalized_score) == 100
         audit = session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == audit_event))
         assert audit and audit.action == "runtime.rebuild" and audit.course_id == course_id and audit.class_id == class_id
+        question_import_audit = session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == question_import_event))
+        question_review_audit = session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == question_review_event))
+        assert question_import_audit and question_import_audit.action == "question.import.completed" and question_import_audit.course_id == course_id
+        assert question_review_audit and question_review_audit.action == "question.published" and question_review_audit.course_id == course_id
         assert session.get(DomainEventOutbox, release_event).published_at
         assert session.get(DomainEventOutbox, checkpoint_event).published_at
         assert session.get(DomainEventOutbox, audit_event).published_at
