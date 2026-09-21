@@ -77,10 +77,29 @@ export type QuestionReviewItem = components['schemas']['QuestionReviewQueueItem'
 }
 export type QuestionReviewQueue = components['schemas']['QuestionReviewQueueResponse'] & { items: QuestionReviewItem[] }
 
-const identityHeaders: Record<string, string> = import.meta.env.DEV ? { 'X-User-Id': 'teacher_b', 'X-Role': 'teacher', 'X-Teacher-Id': 'teacher_b', 'X-Course-Ids': 'course_data_security', 'X-Permissions': 'resources:read,resources:write,resources:review,resources:freeze' } : {}
-export const resourceUserId = identityHeaders['X-User-Id'] || ''
+const DEFAULT_RESOURCE_COURSE_ID = 'course_data_security'
+export function selectedResourceCourseId(): string {
+  const courseId = localStorage.getItem('yk-course-id')?.trim() || (import.meta.env.DEV ? DEFAULT_RESOURCE_COURSE_ID : '')
+  if (!courseId) throw new Error('请先在课程总览选择课程')
+  return courseId
+}
+function resourceIdentityHeaders(): Record<string, string> {
+  const courseHeaders = { 'X-Course-Ids': selectedResourceCourseId() }
+  return import.meta.env.DEV ? {
+    'X-User-Id': 'teacher_b',
+    'X-Role': 'teacher',
+    'X-Teacher-Id': 'teacher_b',
+    ...courseHeaders,
+    'X-Permissions': 'resources:read,resources:write,resources:review,resources:freeze',
+  } : courseHeaders
+}
+function resourceQuery(path: string): string {
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}course_id=${encodeURIComponent(selectedResourceCourseId())}`
+}
+export const resourceUserId = import.meta.env.DEV ? 'teacher_b' : ''
 async function resourceRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(identityHeaders)
+  const headers = new Headers(resourceIdentityHeaders())
   new Headers(init.headers).forEach((value, key) => headers.set(key, value))
   if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const response = await fetch(path, { ...init, headers })
@@ -88,33 +107,34 @@ async function resourceRequest<T>(path: string, init: RequestInit = {}): Promise
   return response.json() as Promise<T>
 }
 async function resourceDownload(path: string): Promise<Blob> {
-  const response = await fetch(path, { headers: identityHeaders })
+  const response = await fetch(path, { headers: resourceIdentityHeaders() })
   if (!response.ok) throw await response.json() as ApiError
   return response.blob()
 }
 export const resourceApi = {
-  blueprint: () => resourceRequest<{ items: LessonResource[]; total: number; chapter_counts: Record<string, number> }>('/api/v1/resources/course-blueprint/course_data_security'),
-  resources: () => resourceRequest<{ items: Resource[]; total: number }>('/api/v1/resources?course_id=course_data_security'),
-  readiness: () => resourceRequest<ResourceReadiness>('/api/v1/resources/readiness?course_id=course_data_security'),
-  uploadFile: (file: File) => { const body = new FormData(); body.append('course_id', 'course_data_security'); body.append('file', file); return resourceRequest<ResourceFile>('/api/v1/resources/files', { method: 'POST', body }) },
-  createResource: (data: { lesson_id: string; name: string; resource_type: string }) => resourceRequest<Resource>('/api/v1/resources', { method: 'POST', body: JSON.stringify({ course_id: 'course_data_security', ...data }) }),
+  blueprint: () => resourceRequest<{ items: LessonResource[]; total: number; chapter_counts: Record<string, number> }>(`/api/v1/resources/course-blueprint/${encodeURIComponent(selectedResourceCourseId())}`),
+  resources: () => resourceRequest<{ items: Resource[]; total: number }>(resourceQuery('/api/v1/resources')),
+  readiness: () => resourceRequest<ResourceReadiness>(resourceQuery('/api/v1/resources/readiness')),
+  uploadFile: (file: File) => { const body = new FormData(); body.append('course_id', selectedResourceCourseId()); body.append('file', file); return resourceRequest<ResourceFile>('/api/v1/resources/files', { method: 'POST', body }) },
+  createResource: (data: { lesson_id: string; name: string; resource_type: string }) => resourceRequest<Resource>('/api/v1/resources', { method: 'POST', body: JSON.stringify({ course_id: selectedResourceCourseId(), ...data }) }),
   createVersion: (resourceId: string, data: { file_id: string; sha256: string; lab_file_count?: number }) => resourceRequest<ResourceVersion>(`/api/v1/resources/${resourceId}/versions`, { method: 'POST', body: JSON.stringify(data) }),
   download: (resourceId: string) => resourceDownload(`/api/v1/resources/${resourceId}/download`),
-  coverage: () => resourceRequest<{ items: { lesson_id: string; lesson_code: string; types: string[]; passed: boolean }[]; total: number; passed: number }>('/api/v1/questions/coverage'),
-  questionImportTemplate: () => resourceDownload('/api/v1/questions/import-template.xlsx?course_id=course_data_security'),
+  coverage: () => resourceRequest<{ items: { lesson_id: string; lesson_code: string; types: string[]; passed: boolean }[]; total: number; passed: number }>(resourceQuery('/api/v1/questions/coverage')),
+  questionImportTemplate: () => resourceDownload(resourceQuery('/api/v1/questions/import-template.xlsx')),
   importQuestions: async (file: File) => {
-    const body = new FormData(); body.append('course_id', 'course_data_security'); body.append('file', file)
+    const body = new FormData(); body.append('course_id', selectedResourceCourseId()); body.append('file', file)
     const idempotencyKey = await fileIdempotencyKey('questions', file)
     return resourceRequest<QuestionImportJob>('/api/v1/questions/import', { method: 'POST', body, headers: { 'Idempotency-Key': idempotencyKey } })
   },
   questionImportJob: (jobId: string) => resourceRequest<QuestionImportJob>(`/api/v1/questions/import-jobs/${jobId}`),
   questionImportErrors: (jobId: string) => resourceDownload(`/api/v1/questions/import-jobs/${jobId}/error-rows.xlsx`),
-  questionReviewQueue: () => resourceRequest<QuestionReviewQueue>('/api/v1/questions/review-queue?course_id=course_data_security&page_size=200'),
+  questionReviewQueue: () => resourceRequest<QuestionReviewQueue>(resourceQuery('/api/v1/questions/review-queue?page_size=200')),
   reviewQuestion: (questionId: string, decision: 'APPROVED' | 'REJECTED', comment?: string) => resourceRequest<{ question_id: string; status: string; reviewed_by?: string; reviewed_at?: string }>(`/api/v1/questions/${questionId}/review`, { method: 'POST', body: JSON.stringify({ decision, comment: comment?.trim() || null }) }),
-  audit: () => resourceRequest<Audit>('/api/v1/resources/audit/run', { method: 'POST', body: JSON.stringify({ course_id: 'course_data_security' }) }),
-  latestAudit: () => resourceRequest<Audit>('/api/v1/resources/audit/latest'),
-  manifest: () => resourceRequest<{ status: string; version_no: number | null; theory_lessons: number; lab_lessons: number; audit: Audit; content_declaration: string }>('/api/v1/resources/delivery/manifest.json'),
-  freeze: () => resourceRequest('/api/v1/resources/delivery/freeze', { method: 'POST', body: JSON.stringify({ course_id: 'course_data_security' }) }),
+  audit: () => resourceRequest<Audit>('/api/v1/resources/audit/run', { method: 'POST', body: JSON.stringify({ course_id: selectedResourceCourseId() }) }),
+  latestAudit: () => resourceRequest<Audit>(resourceQuery('/api/v1/resources/audit/latest')),
+  manifest: () => resourceRequest<{ status: string; version_no: number | null; theory_lessons: number; lab_lessons: number; audit: Audit; content_declaration: string }>(resourceQuery('/api/v1/resources/delivery/manifest.json')),
+  manifestXlsx: () => resourceDownload(resourceQuery('/api/v1/resources/delivery/manifest.xlsx')),
+  freeze: () => resourceRequest('/api/v1/resources/delivery/freeze', { method: 'POST', body: JSON.stringify({ course_id: selectedResourceCourseId() }) }),
 }
 
 export async function listLabs(): Promise<Lab[]> { return (await request<{ items: Lab[] }>('/api/v1/labs')).items }

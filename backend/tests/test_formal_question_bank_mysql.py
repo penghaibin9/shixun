@@ -1,17 +1,18 @@
 import os
+from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
 from app.common.models import DomainEventOutbox
 from app.main import app
-from app.resources.catalog import lesson_rows
 from app.resources.models import (
-    LessonResource,
     Question,
     QuestionBank,
     QuestionExplanation,
@@ -22,6 +23,8 @@ from app.resources.models import (
     QuestionReview,
     ResourceQualityCheck,
 )
+from app.teaching.catalog import curriculum_rows
+from app.teaching.models import Course, CourseChapter, CourseLesson
 
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要专属 MySQL 集成库")
@@ -40,6 +43,18 @@ def headers(user_id: str, course_id: str) -> dict[str, str]:
     }
 
 
+def workbook_for_course(course_id: str) -> bytes:
+    authority = curriculum_rows(course_id)
+    lesson_ids = {row["lesson_code"]: row["lesson_id"] for row in authority["lessons"]}
+    workbook = load_workbook(WORKBOOK_PATH)
+    sheet = workbook["题目导入"]
+    for row_number in range(2, 198):
+        sheet.cell(row_number, 1).value = lesson_ids[str(sheet.cell(row_number, 2).value)]
+    stream = BytesIO()
+    workbook.save(stream)
+    return stream.getvalue()
+
+
 def test_formal_question_bank_real_mysql_import_and_independent_review():
     engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
     client = TestClient(app)
@@ -51,11 +66,10 @@ def test_formal_question_bank_real_mysql_import_and_independent_review():
     question_ids: list[str] = []
 
     with Session(engine) as session:
-        for source in lesson_rows():
-            values = dict(source)
-            values["lesson_resource_id"] = str(uuid4())
-            values["course_id"] = course_id
-            session.add(LessonResource(**values))
+        session.add(Course(course_id=course_id, name="数据安全技术基础", term="2026 秋季", owner_teacher_id="content_author_b", major="网络空间安全", description=None, status="ACTIVE", created_at=datetime.utcnow()))
+        authority = curriculum_rows(course_id)
+        session.add_all(CourseChapter(**row) for row in authority["chapters"])
+        session.add_all(CourseLesson(**row) for row in authority["lessons"])
         session.commit()
 
     try:
@@ -66,7 +80,7 @@ def test_formal_question_bank_real_mysql_import_and_independent_review():
             files={
                 "file": (
                     WORKBOOK_PATH.name,
-                    WORKBOOK_PATH.read_bytes(),
+                    workbook_for_course(course_id),
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
             },
@@ -127,8 +141,8 @@ def test_formal_question_bank_real_mysql_import_and_independent_review():
         audit = client.post("/api/v1/resources/audit/run", headers=reviewer_headers, json={"course_id": course_id})
         assert audit.status_code == 200
         assert audit.json()["total"] == 196
-        assert audit.json()["pass"] == 61
-        assert audit.json()["blocking"] == 135
+        assert audit.json()["pass"] == 49
+        assert audit.json()["blocking"] == 147
         assert all(
             check["passed"]
             for check in audit.json()["checks"]
@@ -165,5 +179,7 @@ def test_formal_question_bank_real_mysql_import_and_independent_review():
             session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id == course_id))
             if bank_id:
                 session.execute(delete(QuestionBank).where(QuestionBank.question_bank_id == bank_id))
-            session.execute(delete(LessonResource).where(LessonResource.course_id == course_id))
+            session.execute(delete(CourseLesson).where(CourseLesson.course_id == course_id))
+            session.execute(delete(CourseChapter).where(CourseChapter.course_id == course_id))
+            session.execute(delete(Course).where(Course.course_id == course_id))
             session.commit()

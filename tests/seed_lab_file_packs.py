@@ -13,9 +13,10 @@ from sqlalchemy.orm import Session
 from app.common.context import UserContext
 from app.common.models import FileObject
 from app.main import app
-from app.resources.catalog import COURSE_ID, lesson_rows
+from app.resources.catalog import COURSE_ID
 from app.resources.models import LabFilePack, LessonResource, Resource, ResourceReview, ResourceVersion
 from app.resources.service import ResourceService
+from app.teaching.models import Course, CourseChapter, CourseLesson
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,12 +53,17 @@ for entry in index["packs"]:
 
 engine = create_engine(database_url)
 with Session(engine) as session:
-    lesson_count = session.scalar(select(func.count()).select_from(LessonResource).where(LessonResource.course_id == COURSE_ID))
-    if lesson_count == 0:
-        session.add_all(LessonResource(**row) for row in lesson_rows())
-        session.commit()
-    elif lesson_count != 49:
-        raise RuntimeError(f"课程目录不是49课时，当前为{lesson_count}课时")
+    if not session.get(Course, COURSE_ID):
+        raise RuntimeError("A 模块权威课程不存在，请先执行数据库迁移或由教学核心创建课程")
+    lessons = list(session.scalars(select(CourseLesson).where(CourseLesson.course_id == COURSE_ID)))
+    chapter_count = session.scalar(select(func.count()).select_from(CourseChapter).where(CourseChapter.course_id == COURSE_ID))
+    theory_count = sum(lesson.lesson_type == "THEORY" for lesson in lessons)
+    lab_count = sum(lesson.lesson_type == "LAB" for lesson in lessons)
+    if (len(lessons), theory_count, lab_count, chapter_count) != (49, 37, 12, 8):
+        raise RuntimeError(
+            f"A 模块权威目录不完整：总课时 {len(lessons)}，理论 {theory_count}，实验 {lab_count}，章节 {chapter_count}"
+        )
+    authority_by_code = {lesson.lesson_code: lesson for lesson in lessons}
 
 client = TestClient(app)
 author_headers = headers(AUTHOR_ID)
@@ -66,13 +72,17 @@ resource_ids: list[str] = []
 self_review_denial_verified = False
 
 for entry in index["packs"]:
-    expected_name = f"{entry['lesson_code']} {entry['title']} 正式实验文件包 v{CONTENT_VERSION}"
+    authority = authority_by_code.get(entry["lesson_code"])
+    if not authority or authority.lesson_type != "LAB":
+        raise RuntimeError(f"A 模块权威目录缺少实验课时：{entry['lesson_code']}")
+    lesson_id = authority.lesson_id
+    expected_name = f"{authority.lesson_code} {authority.title} 正式实验文件包 v{CONTENT_VERSION}"
     with Session(engine) as session:
         existing = list(
             session.scalars(
                 select(Resource).where(
                     Resource.course_id == COURSE_ID,
-                    Resource.lesson_id == entry["lesson_id"],
+                    Resource.lesson_id == lesson_id,
                     Resource.resource_type == "LAB_FILE",
                 )
             )
@@ -98,7 +108,7 @@ for entry in index["packs"]:
             headers=author_headers,
             json={
                 "course_id": COURSE_ID,
-                "lesson_id": entry["lesson_id"],
+                "lesson_id": lesson_id,
                 "name": expected_name,
                 "resource_type": "LAB_FILE",
             },
@@ -159,7 +169,7 @@ for entry in index["packs"]:
         lesson = session.scalar(
             select(LessonResource).where(
                 LessonResource.course_id == COURSE_ID,
-                LessonResource.lesson_id == entry["lesson_id"],
+                LessonResource.lesson_id == lesson_id,
             )
         )
         valid = bool(

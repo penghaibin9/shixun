@@ -96,6 +96,10 @@ async function downloadQuestionTemplate() {
   try { saveBlob(await resourceApi.questionImportTemplate(), 'question-import-template.xlsx') }
   catch (reason) { questionImportError.value = (reason as ApiError).message || '题库模板下载失败，请稍后重试。' }
 }
+async function downloadManifest() {
+  try { saveBlob(await resourceApi.manifestXlsx(), 'course-resource-manifest.xlsx') }
+  catch (reason) { error.value = (reason as ApiError).message || '交付清单下载失败，请稍后重试。' }
+}
 function openQuestionImport() {
   questionFile.value = null; questionImportError.value = ''; questionImportOpen.value = true
 }
@@ -211,7 +215,7 @@ onMounted(load); watch(page, load)
         <div class="grid grid-4 summary-grid"><div class="card kpi"><span>检查点</span><b>{{ audit.total }}</b></div><div class="card kpi"><span>通过</span><b>{{ audit.pass }}</b></div><div class="card kpi"><span>提醒</span><b>{{ audit.warning }}</b></div><div class="card kpi danger-kpi"><span>阻断</span><b>{{ audit.blocking }}</b></div></div><div class="card blockers"><h3>真实阻断项</h3><ul><li v-for="item in audit.blocking_items.slice(0, 30)" :key="item">{{ item }}</li></ul><p v-if="audit.blocking_items.length > 30" class="muted">其余 {{ audit.blocking_items.length - 30 }} 项已保留在审计 JSON（数据文本）中。</p></div>
       </template>
       <template v-else-if="page === 'delivery' && manifest">
-        <div class="grid grid-2"><div class="card delivery-card"><span class="badge" :class="{ warn: manifest.status === 'BLOCKED' }">{{ manifest.status === 'BLOCKED' ? '存在阻断' : '可交付' }}</span><h2>课程资源交付清单</h2><p>{{ manifest.content_declaration }}</p><dl><dt>理论课时</dt><dd>{{ manifest.theory_lessons }}</dd><dt>实验课时</dt><dd>{{ manifest.lab_lessons }}</dd><dt>阻断项</dt><dd>{{ manifest.audit.blocking }}</dd></dl></div><div class="card"><h3>交付文件</h3><p>JSON（结构化清单）与 XLSX（电子表格）均由当前数据库实时生成。</p><a class="yk-button" href="/api/v1/resources/delivery/manifest.xlsx">导出 XLSX（电子表格）</a></div></div>
+        <div class="grid grid-2"><div class="card delivery-card"><span class="badge" :class="{ warn: manifest.status === 'BLOCKED' }">{{ manifest.status === 'BLOCKED' ? '存在阻断' : '可交付' }}</span><h2>课程资源交付清单</h2><p>{{ manifest.content_declaration }}</p><dl><dt>理论课时</dt><dd>{{ manifest.theory_lessons }}</dd><dt>实验课时</dt><dd>{{ manifest.lab_lessons }}</dd><dt>阻断项</dt><dd>{{ manifest.audit.blocking }}</dd></dl></div><div class="card"><h3>交付文件</h3><p>JSON（结构化清单）与 XLSX（电子表格）均由当前数据库实时生成。</p><button class="yk-button" @click="downloadManifest">导出 XLSX（电子表格）</button></div></div>
       </template>
     </template>
     <YkModal :open="uploadOpen" title="上传真实课程资源" @close="uploadOpen = false">

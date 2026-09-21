@@ -1,7 +1,10 @@
+from dataclasses import dataclass
+
 from sqlalchemy import Select, and_, func, select
 from sqlalchemy.orm import Session
 
 from app.common.models import FileObject
+from app.teaching.models import CourseChapter, CourseLesson
 
 from .models import (
     LabFilePack,
@@ -21,6 +24,25 @@ from .models import (
     ResourceVersion,
     VideoAsset,
 )
+
+
+@dataclass(frozen=True)
+class ResourceLesson:
+    lesson_resource_id: str | None
+    course_id: str
+    lesson_id: str
+    lesson_kind: str
+    chapter_no: int | None
+    lesson_code: str
+    title: str
+    purpose: str | None
+    environment: str | None
+    principle: str | None
+    steps_summary: str | None
+    core_experiment: str | None
+    linked_file_pack_id: str | None
+    linked_video_resource_id: str | None
+    linked_lab_definition_id: str | None
 
 
 class ResourceRepository:
@@ -47,11 +69,42 @@ class ResourceRepository:
     def latest_version(self, resource_id: str) -> ResourceVersion | None:
         return self.session.scalar(select(ResourceVersion).where(ResourceVersion.resource_id == resource_id).order_by(ResourceVersion.version_no.desc()).limit(1))
 
-    def lessons(self, course_id: str, kind: str | None = None) -> list[LessonResource]:
-        query = select(LessonResource).where(LessonResource.course_id == course_id)
+    def lessons(self, course_id: str, kind: str | None = None) -> list[ResourceLesson]:
+        query = (
+            select(CourseLesson, CourseChapter, LessonResource)
+            .join(CourseChapter, CourseChapter.chapter_id == CourseLesson.chapter_id)
+            .outerjoin(
+                LessonResource,
+                and_(
+                    LessonResource.course_id == CourseLesson.course_id,
+                    LessonResource.lesson_id == CourseLesson.lesson_id,
+                ),
+            )
+            .where(CourseLesson.course_id == course_id)
+        )
         if kind:
-            query = query.where(LessonResource.lesson_kind == kind)
-        return list(self.session.scalars(query.order_by(LessonResource.lesson_kind, LessonResource.chapter_no, LessonResource.lesson_code)))
+            query = query.where(CourseLesson.lesson_type == kind)
+        rows = self.session.execute(query.order_by(CourseChapter.sequence, CourseLesson.sequence, CourseLesson.lesson_id)).all()
+        return [
+            ResourceLesson(
+                lesson_resource_id=extension.lesson_resource_id if extension else None,
+                course_id=lesson.course_id,
+                lesson_id=lesson.lesson_id,
+                lesson_kind=lesson.lesson_type,
+                chapter_no=chapter.sequence if lesson.lesson_type == "THEORY" else None,
+                lesson_code=lesson.lesson_code,
+                title=lesson.title,
+                purpose=extension.purpose if extension else None,
+                environment=extension.environment if extension else None,
+                principle=extension.principle if extension else None,
+                steps_summary=extension.steps_summary if extension else None,
+                core_experiment=extension.core_experiment if extension else None,
+                linked_file_pack_id=extension.linked_file_pack_id if extension else None,
+                linked_video_resource_id=extension.linked_video_resource_id if extension else None,
+                linked_lab_definition_id=extension.linked_lab_definition_id if extension else None,
+            )
+            for lesson, chapter, extension in rows
+        ]
 
     def question_bank(self, course_id: str) -> QuestionBank | None:
         return self.session.scalar(select(QuestionBank).where(QuestionBank.course_id == course_id).limit(1))
@@ -120,13 +173,13 @@ class ResourceRepository:
 
     def review_queue(self, course_id: str, *, offset: int, limit: int):
         base = (
-            select(Question, QuestionLessonMap.lesson_id, QuestionExplanation.explanation, LessonResource.lesson_code, LessonResource.title)
+            select(Question, QuestionLessonMap.lesson_id, QuestionExplanation.explanation, CourseLesson.lesson_code, CourseLesson.title)
             .join(QuestionBank, QuestionBank.question_bank_id == Question.question_bank_id)
             .join(QuestionLessonMap, QuestionLessonMap.question_id == Question.question_id)
             .join(QuestionExplanation, QuestionExplanation.question_id == Question.question_id)
             .join(
-                LessonResource,
-                and_(LessonResource.course_id == QuestionBank.course_id, LessonResource.lesson_id == QuestionLessonMap.lesson_id),
+                CourseLesson,
+                and_(CourseLesson.course_id == QuestionBank.course_id, CourseLesson.lesson_id == QuestionLessonMap.lesson_id),
             )
             .where(QuestionBank.course_id == course_id, Question.status == "PENDING_REVIEW")
         )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
@@ -14,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from app.common.models import DomainEventOutbox, FileObject
 from app.main import app
-from app.resources.catalog import lesson_rows
 from app.resources.models import (
     LabFilePack,
     LessonResource,
@@ -23,6 +23,8 @@ from app.resources.models import (
     ResourceReview,
     ResourceVersion,
 )
+from app.teaching.catalog import curriculum_rows
+from app.teaching.models import Course, CourseChapter, CourseLesson
 
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要专属 MySQL（关系型数据库）集成库")
@@ -64,18 +66,28 @@ def test_formal_lab_file_packs_upload_review_publish_and_audit(tmp_path, monkeyp
     file_ids: list[str] = []
 
     with Session(engine) as session:
-        for source in lesson_rows():
-            if source["lesson_kind"] != "LAB":
-                continue
-            row = dict(source)
-            row["lesson_resource_id"] = str(uuid4())
-            row["course_id"] = course_id
-            session.add(LessonResource(**row))
+        session.add(
+            Course(
+                course_id=course_id,
+                name="数据安全技术基础",
+                term="2026 秋季",
+                owner_teacher_id=author["X-Teacher-Id"],
+                major="网络空间安全",
+                description=None,
+                status="ACTIVE",
+                created_at=datetime.utcnow(),
+            )
+        )
+        authority = curriculum_rows(course_id)
+        session.add_all(CourseChapter(**row) for row in authority["chapters"])
+        session.add_all(CourseLesson(**row) for row in authority["lessons"])
         session.commit()
+    lesson_ids = {row["lesson_code"]: row["lesson_id"] for row in authority["lessons"]}
 
     client = TestClient(app)
     try:
         for number, entry in enumerate(INDEX["packs"]):
+            lesson_id = lesson_ids[entry["lesson_code"]]
             content = isolated_archive(entry, suffix)
             uploaded = client.post(
                 "/api/v1/resources/files",
@@ -92,7 +104,7 @@ def test_formal_lab_file_packs_upload_review_publish_and_audit(tmp_path, monkeyp
                 headers=author,
                 json={
                     "course_id": course_id,
-                    "lesson_id": entry["lesson_id"],
+                    "lesson_id": lesson_id,
                     "name": f"{entry['lesson_code']} {entry['title']} 集成验证 {suffix}",
                     "resource_type": "LAB_FILE",
                 },
@@ -136,11 +148,11 @@ def test_formal_lab_file_packs_upload_review_publish_and_audit(tmp_path, monkeyp
         readiness = client.get("/api/v1/resources/readiness", headers=reviewer, params={"course_id": course_id})
         assert readiness.status_code == 200, readiness.text
         assert readiness.json()["lab_file"] == {"ready": 12, "required": 12}
-        assert readiness.json()["blocking"] == 24
+        assert readiness.json()["blocking"] == 184
 
         audit = client.post("/api/v1/resources/audit/run", headers=reviewer, json={"course_id": course_id})
         assert audit.status_code == 200, audit.text
-        assert (audit.json()["total"], audit.json()["pass"], audit.json()["blocking"]) == (48, 24, 24)
+        assert (audit.json()["total"], audit.json()["pass"], audit.json()["blocking"]) == (196, 12, 184)
 
         downloaded = client.get(f"/api/v1/resources/{resource_ids[0]}/download", headers=reviewer)
         assert downloaded.status_code == 200
@@ -157,7 +169,6 @@ def test_formal_lab_file_packs_upload_review_publish_and_audit(tmp_path, monkeyp
                 session.scalars(
                     select(LessonResource.linked_file_pack_id).where(
                         LessonResource.course_id == course_id,
-                        LessonResource.lesson_kind == "LAB",
                     )
                 )
             )
@@ -179,4 +190,7 @@ def test_formal_lab_file_packs_upload_review_publish_and_audit(tmp_path, monkeyp
             session.execute(delete(ResourceQualityCheck).where(ResourceQualityCheck.course_id == course_id))
             session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id == course_id))
             session.execute(delete(LessonResource).where(LessonResource.course_id == course_id))
+            session.execute(delete(CourseLesson).where(CourseLesson.course_id == course_id))
+            session.execute(delete(CourseChapter).where(CourseChapter.course_id == course_id))
+            session.execute(delete(Course).where(Course.course_id == course_id))
             session.commit()

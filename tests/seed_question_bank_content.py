@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session
 
 from app.common.context import UserContext
 from app.main import app
-from app.resources.catalog import COURSE_ID, lesson_rows
-from app.resources.models import LessonResource, Question, QuestionBank, QuestionReview
+from app.resources.catalog import COURSE_ID
+from app.resources.models import Question, QuestionBank, QuestionReview
 from app.resources.question_xlsx import parse_question_workbook
 from app.resources.service import ResourceService
+from app.teaching.models import Course, CourseChapter, CourseLesson
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,19 +39,27 @@ if database_name != EXPECTED_DATABASE:
     raise RuntimeError(f"内容题库脚本只允许写入隔离开发库 {EXPECTED_DATABASE}，当前为 {database_name}")
 
 engine = create_engine(database_url)
-workbook_bytes = WORKBOOK_PATH.read_bytes()
-expected_rows, total = parse_question_workbook(workbook_bytes, lesson_rows())
-if total != 196 or any(row["status"] != "VALID" for row in expected_rows):
-    raise RuntimeError("正式题库工作簿未通过196行导入校验")
-expected_stems = {row["normalized_data"]["stem"] for row in expected_rows}
-
 with Session(engine) as session:
-    lesson_count = session.scalar(select(func.count()).select_from(LessonResource).where(LessonResource.course_id == COURSE_ID))
-    if lesson_count == 0:
-        session.add_all(LessonResource(**row) for row in lesson_rows())
-        session.commit()
-    elif lesson_count != 49:
-        raise RuntimeError(f"课程目录不是49课时，当前为{lesson_count}课时")
+    if not session.get(Course, COURSE_ID):
+        raise RuntimeError("A 模块权威课程不存在，请先执行数据库迁移或由教学核心创建课程")
+    lessons = list(session.scalars(select(CourseLesson).where(CourseLesson.course_id == COURSE_ID)))
+    chapter_count = session.scalar(select(func.count()).select_from(CourseChapter).where(CourseChapter.course_id == COURSE_ID))
+    theory_count = sum(lesson.lesson_type == "THEORY" for lesson in lessons)
+    lab_count = sum(lesson.lesson_type == "LAB" for lesson in lessons)
+    if (len(lessons), theory_count, lab_count, chapter_count) != (49, 37, 12, 8):
+        raise RuntimeError(
+            f"A 模块权威目录不完整：总课时 {len(lessons)}，理论 {theory_count}，实验 {lab_count}，章节 {chapter_count}"
+        )
+    lesson_catalog = [
+        {"lesson_id": lesson.lesson_id, "lesson_code": lesson.lesson_code}
+        for lesson in lessons
+    ]
+
+workbook_bytes = WORKBOOK_PATH.read_bytes()
+expected_rows, total = parse_question_workbook(workbook_bytes, lesson_catalog)
+if total != 196 or any(row["status"] != "VALID" for row in expected_rows):
+    raise RuntimeError("正式题库工作簿未通过 A 模块 49 课时权威目录校验")
+expected_stems = {row["normalized_data"]["stem"] for row in expected_rows}
 
 client = TestClient(app)
 author_headers = headers("content_author_b")

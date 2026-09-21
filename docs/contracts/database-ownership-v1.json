@@ -1,5 +1,23 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "authority_contracts": {
+    "curriculum": {
+      "owner": "A",
+      "tables": [
+        "course",
+        "course_chapter",
+        "course_lesson"
+      ],
+      "consumer_references": [
+        "resource.course_id+lesson_id",
+        "lesson_resource.course_id+lesson_id",
+        "question_bank.course_id",
+        "question_import_job.course_id+question_bank_id",
+        "question_lesson_map.lesson_id"
+      ],
+      "rule": "课程、章节、课时编号、标题与类型只由 A 维护；B 仅维护资源扩展与交付证据。"
+    }
+  },
   "owners": {
     "00": [
       "domain_event_outbox",

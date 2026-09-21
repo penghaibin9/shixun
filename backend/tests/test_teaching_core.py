@@ -56,6 +56,40 @@ def build_course_class(client: TestClient):
     return course_id, created_class.json()["class_id"]
 
 
+def test_course_creation_builds_authoritative_49_lesson_catalog_and_rejects_cross_course_lesson(test_context):
+    client, _ = test_context
+    first_course, first_class = build_course_class(client)
+    first_headers = headers("teaching.course.read", "teaching.attendance.write", course_id=first_course, class_id=first_class)
+    catalog = client.get(f"/api/v1/courses/{first_course}/lessons", headers=first_headers)
+    assert catalog.status_code == 200
+    payload = catalog.json()
+    assert (payload["total"], payload["theory_count"], payload["lab_count"]) == (49, 37, 12)
+    assert [item["lesson_code"] for item in payload["items"] if item["chapter_sequence"] == 7] == ["7.1", "7.2", "7.3", "7.4"]
+    assert payload["items"][-1]["lesson_code"] == "实验12"
+
+    second_course, _ = build_course_class(client)
+    foreign_lesson = client.get(
+        f"/api/v1/courses/{second_course}/lessons",
+        headers=headers("teaching.course.read", course_id=second_course),
+    ).json()["items"][0]["lesson_id"]
+    start, end = datetime.utcnow(), datetime.utcnow() + timedelta(minutes=30)
+    denied = client.post(
+        "/api/v1/attendance/tasks",
+        headers=first_headers,
+        json={
+            "course_id": first_course,
+            "class_id": first_class,
+            "lesson_id": foreign_lesson,
+            "task_type": "CLASSROOM",
+            "title": "跨课程课时校验",
+            "starts_at": start.isoformat(),
+            "expires_at": end.isoformat(),
+        },
+    )
+    assert denied.status_code == 422
+    assert denied.json()["code"] == "COURSE.LESSON_SCOPE_MISMATCH"
+
+
 def test_g1_course_class_xlsx_import_idempotency_and_error_rows(test_context):
     client, _ = test_context; course_id, class_id = build_course_class(client)
     scoped = headers("teaching.members.read", "teaching.members.import", course_id=course_id, class_id=class_id)

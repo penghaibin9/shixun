@@ -5,12 +5,15 @@ import pytest
 from openpyxl import load_workbook
 
 from app.resources import question_xlsx
-from app.resources.catalog import lesson_rows
 from app.resources.question_xlsx import HEADERS, InvalidQuestionWorkbook, error_rows_bytes, parse_question_workbook, template_bytes
+from app.teaching.catalog import curriculum_rows
+
+
+AUTHORITY_LESSONS = curriculum_rows()["lessons"]
 
 
 def completed_workbook() -> bytes:
-    workbook = load_workbook(BytesIO(template_bytes(lesson_rows())))
+    workbook = load_workbook(BytesIO(template_bytes(AUTHORITY_LESSONS)))
     sheet = workbook["题目导入"]
     for row_number in range(2, 198):
         question_type = sheet.cell(row_number, 3).value
@@ -40,7 +43,7 @@ def row_errors(rows: list[dict], row_number: int) -> set[str]:
 
 
 def test_template_contains_exactly_49_by_4_prefilled_slots():
-    workbook = load_workbook(BytesIO(template_bytes(lesson_rows())))
+    workbook = load_workbook(BytesIO(template_bytes(AUTHORITY_LESSONS)))
     sheet = workbook["题目导入"]
 
     assert [cell.value for cell in sheet[1]] == HEADERS
@@ -52,7 +55,7 @@ def test_template_contains_exactly_49_by_4_prefilled_slots():
 
 
 def test_parser_accepts_a_complete_196_row_workbook():
-    rows, total = parse_question_workbook(completed_workbook(), lesson_rows())
+    rows, total = parse_question_workbook(completed_workbook(), AUTHORITY_LESSONS)
 
     assert total == 196
     assert len(rows) == 196
@@ -69,7 +72,7 @@ def test_parser_reports_formula_mismatch_and_answer_errors_by_excel_row():
     stream = BytesIO()
     workbook.save(stream)
 
-    rows, total = parse_question_workbook(stream.getvalue(), lesson_rows())
+    rows, total = parse_question_workbook(stream.getvalue(), AUTHORITY_LESSONS)
 
     assert total == 196
     assert "QUESTION_IMPORT.DANGEROUS_CELL" in row_errors(rows, 2)
@@ -89,7 +92,7 @@ def test_parser_reports_file_level_count_and_missing_slot_errors():
     stream = BytesIO()
     workbook.save(stream)
 
-    rows, total = parse_question_workbook(stream.getvalue(), lesson_rows())
+    rows, total = parse_question_workbook(stream.getvalue(), AUTHORITY_LESSONS)
 
     assert total == 195
     assert rows[0]["row_number"] == 0
@@ -103,7 +106,7 @@ def test_parser_bounds_declared_rows_without_iterating_the_entire_sheet():
     stream = BytesIO()
     workbook.save(stream)
 
-    rows, total = parse_question_workbook(stream.getvalue(), lesson_rows())
+    rows, total = parse_question_workbook(stream.getvalue(), AUTHORITY_LESSONS)
 
     assert total == 99_999
     assert len(rows) == 197
@@ -111,7 +114,7 @@ def test_parser_bounds_declared_rows_without_iterating_the_entire_sheet():
 
 
 def test_parser_rejects_an_xlsx_with_excessive_uncompressed_content(monkeypatch):
-    source = BytesIO(template_bytes(lesson_rows()))
+    source = BytesIO(template_bytes(AUTHORITY_LESSONS))
     expanded = BytesIO()
     with ZipFile(source) as original, ZipFile(expanded, "w", ZIP_DEFLATED) as rebuilt:
         for entry in original.infolist():
@@ -120,6 +123,6 @@ def test_parser_rejects_an_xlsx_with_excessive_uncompressed_content(monkeypatch)
     monkeypatch.setattr(question_xlsx, "MAX_XLSX_UNCOMPRESSED_BYTES", 512)
 
     with pytest.raises(InvalidQuestionWorkbook) as captured:
-        parse_question_workbook(expanded.getvalue(), lesson_rows())
+        parse_question_workbook(expanded.getvalue(), AUTHORITY_LESSONS)
 
     assert captured.value.code == "QUESTION_IMPORT.ARCHIVE_TOO_LARGE"

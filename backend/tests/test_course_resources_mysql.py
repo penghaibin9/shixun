@@ -15,11 +15,13 @@ from app.common.models import DomainEventOutbox, FileObject
 from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.main import app
-from app.resources.catalog import COURSE_ID, lesson_rows
-from app.resources.models import LessonResource, PptAsset, Question, QuestionBank, QuestionExplanation, QuestionImportJob, QuestionImportRow, QuestionLessonMap, QuestionOption, QuestionReview, Resource, ResourceDeliveryManifest, ResourceVersion, VideoAsset
+from app.resources.catalog import COURSE_ID
+from app.resources.models import PptAsset, Question, QuestionBank, QuestionExplanation, QuestionImportJob, QuestionImportRow, QuestionLessonMap, QuestionOption, QuestionReview, Resource, ResourceDeliveryManifest, ResourceVersion, VideoAsset
 from app.resources.repository import ResourceRepository
 from app.resources.service import ResourceService
 from app.resources.schemas import QuestionReviewDecision
+from app.teaching.catalog import curriculum_rows
+from app.teaching.models import Course, CourseChapter, CourseLesson
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要专属 MySQL 集成库")
 
@@ -31,6 +33,32 @@ HEADERS = {
     "X-Permissions": "resources:read,resources:write,resources:review,resources:freeze",
 }
 REVIEW_HEADERS = {**HEADERS, "X-User-Id": "reviewer_b", "X-Teacher-Id": "reviewer_b"}
+
+
+def seed_authoritative_catalog(session: Session, course_id: str) -> None:
+    session.add(Course(course_id=course_id, name="数据安全技术基础", term="2026 秋季", owner_teacher_id="teacher_b", major="网络空间安全", description=None, status="ACTIVE", created_at=datetime.utcnow()))
+    authority = curriculum_rows(course_id)
+    session.add_all(CourseChapter(**row) for row in authority["chapters"])
+    session.add_all(CourseLesson(**row) for row in authority["lessons"])
+    session.commit()
+
+
+def delete_authoritative_catalog(session: Session, course_id: str) -> None:
+    session.execute(delete(CourseLesson).where(CourseLesson.course_id == course_id))
+    session.execute(delete(CourseChapter).where(CourseChapter.course_id == course_id))
+    session.execute(delete(Course).where(Course.course_id == course_id))
+
+
+def authoritative_lesson_id(engine, course_id: str, lesson_code: str) -> str:
+    with Session(engine) as session:
+        lesson_id = session.scalar(
+            select(CourseLesson.lesson_id).where(
+                CourseLesson.course_id == course_id,
+                CourseLesson.lesson_code == lesson_code,
+            )
+        )
+    assert lesson_id is not None
+    return lesson_id
 
 
 @pytest.fixture()
@@ -87,6 +115,7 @@ def test_real_file_upload_version_download_and_readiness(client, tmp_path, monke
     monkeypatch.setenv("YUEKE_RESOURCE_UPLOAD_DIR", str(tmp_path))
     engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
     suffix = uuid4().hex[:8]
+    lesson_id = authoritative_lesson_id(engine, COURSE_ID, "3.2")
     resource_id = file_id = None
     content = b"PK\x03\x04real-pptx-upload-" + suffix.encode()
     try:
@@ -109,7 +138,7 @@ def test_real_file_upload_version_download_and_readiness(client, tmp_path, monke
         )
         assert duplicate.status_code == 201 and duplicate.json()["file_id"] == file_id
 
-        resource = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": "lesson_theory_3_2", "name": f"真实上传讲义 {suffix}", "resource_type": "PPT"})
+        resource = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": lesson_id, "name": f"真实上传讲义 {suffix}", "resource_type": "PPT"})
         assert resource.status_code == 201
         resource_id = resource.json()["resource_id"]
         version = client.post(f"/api/v1/resources/{resource_id}/versions", headers=HEADERS, json={"file_id": file_id, "sha256": file_data["sha256"]})
@@ -128,7 +157,7 @@ def test_real_file_upload_version_download_and_readiness(client, tmp_path, monke
         assert readiness.json()["published_questions"]["required"] == 196
         assert readiness.json()["ppt"]["required"] == 37
 
-        mismatch = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": "lesson_theory_3_2", "name": f"类型不符 {suffix}", "resource_type": "VIDEO"})
+        mismatch = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": lesson_id, "name": f"类型不符 {suffix}", "resource_type": "VIDEO"})
         mismatch_id = mismatch.json()["resource_id"]
         mismatch_version = client.post(f"/api/v1/resources/{mismatch_id}/versions", headers=HEADERS, json={"file_id": file_id, "sha256": file_data["sha256"]})
         assert mismatch_version.status_code == 422 and mismatch_version.json()["code"] == "RESOURCE.FILE_TYPE_MISMATCH"
@@ -156,6 +185,7 @@ def test_real_file_upload_version_download_and_readiness(client, tmp_path, monke
 def test_three_dimension_filter_sha_duration_and_frozen_immutability(client, tmp_path):
     engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
     suffix = uuid4().hex[:8]
+    lesson_id = authoritative_lesson_id(engine, COURSE_ID, "3.2")
     created_ids = []
     file_id = f"file_{suffix}"
     sha = "a" * 64
@@ -166,7 +196,7 @@ def test_three_dimension_filter_sha_duration_and_frozen_immutability(client, tmp
         session.commit()
     try:
         for name, resource_type in [(f"RSA 视频 {suffix}", "VIDEO"), (f"RSA 讲义 {suffix}", "PPT")]:
-            response = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": "lesson_theory_3_2", "name": name, "resource_type": resource_type})
+            response = client.post("/api/v1/resources", headers=HEADERS, json={"course_id": COURSE_ID, "lesson_id": lesson_id, "name": name, "resource_type": resource_type})
             assert response.status_code == 201
             created_ids.append(response.json()["resource_id"])
         filtered = client.get("/api/v1/resources", headers=HEADERS, params={"course_id": COURSE_ID, "status": "DRAFT", "name": suffix, "resource_type": "VIDEO"}).json()
@@ -195,7 +225,7 @@ def test_three_dimension_filter_sha_duration_and_frozen_immutability(client, tmp
 
 def test_question_coverage_requires_four_published_types(client):
     engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
-    lesson_id = "lesson_theory_3_2"
+    lesson_id = authoritative_lesson_id(engine, COURSE_ID, "3.2")
     question_ids = []
     try:
         for question_type in ["FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE"]:
@@ -236,12 +266,7 @@ def test_question_xlsx_import_idempotency_error_rows_and_independent_review(clie
     question_ids: list[str] = []
 
     with Session(engine) as session:
-        for source in lesson_rows():
-            values = dict(source)
-            values["lesson_resource_id"] = str(uuid4())
-            values["course_id"] = course_id
-            session.add(LessonResource(**values))
-        session.commit()
+        seed_authoritative_catalog(session, course_id)
 
     try:
         template = client.get("/api/v1/questions/import-template.xlsx", headers=author_headers, params={"course_id": course_id})
@@ -376,7 +401,7 @@ def test_question_xlsx_import_idempotency_error_rows_and_independent_review(clie
                 session.execute(delete(QuestionImportJob).where(QuestionImportJob.import_job_id.in_(job_ids)))
             if bank_id:
                 session.execute(delete(QuestionBank).where(QuestionBank.question_bank_id == bank_id))
-            session.execute(delete(LessonResource).where(LessonResource.course_id == course_id))
+            delete_authoritative_catalog(session, course_id)
             session.commit()
 
 
@@ -407,12 +432,7 @@ def test_question_import_and_review_are_serialized_under_concurrency(client, mon
 
     with Session(engine) as session:
         for course_id in courses:
-            for source in lesson_rows():
-                values = dict(source)
-                values["lesson_resource_id"] = str(uuid4())
-                values["course_id"] = course_id
-                session.add(LessonResource(**values))
-        session.commit()
+            seed_authoritative_catalog(session, course_id)
 
     try:
         template = client.get(
@@ -422,6 +442,13 @@ def test_question_import_and_review_are_serialized_under_concurrency(client, mon
         )
         assert template.status_code == 200
         content = complete_question_template(template.content)
+        competing_template = client.get(
+            "/api/v1/questions/import-template.xlsx",
+            headers={**HEADERS, "X-Course-Ids": competing_course},
+            params={"course_id": competing_course},
+        )
+        assert competing_template.status_code == 200
+        competing_content = complete_question_template(competing_template.content)
 
         replay_gate = Barrier(2)
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -436,7 +463,7 @@ def test_question_import_and_review_are_serialized_under_concurrency(client, mon
         competing_gate = Barrier(2)
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [
-                executor.submit(run_import, competing_course, f"key-{index}-{suffix}", competing_gate, content)
+                executor.submit(run_import, competing_course, f"key-{index}-{suffix}", competing_gate, competing_content)
                 for index in range(2)
             ]
             competing_results = [future.result(timeout=60) for future in futures]
@@ -504,7 +531,7 @@ def test_question_import_and_review_are_serialized_under_concurrency(client, mon
                     session.execute(delete(QuestionImportJob).where(QuestionImportJob.import_job_id.in_(job_ids)))
                 if bank_ids:
                     session.execute(delete(QuestionBank).where(QuestionBank.question_bank_id.in_(bank_ids)))
-                session.execute(delete(LessonResource).where(LessonResource.course_id == course_id))
+                delete_authoritative_catalog(session, course_id)
             session.commit()
 
 

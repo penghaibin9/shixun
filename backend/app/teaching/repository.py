@@ -20,6 +20,23 @@ class TeachingRepository:
         stmt = select(m.Course).where(m.Course.course_id.in_(course_ids)).order_by(m.Course.created_at.desc())
         return list(self.session.scalars(stmt))
 
+    def course_lessons(self, course_id: str):
+        stmt = (
+            select(m.CourseLesson, m.CourseChapter)
+            .join(m.CourseChapter, m.CourseChapter.chapter_id == m.CourseLesson.chapter_id)
+            .where(m.CourseLesson.course_id == course_id)
+            .order_by(m.CourseChapter.sequence, m.CourseLesson.sequence, m.CourseLesson.lesson_id)
+        )
+        return self.session.execute(stmt).all()
+
+    def course_lesson(self, course_id: str, lesson_id: str):
+        return self.session.scalar(
+            select(m.CourseLesson).where(
+                m.CourseLesson.course_id == course_id,
+                m.CourseLesson.lesson_id == lesson_id,
+            )
+        )
+
     def list_classes(self, class_ids: frozenset[str]):
         stmt = select(m.TeachingClass).where(m.TeachingClass.class_id.in_(class_ids)).order_by(m.TeachingClass.created_at.desc())
         return list(self.session.scalars(stmt))

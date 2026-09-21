@@ -36,6 +36,10 @@ def list_courses(db: Db, user: CurrentUser): return service(db, user).list_cours
 def get_course(course_id: str, db: Db, user: CurrentUser): return service(db, user).get_course(course_id)
 
 
+@router.get("/courses/{course_id}/lessons")
+def list_course_lessons(course_id: str, db: Db, user: CurrentUser): return service(db, user).course_lessons(course_id)
+
+
 @router.patch("/courses/{course_id}")
 def patch_course(course_id: str, body: CoursePatch, db: Db, user: CurrentUser): return service(db, user).patch_course(course_id, body)
 

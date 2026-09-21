@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.models import Base
@@ -8,9 +8,17 @@ from app.common.models import Base
 
 class Resource(Base):
     __tablename__ = "resource"
-    __table_args__ = (Index("ix_resource_filter", "course_id", "status", "resource_type", "name"),)
+    __table_args__ = (
+        Index("ix_resource_filter", "course_id", "status", "resource_type", "name"),
+        ForeignKeyConstraint(
+            ["course_id", "lesson_id"],
+            ["course_lesson.course_id", "course_lesson.lesson_id"],
+            name="fk_resource_course_lesson",
+            ondelete="RESTRICT",
+        ),
+    )
     resource_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    course_id: Mapped[str] = mapped_column(String(36), index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="RESTRICT"), index=True)
     lesson_id: Mapped[str | None] = mapped_column(String(36), index=True)
     name: Mapped[str] = mapped_column(String(255))
     resource_type: Mapped[str] = mapped_column(String(32))
@@ -38,7 +46,16 @@ class ResourceVersion(Base):
 
 class LessonResource(Base):
     __tablename__ = "lesson_resource"
-    __table_args__ = (UniqueConstraint("course_id", "lesson_id", name="uq_lesson_resource_contract"), Index("ix_lesson_resource_kind", "course_id", "lesson_kind", "lesson_code"))
+    __table_args__ = (
+        UniqueConstraint("course_id", "lesson_id", name="uq_lesson_resource_contract"),
+        Index("ix_lesson_resource_kind", "course_id", "lesson_kind", "lesson_code"),
+        ForeignKeyConstraint(
+            ["course_id", "lesson_id"],
+            ["course_lesson.course_id", "course_lesson.lesson_id"],
+            name="fk_lesson_resource_course_lesson",
+            ondelete="RESTRICT",
+        ),
+    )
     lesson_resource_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     course_id: Mapped[str] = mapped_column(String(36))
     lesson_id: Mapped[str] = mapped_column(String(36))
@@ -69,7 +86,7 @@ class ResourceReview(Base):
 class ResourceQualityCheck(Base):
     __tablename__ = "resource_quality_check"
     resource_quality_check_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    course_id: Mapped[str] = mapped_column(String(36), index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="RESTRICT"), index=True)
     resource_version_id: Mapped[str | None] = mapped_column(String(36), index=True)
     check_type: Mapped[str] = mapped_column(String(32))
     result: Mapped[str] = mapped_column(String(16))
@@ -82,7 +99,7 @@ class ResourceDeliveryManifest(Base):
     __tablename__ = "resource_delivery_manifest"
     __table_args__ = (UniqueConstraint("course_id", "version_no", name="uq_delivery_manifest_version"),)
     resource_delivery_manifest_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    course_id: Mapped[str] = mapped_column(String(36), index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="RESTRICT"), index=True)
     version_no: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16))
     manifest_json: Mapped[dict] = mapped_column(JSON)
@@ -122,9 +139,12 @@ class LabFilePack(Base):
 
 class QuestionBank(Base):
     __tablename__ = "question_bank"
-    __table_args__ = (UniqueConstraint("course_id", name="uq_question_bank_course"),)
+    __table_args__ = (
+        UniqueConstraint("course_id", name="uq_question_bank_course"),
+        UniqueConstraint("course_id", "question_bank_id", name="uq_question_bank_scope"),
+    )
     question_bank_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    course_id: Mapped[str] = mapped_column(String(36), index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="RESTRICT"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(32), default="DRAFT")
     created_by: Mapped[str] = mapped_column(String(36))
@@ -136,10 +156,16 @@ class QuestionImportJob(Base):
     __table_args__ = (
         UniqueConstraint("course_id", "idempotency_key", name="uq_question_import_course_idempotency"),
         Index("ix_question_import_course_created", "course_id", "created_at"),
+        ForeignKeyConstraint(
+            ["course_id", "question_bank_id"],
+            ["question_bank.course_id", "question_bank.question_bank_id"],
+            name="fk_question_import_bank_scope",
+            ondelete="RESTRICT",
+        ),
     )
     import_job_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     course_id: Mapped[str] = mapped_column(String(36))
-    question_bank_id: Mapped[str] = mapped_column(ForeignKey("question_bank.question_bank_id", ondelete="RESTRICT"), index=True)
+    question_bank_id: Mapped[str] = mapped_column(String(36), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128))
     request_sha256: Mapped[str] = mapped_column(String(64))
     original_filename: Mapped[str] = mapped_column(String(255))
@@ -222,4 +248,4 @@ class QuestionLessonMap(Base):
     __table_args__ = (UniqueConstraint("question_id", "lesson_id", name="uq_question_lesson"),)
     question_lesson_map_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     question_id: Mapped[str] = mapped_column(ForeignKey("question.question_id", ondelete="CASCADE"), index=True)
-    lesson_id: Mapped[str] = mapped_column(String(36), index=True)
+    lesson_id: Mapped[str] = mapped_column(ForeignKey("course_lesson.lesson_id", ondelete="RESTRICT"), index=True)

@@ -115,7 +115,7 @@ def main() -> None:
         session.flush()
         session.add(teaching.CourseChapter(chapter_id="chapter_g8_gate", course_id=COURSE_ID, title="综合实验", sequence=1))
         session.flush()
-        session.add(teaching.CourseLesson(lesson_id=LESSON_ID, course_id=COURSE_ID, chapter_id="chapter_g8_gate", title="RSA 综合实训", sequence=1, lesson_type="LAB"))
+        session.add(teaching.CourseLesson(lesson_id=LESSON_ID, course_id=COURSE_ID, chapter_id="chapter_g8_gate", lesson_code="G8-01", title="RSA 综合实训", sequence=1, lesson_type="LAB"))
         session.add(teaching.ClassCourse(class_course_id="cc_g8_gate", class_id=CLASS_ID, course_id=COURSE_ID))
         session.add(teaching.TeachingTeacherAssignment(assignment_id="tta_g8_gate", teacher_id="teacher_f", class_id=CLASS_ID, course_id=COURSE_ID))
         for index, student_id in enumerate(STUDENTS, 1):

@@ -5,6 +5,7 @@ from zipfile import ZipFile
 
 from app.resources.catalog import LAB_LESSONS
 from app.resources.storage import archive_file_count
+from app.teaching.catalog import curriculum_rows
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +21,11 @@ def test_lab_file_pack_catalog_and_archives_are_complete():
     assert source["version"] == index["content_version"]
     assert len(source["packs"]) == index["pack_count"] == len(LAB_LESSONS) == 12
     assert [pack["lessonCode"] for pack in source["packs"]] == [f"实验{code}" for code, _, _ in LAB_LESSONS]
+    authority_ids = {
+        lesson["lesson_code"]: lesson["lesson_id"]
+        for lesson in curriculum_rows()["lessons"]
+        if lesson["lesson_type"] == "LAB"
+    }
 
     for entry in index["packs"]:
         archive_path = PACK_DIR / entry["filename"]
@@ -34,8 +40,8 @@ def test_lab_file_pack_catalog_and_archives_are_complete():
             assert {"README.md", "NOTICE.txt", "pack-manifest.json"} <= set(names)
             assert all(not PurePosixPath(name).is_absolute() and ".." not in PurePosixPath(name).parts for name in names)
             manifest = json.loads(archive.read("pack-manifest.json"))
-            assert manifest["lesson_id"] == entry["lesson_id"]
             assert manifest["lesson_code"] == entry["lesson_code"]
+            assert manifest["lesson_id"] == authority_ids[manifest["lesson_code"]]
             assert manifest["verify_command"] == entry["verify_command"]
             assert manifest["expected_outputs"]
             for item in manifest["files"]:

@@ -13,6 +13,7 @@ from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.models import FileObject
 from app.common.outbox import enqueue_event
+from app.teaching.models import Course, CourseLesson
 
 from .catalog import COURSE_ID
 from .models import (
@@ -36,7 +37,7 @@ from .models import (
 )
 from .media import probe_local_video
 from .question_xlsx import MAX_XLSX_UPLOAD_BYTES, InvalidQuestionWorkbook, error_rows_bytes, parse_question_workbook, template_bytes
-from .repository import ResourceRepository
+from .repository import ResourceLesson, ResourceRepository
 from .schemas import QuestionCreate, QuestionPatch, ResourceCreate, VersionCreate
 from .storage import archive_file_count, save_upload, upload_root
 
@@ -57,6 +58,8 @@ class ResourceService:
             raise ApiError("RESOURCE.COURSE_SCOPE_DENIED", "无权访问该课程资源", 403)
         if permission not in self.user.permissions and "resources:manage" not in self.user.permissions:
             raise ApiError("AUTH.PERMISSION_DENIED", "缺少课程资源操作权限", 403)
+        if not self.session.get(Course, course_id):
+            raise ApiError("RESOURCE.COURSE_NOT_FOUND", "课程不存在，请先在教学核心中创建课程", 404)
 
     def list_resources(self, course_id: str, status: str | None, name: str | None, resource_type: str | None) -> dict:
         self._course(course_id)
@@ -114,16 +117,19 @@ class ResourceService:
             return sum(check["passed"] for check in audit["checks"] if check["requirement"] == requirement and kinds.get(check["lesson_id"]) == kind)
 
         question_total = sum(len(items) for items in self.repo.question_evidence(course_id).values())
+        theory_total = sum(kind == "THEORY" for kind in kinds.values())
+        lab_total = sum(kind == "LAB" for kind in kinds.values())
+        lesson_total = len(lessons)
         return {
             "course_id": course_id,
-            "theory_lessons": 37,
-            "lab_lessons": 12,
-            "ppt": {"ready": count("PPT", "THEORY"), "required": 37},
-            "theory_video": {"ready": count("VIDEO", "THEORY"), "required": 37},
-            "lab_file": {"ready": count("LAB_FILE", "LAB"), "required": 12},
-            "lab_video": {"ready": count("VIDEO", "LAB"), "required": 12},
-            "question_lessons": {"ready": sum(check["passed"] for check in audit["checks"] if check["requirement"] == "QUESTION_BANK"), "required": 49},
-            "published_questions": {"ready": question_total, "required": 196},
+            "theory_lessons": theory_total,
+            "lab_lessons": lab_total,
+            "ppt": {"ready": count("PPT", "THEORY"), "required": theory_total},
+            "theory_video": {"ready": count("VIDEO", "THEORY"), "required": theory_total},
+            "lab_file": {"ready": count("LAB_FILE", "LAB"), "required": lab_total},
+            "lab_video": {"ready": count("VIDEO", "LAB"), "required": lab_total},
+            "question_lessons": {"ready": sum(check["passed"] for check in audit["checks"] if check["requirement"] == "QUESTION_BANK"), "required": lesson_total},
+            "published_questions": {"ready": question_total, "required": lesson_total * len(QUESTION_TYPES)},
             "blocking": audit["blocking"],
         }
 
@@ -141,7 +147,7 @@ class ResourceService:
 
     def create_resource(self, data: ResourceCreate) -> dict:
         self._course(data.course_id, "resources:write")
-        if data.lesson_id and not self.session.scalar(select(LessonResource).where(LessonResource.course_id == data.course_id, LessonResource.lesson_id == data.lesson_id)):
+        if data.lesson_id and not self.session.scalar(select(CourseLesson).where(CourseLesson.course_id == data.course_id, CourseLesson.lesson_id == data.lesson_id)):
             raise ApiError("RESOURCE.LESSON_NOT_FOUND", "课时标识不属于该课程资源目录", 422)
         stamp = now()
         item = Resource(resource_id=str(uuid4()), **data.model_dump(), status="DRAFT", created_by=self.user.user_id, created_at=stamp, updated_at=stamp)
@@ -184,6 +190,24 @@ class ResourceService:
             pack = LabFilePack(lab_file_pack_id=str(uuid4()), resource_version_id=version.resource_version_id, file_count=file_count, total_size_bytes=file_object.size_bytes)
             self.repo.add(pack)
             lesson = self.session.scalar(select(LessonResource).where(LessonResource.course_id == item.course_id, LessonResource.lesson_id == item.lesson_id))
+            if not lesson and item.lesson_id:
+                authority = next((row for row in self.repo.lessons(item.course_id) if row.lesson_id == item.lesson_id), None)
+                if authority:
+                    lesson = LessonResource(
+                        lesson_resource_id=str(uuid4()),
+                        course_id=authority.course_id,
+                        lesson_id=authority.lesson_id,
+                        lesson_kind=authority.lesson_kind,
+                        chapter_no=authority.chapter_no,
+                        lesson_code=authority.lesson_code,
+                        title=authority.title,
+                        purpose=None,
+                        environment=None,
+                        principle=None,
+                        steps_summary=None,
+                        core_experiment=None,
+                    )
+                    self.repo.add(lesson)
             if lesson:
                 lesson.linked_file_pack_id = pack.lab_file_pack_id
         item.status, item.updated_at = "DRAFT", now()
@@ -624,7 +648,8 @@ class ResourceService:
         self._course(course_id)
         audit = audit or self.latest_audit(course_id)
         latest = self.repo.latest_manifest(course_id)
-        return {"course_id": course_id, "theory_lessons": 37, "lab_lessons": 12, "audit": audit, "status": latest.status if latest else ("READY" if audit["blocking"] == 0 else "BLOCKED"), "version_no": latest.version_no if latest else None, "generated_at": now().isoformat() + "Z", "content_declaration": "目录结构已建立；只有已上传、校验、审核的真实文件才计入完成。"}
+        lessons = self.repo.lessons(course_id)
+        return {"course_id": course_id, "theory_lessons": sum(row.lesson_kind == "THEORY" for row in lessons), "lab_lessons": sum(row.lesson_kind == "LAB" for row in lessons), "audit": audit, "status": latest.status if latest else ("READY" if audit["blocking"] == 0 else "BLOCKED"), "version_no": latest.version_no if latest else None, "generated_at": now().isoformat() + "Z", "content_declaration": "目录结构已建立；只有已上传、校验、审核的真实文件才计入完成。"}
 
     def manifest_xlsx(self, course_id: str) -> bytes:
         data = self.manifest(course_id)
@@ -662,7 +687,7 @@ class ResourceService:
                 return existing
             raise
 
-    def _question_catalog(self, course_id: str) -> list[LessonResource]:
+    def _question_catalog(self, course_id: str) -> list[ResourceLesson]:
         lessons = self.repo.lessons(course_id)
         theory_count = sum(item.lesson_kind == "THEORY" for item in lessons)
         lab_count = sum(item.lesson_kind == "LAB" for item in lessons)

@@ -1,4 +1,5 @@
 from io import BytesIO
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,8 +11,10 @@ from sqlalchemy.pool import StaticPool
 from app.common.models import Base, DomainEventOutbox
 from app.database import get_session
 from app.main import app
-from app.resources.catalog import COURSE_ID, lesson_rows
-from app.resources.models import LessonResource, Question, QuestionImportJob, QuestionImportRow, QuestionReview
+from app.resources.catalog import COURSE_ID
+from app.resources.models import Question, QuestionImportJob, QuestionImportRow, QuestionReview
+from app.teaching.catalog import curriculum_rows
+from app.teaching.models import Course, CourseChapter, CourseLesson
 
 
 AUTHOR_HEADERS = {
@@ -36,7 +39,10 @@ def question_client():
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine, expire_on_commit=False)
     with sessions() as session:
-        session.add_all(LessonResource(**row) for row in lesson_rows())
+        session.add(Course(course_id=COURSE_ID, name="数据安全技术基础", term="2026 秋季", owner_teacher_id="question_author", major="网络空间安全", description=None, status="ACTIVE", created_at=datetime.utcnow()))
+        authority = curriculum_rows(COURSE_ID)
+        session.add_all(CourseChapter(**row) for row in authority["chapters"])
+        session.add_all(CourseLesson(**row) for row in authority["lessons"])
         session.commit()
 
     def override_session():

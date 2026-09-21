@@ -11,6 +11,7 @@ from app.common.errors import ApiError
 from app.common.outbox import enqueue_event
 
 from . import models as m
+from .catalog import curriculum_rows
 from .repository import TeachingRepository
 from .schemas import AssignmentCreate, AttendanceCreate, ClassCreate, CourseCreate, CoursePatch, MemberCreate, PollCreate, QuizCreate, QuizSubmitIn, SubmissionIn
 from .xlsx import parse_members
@@ -40,6 +41,10 @@ class TeachingService:
         if class_id not in self.user.class_ids:
             raise ApiError("AUTH.SCOPE_DENIED", "不能访问该班级", 403)
 
+    def require_lesson(self, course_id: str, lesson_id: str | None):
+        if lesson_id and not self.repo.course_lesson(course_id, lesson_id):
+            raise ApiError("COURSE.LESSON_SCOPE_MISMATCH", "课时不存在或不属于当前课程", 422)
+
     def require_student(self) -> str:
         if not self.user.student_id:
             raise ApiError("AUTH.STUDENT_REQUIRED", "当前身份没有关联学生", 403)
@@ -67,14 +72,32 @@ class TeachingService:
         if not self.user.teacher_id:
             raise ApiError("AUTH.TEACHER_REQUIRED", "当前身份没有关联教师", 403)
         item = self.repo.add(m.Course(course_id=str(uuid4()), owner_teacher_id=self.user.teacher_id, created_at=now(), status="DRAFT", **body.model_dump()))
+        catalog = curriculum_rows(item.course_id)
+        for row in catalog["chapters"]:
+            self.repo.add(m.CourseChapter(**row))
+        for row in catalog["lessons"]:
+            self.repo.add(m.CourseLesson(**row))
         self.audit("course.created", "course", item.course_id, {"course_id": item.course_id})
         self.session.commit()
-        return entity_dict(item)
+        return entity_dict(item) | {
+            "theory_lesson_count": sum(row["lesson_type"] == "THEORY" for row in catalog["lessons"]),
+            "lab_lesson_count": sum(row["lesson_type"] == "LAB" for row in catalog["lessons"]),
+        }
 
     def list_courses(self):
         self.require("teaching.course.read")
         items = self.repo.list_courses(self.user.course_ids)
-        return {"items": [entity_dict(x) for x in items], "page": 1, "page_size": len(items), "total": len(items)}
+        rows = []
+        for item in items:
+            lessons = [lesson for lesson, _ in self.repo.course_lessons(item.course_id)]
+            rows.append(
+                entity_dict(item)
+                | {
+                    "theory_lesson_count": sum(lesson.lesson_type == "THEORY" for lesson in lessons),
+                    "lab_lesson_count": sum(lesson.lesson_type == "LAB" for lesson in lessons),
+                }
+            )
+        return {"items": rows, "page": 1, "page_size": len(rows), "total": len(rows)}
 
     def get_course(self, course_id: str):
         self.require("teaching.course.read"); self.require_course(course_id)
@@ -82,6 +105,25 @@ class TeachingService:
         if not item:
             raise ApiError("COURSE.NOT_FOUND", "课程不存在", 404)
         return entity_dict(item)
+
+    def course_lessons(self, course_id: str):
+        self.require("teaching.course.read"); self.require_course(course_id)
+        if not self.repo.get(m.Course, course_id):
+            raise ApiError("COURSE.NOT_FOUND", "课程不存在", 404)
+        rows = [
+            {
+                **entity_dict(lesson),
+                "chapter_title": chapter.title,
+                "chapter_sequence": chapter.sequence,
+            }
+            for lesson, chapter in self.repo.course_lessons(course_id)
+        ]
+        return {
+            "items": rows,
+            "total": len(rows),
+            "theory_count": sum(row["lesson_type"] == "THEORY" for row in rows),
+            "lab_count": sum(row["lesson_type"] == "LAB" for row in rows),
+        }
 
     def patch_course(self, course_id: str, body: CoursePatch):
         self.require("teaching.course.write"); self.require_course(course_id)
@@ -246,6 +288,7 @@ class TeachingService:
 
     def create_attendance(self, body: AttendanceCreate):
         self.require("teaching.attendance.write"); self.require_course(body.course_id); self.require_class(body.class_id)
+        self.require_lesson(body.course_id, body.lesson_id)
         if body.expires_at <= body.starts_at:
             raise ApiError("ATTENDANCE.INVALID_WINDOW", "结束时间必须晚于开始时间", 422)
         task = self.repo.add(m.AttendanceTask(task_id=str(uuid4()), status="DRAFT", created_by=self.user.user_id, **body.model_dump()))
@@ -346,6 +389,7 @@ class TeachingService:
 
     def create_poll(self, body: PollCreate):
         self.require("teaching.poll.write"); self.require_course(body.course_id); self.require_class(body.class_id)
+        self.require_lesson(body.course_id, body.lesson_id)
         poll = self.repo.add(m.Poll(poll_id=str(uuid4()), course_id=body.course_id, class_id=body.class_id, lesson_id=body.lesson_id, poll_type=body.poll_type, title=body.title, status="DRAFT", created_by=self.user.user_id))
         options = [self.repo.add(m.PollOption(option_id=str(uuid4()), poll_id=poll.poll_id, label=label, sequence=index)) for index, label in enumerate(body.options, 1)]
         self.audit("poll.created", "poll", poll.poll_id, {"course_id": poll.course_id, "class_id": poll.class_id})
@@ -376,6 +420,7 @@ class TeachingService:
 
     def create_assignment(self, body: AssignmentCreate):
         self.require("teaching.assignment.write"); self.require_course(body.course_id); self.require_class(body.class_id)
+        self.require_lesson(body.course_id, body.lesson_id)
         item = self.repo.add(m.Assignment(assignment_id=str(uuid4()), course_id=body.course_id, class_id=body.class_id, lesson_id=body.lesson_id, title=body.title, due_at=body.due_at, random_order=body.random_order, status="DRAFT", created_by=self.user.user_id))
         for q in body.questions: self.repo.add(m.AssignmentQuestionRef(ref_id=str(uuid4()), assignment_id=item.assignment_id, **q.model_dump()))
         self.audit("assignment.created", "assignment", item.assignment_id, {"course_id": item.course_id, "class_id": item.class_id}); self.session.commit(); return entity_dict(item)
@@ -398,6 +443,7 @@ class TeachingService:
 
     def create_quiz(self, body: QuizCreate):
         self.require("teaching.quiz.write"); self.require_course(body.course_id); self.require_class(body.class_id)
+        self.require_lesson(body.course_id, body.lesson_id)
         item = self.repo.add(m.Quiz(quiz_id=str(uuid4()), course_id=body.course_id, class_id=body.class_id, lesson_id=body.lesson_id, title=body.title, time_limit_minutes=body.time_limit_minutes, random_order=body.random_order, status="DRAFT", created_by=self.user.user_id))
         for q in body.questions: self.repo.add(m.QuizQuestionRef(ref_id=str(uuid4()), quiz_id=item.quiz_id, **q.model_dump()))
         self.audit("quiz.created", "quiz", item.quiz_id, {"course_id": item.course_id, "class_id": item.class_id}); self.session.commit(); return entity_dict(item)

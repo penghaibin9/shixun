@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, JSON, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.models import Base
@@ -20,7 +20,10 @@ class Course(Base):
 
 class CourseChapter(Base):
     __tablename__ = "course_chapter"
-    __table_args__ = (UniqueConstraint("course_id", "sequence", name="uq_chapter_course_sequence"),)
+    __table_args__ = (
+        UniqueConstraint("course_id", "sequence", name="uq_chapter_course_sequence"),
+        UniqueConstraint("course_id", "chapter_id", name="uq_course_chapter_scope"),
+    )
     chapter_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(128))
@@ -29,10 +32,21 @@ class CourseChapter(Base):
 
 class CourseLesson(Base):
     __tablename__ = "course_lesson"
-    __table_args__ = (UniqueConstraint("chapter_id", "sequence", name="uq_lesson_chapter_sequence"),)
+    __table_args__ = (
+        UniqueConstraint("chapter_id", "sequence", name="uq_lesson_chapter_sequence"),
+        UniqueConstraint("course_id", "lesson_id", name="uq_course_lesson_scope"),
+        UniqueConstraint("course_id", "lesson_code", name="uq_course_lesson_code"),
+        ForeignKeyConstraint(
+            ["course_id", "chapter_id"],
+            ["course_chapter.course_id", "course_chapter.chapter_id"],
+            name="fk_course_lesson_chapter_scope",
+            ondelete="CASCADE",
+        ),
+    )
     lesson_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="CASCADE"), index=True)
-    chapter_id: Mapped[str] = mapped_column(ForeignKey("course_chapter.chapter_id", ondelete="CASCADE"), index=True)
+    chapter_id: Mapped[str] = mapped_column(String(36), index=True)
+    lesson_code: Mapped[str] = mapped_column(String(16))
     title: Mapped[str] = mapped_column(String(160))
     sequence: Mapped[int] = mapped_column(Integer)
     lesson_type: Mapped[str] = mapped_column(String(24), default="THEORY")

@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { api, download, fileIdempotencyKey, type ApiError } from '../api'
 
-type Course = { course_id: string; name: string; term: string; status: string }
+type Course = { course_id: string; name: string; term: string; status: string; theory_lesson_count: number; lab_lesson_count: number }
 type ClassInfo = { class_id: string; name: string; term: string }
 type Member = { student_id: string; student_number: string; student_name: string; status: string }
 type ImportResult = { success_count: number; failure_count: number; duplicate_count: number; job_id: string }
@@ -13,12 +13,12 @@ const members = ref<Member[]>([])
 const file = ref<File>()
 const message = ref('')
 const importResult = ref<ImportResult>()
+const selectedCourseId = ref(localStorage.getItem('yk-course-id') || '')
 const courseStatusLabels: Record<string, string> = { DRAFT: '草稿', ACTIVE: '进行中', ARCHIVED: '已归档' }
 
 async function load() {
-  const courseId = localStorage.getItem('yk-course-id')
   const classId = localStorage.getItem('yk-class-id')
-  if (courseId) courses.value = (await api<{ items: Course[] }>('/api/v1/courses')).items
+  courses.value = (await api<{ items: Course[] }>('/api/v1/courses')).items
   if (classId) {
     classes.value = (await api<{ items: ClassInfo[] }>('/api/v1/classes')).items
     members.value = (await api<{ items: Member[] }>(`/api/v1/classes/${classId}/members?page=1&page_size=100`)).items
@@ -26,10 +26,17 @@ async function load() {
   }
 }
 
+function selectCourse(course: Course) {
+  selectedCourseId.value = course.course_id
+  localStorage.setItem('yk-course-id', course.course_id)
+  message.value = `已选择课程：${course.name}`
+}
+
 async function createCourse() {
   try {
     const item = await api<Course>('/api/v1/courses', { method: 'POST', body: JSON.stringify({ name: '数据安全技术基础', term: '2026 秋季', major: '网络空间安全', description: '围绕数据安全基础、加密、访问控制和安全治理开展教学。' }) })
     localStorage.setItem('yk-course-id', item.course_id)
+    selectedCourseId.value = item.course_id
     message.value = '课程已创建'
     await load()
   } catch (error) {
@@ -88,7 +95,7 @@ onMounted(load)
     </div>
     <p v-if="message" data-testid="message" class="status-ok">{{ message }}</p>
     <div class="grid grid-2">
-      <article v-for="course in courses" :key="course.course_id" class="card"><span class="badge">{{ courseStatusLabels[course.status] || '未知状态' }}</span><h3>{{ course.name }}</h3><p class="muted">{{ course.term }} · 37 理论课时 · 12 实验课时</p></article>
+      <button v-for="course in courses" :key="course.course_id" type="button" class="card course-card" :class="{ selected: selectedCourseId === course.course_id }" :aria-pressed="selectedCourseId === course.course_id" :data-testid="`course-${course.course_id}`" @click="selectCourse(course)"><span class="badge">{{ courseStatusLabels[course.status] || '未知状态' }}</span><span v-if="selectedCourseId === course.course_id" class="badge selected-badge">当前课程</span><span class="course-title">{{ course.name }}</span><span class="muted">{{ course.term }} · {{ course.theory_lesson_count }} 理论课时 · {{ course.lab_lesson_count }} 实验课时</span></button>
       <article v-if="!courses.length" class="card muted">尚未创建课程</article>
     </div>
     <section class="card" style="margin-top:14px">
@@ -103,3 +110,11 @@ onMounted(load)
     </section>
   </div>
 </template>
+
+<style scoped>
+.course-card { color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.course-card.selected { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 2px rgb(37 99 235 / 14%); }
+.course-title { display: block; margin: 14px 0 8px; font-size: 1.1rem; font-weight: 700; }
+.course-card .muted { display: block; }
+.selected-badge { margin-left: 8px; }
+</style>

@@ -4,8 +4,8 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from app.resources.catalog import lesson_rows
 from app.resources.question_xlsx import parse_question_workbook
+from app.teaching.catalog import curriculum_rows
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,7 +15,7 @@ WORKBOOK_PATH = ROOT / "outputs" / "01a0c33f-d483-7ac0-aa95-632194b582d5" / "que
 
 def test_formal_question_bank_matches_catalog_and_import_contract():
     content = json.loads(CONTENT_PATH.read_text(encoding="utf-8"))
-    catalog = lesson_rows()
+    catalog = curriculum_rows()["lessons"]
 
     assert content["courseId"] == "course_data_security"
     assert len(content["lessons"]) == len(catalog) == 49

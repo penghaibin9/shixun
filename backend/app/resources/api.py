@@ -86,7 +86,10 @@ def lab_lessons(user: CurrentUser, session: Session = Depends(get_session), cour
 @router.get("/resources/course-blueprint/{course_id}")
 def blueprint(course_id: str, user: CurrentUser, session: Session = Depends(get_session)):
     result = service(session, user).lessons(course_id)
-    result["chapter_counts"] = {"1": 5, "2": 3, "3": 6, "4": 7, "5": 7, "6": 5, "7": 4}
+    result["chapter_counts"] = {
+        str(chapter): sum(item["chapter_no"] == chapter for item in result["items"])
+        for chapter in sorted({item["chapter_no"] for item in result["items"] if item["chapter_no"] is not None})
+    }
     return result
 
 
