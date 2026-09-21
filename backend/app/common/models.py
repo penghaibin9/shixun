@@ -42,3 +42,7 @@ class DomainEventOutbox(Base):
     payload_json: Mapped[dict] = mapped_column(JSON)
     idempotency_key: Mapped[str] = mapped_column(String(255))
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# Import domain models so Alembic and tests see the complete metadata graph.
+from app.resources import models as resource_models  # noqa: E402,F401

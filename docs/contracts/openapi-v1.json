@@ -22,7 +22,26 @@
     "/api/v1/classes/{class_id}/members/import": {"post": {"summary": "使用统一 XLSX 导入逻辑导入班级学生", "responses": {"202": {"description": "导入任务已创建"}, "403": {"description": "无权操作"}}}},
     "/api/v1/classes/{class_id}/members/import-template": {"get": {"summary": "下载学生导入模板", "responses": {"200": {"description": "XLSX 模板"}, "403": {"description": "无权访问"}}}},
     "/api/v1/classes/{class_id}/members/export.xlsx": {"get": {"summary": "导出本人任课班级学生名单", "responses": {"200": {"description": "XLSX 名单"}, "403": {"description": "无权访问"}}}},
-    "/api/v1/classes/{class_id}/students/{student_id}/learning-summary": {"get": {"summary": "聚合单个学生学习汇总", "responses": {"200": {"description": "跨域读取模型", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LearningSummary"}}}}, "403": {"description": "无权访问"}}}}
+    "/api/v1/classes/{class_id}/students/{student_id}/learning-summary": {"get": {"summary": "聚合单个学生学习汇总", "responses": {"200": {"description": "跨域读取模型", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LearningSummary"}}}}, "403": {"description": "无权访问"}}}},
+    "/api/v1/resources": {"get": {"summary": "三维筛选课程资源", "responses": {"200": {"description": "资源分页"}}}, "post": {"summary": "新建课程资源", "responses": {"201": {"description": "已创建"}}}},
+    "/api/v1/resources/{resource_id}": {"get": {"summary": "获取资源及最新版本", "responses": {"200": {"description": "资源"}}}},
+    "/api/v1/resources/{resource_id}/versions": {"post": {"summary": "新增不可变资源版本", "responses": {"201": {"description": "新版本"}}}},
+    "/api/v1/resources/{resource_id}/submit-review": {"post": {"summary": "提交资源审核", "responses": {"200": {"description": "待审核"}}}},
+    "/api/v1/resources/{resource_id}/approve": {"post": {"summary": "审核通过", "responses": {"200": {"description": "已通过"}}}},
+    "/api/v1/resources/{resource_id}/reject": {"post": {"summary": "驳回资源", "responses": {"200": {"description": "已驳回"}}}},
+    "/api/v1/resources/{resource_id}/publish": {"post": {"summary": "发布已审核资源", "responses": {"200": {"description": "已发布"}}}},
+    "/api/v1/resources/course-blueprint/{course_id}": {"get": {"summary": "读取 37/12 课程资源蓝图", "responses": {"200": {"description": "资源蓝图"}}}},
+    "/api/v1/resources/theory-lessons": {"get": {"summary": "读取 37 个理论课时资源要求", "responses": {"200": {"description": "理论课时"}}}},
+    "/api/v1/resources/lab-lessons": {"get": {"summary": "读取 12 个实验课时资源要求", "responses": {"200": {"description": "实验课时"}}}},
+    "/api/v1/questions": {"get": {"summary": "读取题库", "responses": {"200": {"description": "题目分页"}}}, "post": {"summary": "新建题目", "responses": {"201": {"description": "已创建"}}}},
+    "/api/v1/questions/{question_id}": {"patch": {"summary": "修改草稿题目", "responses": {"200": {"description": "已修改"}}}},
+    "/api/v1/questions/{question_id}/review": {"post": {"summary": "独立审核并发布题目", "responses": {"200": {"description": "已发布"}}}},
+    "/api/v1/questions/coverage": {"get": {"summary": "执行每课时四题型覆盖检查", "responses": {"200": {"description": "覆盖结果"}}}},
+    "/api/v1/resources/audit/run": {"post": {"summary": "执行资源完整性审计", "responses": {"200": {"description": "审计结果"}}}},
+    "/api/v1/resources/audit/latest": {"get": {"summary": "读取最近审计", "responses": {"200": {"description": "审计结果"}}}},
+    "/api/v1/resources/delivery/freeze": {"post": {"summary": "无阻断时冻结交付", "responses": {"200": {"description": "已冻结"}, "409": {"description": "存在阻断"}}}},
+    "/api/v1/resources/delivery/manifest.json": {"get": {"summary": "导出 JSON 交付清单", "responses": {"200": {"description": "清单"}}}},
+    "/api/v1/resources/delivery/manifest.xlsx": {"get": {"summary": "导出 XLSX 交付清单", "responses": {"200": {"description": "电子表格"}}}}
   },
   "components": {
     "schemas": {
