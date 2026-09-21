@@ -3,6 +3,10 @@ const navigation = [
   { to: '/teacher-dashboard', label: '教师工作台' },
   { to: '/student-home', label: '学生首页' },
   { to: '/lifecycle', label: '教学闭环' },
+  { to: '/labs', label: '实验总览' },
+  { to: '/lab-templates', label: '实验模板库' },
+  { to: '/course-knowledge', label: '知识点讲解图' },
+  { to: '/lab-builder', label: '创建实验' },
   { to: '/handoff', label: '协作交接' },
 ]
 </script>

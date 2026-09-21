@@ -1,0 +1,145 @@
+{
+  "lab_definition_id": "lab_rsa",
+  "version": 1,
+  "name": "RSA 非对称加密算法实验",
+  "duration_minutes": 60,
+  "total_score": 100,
+  "nodes": [
+    {
+      "node_key": "student-rsa",
+      "display_name": "学生操作机",
+      "role": "STUDENT_WORKSTATION",
+      "network_env": "ISOLATED",
+      "network_keys": ["lab-net-rsa"],
+      "device_model": "Ubuntu 22.04 教学终端",
+      "image_id": "img_ubuntu_openssl",
+      "image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "cpu_limit": 1,
+      "memory_mb": 1024,
+      "ip_policy": "DYNAMIC_PRIVATE",
+      "ports": [22],
+      "startup_command": "",
+      "mounts": [],
+      "position_x": 90,
+      "position_y": 130
+    },
+    {
+      "node_key": "target-rsa",
+      "display_name": "目标验证机",
+      "role": "TARGET",
+      "network_env": "ISOLATED",
+      "network_keys": ["lab-net-rsa"],
+      "device_model": "Ubuntu 22.04 验证节点",
+      "image_id": "img_ubuntu_openssl",
+      "image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "cpu_limit": 1,
+      "memory_mb": 1024,
+      "ip_policy": "DYNAMIC_PRIVATE",
+      "ports": [22, 8080],
+      "startup_command": "",
+      "mounts": [],
+      "position_x": 390,
+      "position_y": 130
+    }
+  ],
+  "networks": [
+    {
+      "network_key": "lab-net-rsa",
+      "cidr_policy": "AUTO_PRIVATE_24",
+      "internet_access": false,
+      "egress_allowlist": [],
+      "student_isolation": true
+    }
+  ],
+  "image_bindings": [
+    {
+      "node_key": "student-rsa",
+      "infra_image_id": "img_ubuntu_openssl",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "node_key": "target-rsa",
+      "infra_image_id": "img_ubuntu_openssl",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "steps": [
+    {"node_key": "start", "name": "启动实验环境", "description": "由 D 线运行底座创建隔离环境", "order_no": 1},
+    {"node_key": "keygen", "name": "生成 RSA 密钥对", "description": "生成 private.pem 与 public.pem", "order_no": 2},
+    {"node_key": "encrypt", "name": "使用公钥加密", "description": "生成 cipher.bin", "order_no": 3},
+    {"node_key": "decrypt", "name": "使用私钥解密", "description": "生成 plain.out 并校验摘要", "order_no": 4},
+    {"node_key": "verify", "name": "数字签名与验签", "description": "验签输出 Verified OK", "order_no": 5},
+    {"node_key": "report", "name": "提交实验报告", "description": "提交 report.pdf", "order_no": 6}
+  ],
+  "edges": [
+    {"from_node_key": "start", "to_node_key": "keygen"},
+    {"from_node_key": "keygen", "to_node_key": "encrypt"},
+    {"from_node_key": "encrypt", "to_node_key": "decrypt"},
+    {"from_node_key": "decrypt", "to_node_key": "verify"},
+    {"from_node_key": "verify", "to_node_key": "report"}
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "cp_rsa_keys_v1",
+      "dag_node_id": "keygen",
+      "name": "RSA 密钥对存在且格式正确",
+      "score": 20,
+      "judge_type": "FILE_EXISTS",
+      "judge_target": "student-rsa:private.pem,public.pem",
+      "judge_config_json": {"path": "private.pem", "additional_paths": ["public.pem"], "format": "PEM"},
+      "failure_message": "请检查密钥生成命令，并确认私钥和公钥均为 PEM 格式。",
+      "timeout_seconds": 15,
+      "order_no": 1
+    },
+    {
+      "checkpoint_id": "cp_rsa_cipher_v1",
+      "dag_node_id": "encrypt",
+      "name": "密文文件已生成",
+      "score": 20,
+      "judge_type": "FILE_EXISTS",
+      "judge_target": "student-rsa:cipher.bin",
+      "judge_config_json": {"path": "cipher.bin", "minimum_size": 1},
+      "failure_message": "请检查公钥、输入文件和加密参数。",
+      "timeout_seconds": 15,
+      "order_no": 2
+    },
+    {
+      "checkpoint_id": "cp_rsa_plain_hash_v1",
+      "dag_node_id": "decrypt",
+      "name": "解密结果与原文一致",
+      "score": 30,
+      "judge_type": "FILE_HASH",
+      "judge_target": "student-rsa:plain.out=source.txt",
+      "judge_config_json": {"left_path": "plain.out", "right_path": "source.txt", "algorithm": "sha256"},
+      "failure_message": "请检查私钥和解密参数，确保输出文件内容与原文一致。",
+      "timeout_seconds": 20,
+      "order_no": 3
+    },
+    {
+      "checkpoint_id": "cp_rsa_verify_v1",
+      "dag_node_id": "verify",
+      "name": "签名验签成功",
+      "score": 20,
+      "judge_type": "COMMAND_EXIT",
+      "judge_target": "target-rsa:verify_signature",
+      "judge_config_json": {"command_ref": "verify_signature", "expected_exit": 0, "output_contains": "Verified OK"},
+      "failure_message": "请检查签名文件、公钥和验签参数。",
+      "timeout_seconds": 20,
+      "order_no": 4
+    },
+    {
+      "checkpoint_id": "cp_rsa_report_v1",
+      "dag_node_id": "report",
+      "name": "实验报告已提交",
+      "score": 10,
+      "judge_type": "FILE_EXISTS",
+      "judge_target": "submission:report.pdf",
+      "judge_config_json": {"path": "report.pdf", "minimum_size": 1},
+      "failure_message": "请提交 PDF 格式实验报告。",
+      "timeout_seconds": 10,
+      "order_no": 5
+    }
+  ],
+  "runtime_policy": {"max_attempts": 3, "timeout_minutes": 60}
+}
+
