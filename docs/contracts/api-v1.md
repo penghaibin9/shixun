@@ -22,7 +22,9 @@ F 域只消费 A/D/E 发布的冻结事件，不提供签到、作业、测验�
 
 默认成绩规则为签到 10%、作业 20%、测验 20%、实验 40%、互动 10%；规则版本发布后不可覆盖。`POST /api/v1/grading/courses/{course_id}/recalculate` 仅使用 `grade_event` 计算，`POSTED（已入账）` 或 `LOCKED（已锁定）` 成绩不可静默修改。
 
-新增 `GET /api/v1/analytics/courses/{course_id}/learning-summary` 作为教师/学生管理 CR（变更请求）的只读模型，仅返回成绩、风险和学情摘要。上游班级成员、完整教学事实或成绩入账缺失时返回 `PENDING（待处理）` 或 `PARTIAL（部分数据）`；学生响应不包含其他学生标识。
+新增 `GET /api/v1/analytics/courses/{course_id}/learning-summary?class_id={class_id}` 作为教师/学生管理 CR（变更请求）的只读模型，仅返回成绩、风险和学情摘要。成绩册、追溯、学情、风险和导出接口同样强制显式 `class_id`，并同时校验课程/班级数据范围，禁止按课程猜测“最新班级”。上游班级成员、完整教学事实或成绩入账缺失时返回 `PENDING（待处理）` 或 `PARTIAL（部分数据）`；学生响应不包含其他学生标识。
+
+`POST /api/v1/grading/events/consume` 与 `POST /api/v1/audit/events/ingest` 仅接受具备专用权限的内部服务身份，普通教师或浏览器身份不可调用。`lab.submitted` 必须同时携带 `source_id`（提交事实标识）与 `lab_release_id`（实验发布标识）；前者用于追溯，后者用于实验维度聚合。
 
 归档预检要求班级名单冻结事实、已入账成绩、可追溯成绩事件、实验判分引用和 B 资源冻结事实全部存在。冻结生成的成绩册与学情 XLSX（电子表格）复用 P0 `file_object`（文件对象）登记摘要、大小和下载位置，`course_archive_artifact.file_id` 使用真实外键关联；实验日志只保存上游证据引用，不复制 D/E 事实。跨域高风险动作通过受限的 `POST /api/v1/audit/events/ingest` 幂等追加；审计业务接口只提供查询和 XLSX（电子表格）/CSV（逗号分隔文件）导出，不提供修改或删除。
 

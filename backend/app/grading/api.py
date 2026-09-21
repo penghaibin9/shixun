@@ -34,53 +34,53 @@ def recalculate(course_id: str, data: RecalculateInput, request: Request, user: 
 
 
 @router.post("/grading/courses/{course_id}/post")
-def post(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).post(course_id)
+def post(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).post(course_id,class_id)
 
 
 @router.get("/gradebook/courses/{course_id}")
-def gradebook(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).gradebook(course_id)
+def gradebook(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).gradebook(course_id,class_id)
 
 
 @router.get("/gradebook/courses/{course_id}/students/{student_id}")
-def student_grade(course_id: str, student_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).gradebook(course_id,student_id)
+def student_grade(course_id: str, student_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).gradebook(course_id,class_id,student_id)
 
 
 @router.get("/gradebook/courses/{course_id}/trace/{student_id}")
-def trace(course_id: str, student_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).trace(course_id,student_id)
+def trace(course_id: str, student_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).trace(course_id,class_id,student_id)
 
 
 @router.get("/gradebook/courses/{course_id}/export.xlsx")
-def gradebook_export(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)):
-    data=svc(session,user,request).gradebook_xlsx(course_id);return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":"attachment; filename=gradebook.xlsx"})
+def gradebook_export(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)):
+    data=svc(session,user,request).gradebook_xlsx(course_id,class_id);return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":"attachment; filename=gradebook.xlsx"})
 
 
 @router.get("/analytics/courses/{course_id}/overview")
-def overview(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).overview(course_id)
+def overview(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).overview(course_id,class_id)
 
 
 @router.get("/analytics/courses/{course_id}/sections/{lesson_id}")
-def section(course_id: str, lesson_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).section(course_id,lesson_id)
+def section(course_id: str, lesson_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).section(course_id,class_id,lesson_id)
 
 
 @router.get("/analytics/courses/{course_id}/labs/by-student")
-def labs_student(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).labs_by_student(course_id)
+def labs_student(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).labs_by_student(course_id,class_id)
 
 
 @router.get("/analytics/courses/{course_id}/labs/by-lab")
-def labs_lab(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).labs_by_lab(course_id)
+def labs_lab(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).labs_by_lab(course_id,class_id)
 
 
 @router.get("/analytics/courses/{course_id}/risks")
-def risks(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session), student_id: str | None = None): return svc(session,user,request).risks(course_id,student_id)
+def risks(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session), student_id: str | None = None): return svc(session,user,request).risks(course_id,class_id,student_id)
 
 
 @router.get("/analytics/courses/{course_id}/learning-summary")
-def learning_summary(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session), student_id: str | None = None): return svc(session,user,request).learning_summary(course_id,student_id)
+def learning_summary(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session), student_id: str | None = None): return svc(session,user,request).learning_summary(course_id,class_id,student_id)
 
 
 @router.get("/analytics/courses/{course_id}/export.xlsx")
-def analytics_export(course_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)):
-    data=svc(session,user,request).analytics_xlsx(course_id);return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":"attachment; filename=analytics.xlsx"})
+def analytics_export(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)):
+    data=svc(session,user,request).analytics_xlsx(course_id,class_id);return StreamingResponse(BytesIO(data),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":"attachment; filename=analytics.xlsx"})
 
 
 @router.post("/archives/courses/{course_id}/precheck")

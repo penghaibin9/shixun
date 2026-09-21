@@ -8,7 +8,7 @@ export async function getCurrentContext(headers: HeadersInit = {}): Promise<User
 }
 
 const courseId = 'course_data_security', classId = 'class_2301'
-const teacherHeaders = { 'X-User-Id':'teacher_f','X-Role':'teacher','X-Teacher-Id':'teacher_f','X-Course-Ids':courseId,'X-Class-Ids':classId,'X-Permissions':'grading:manage,audit:read' }
+const teacherHeaders = { 'X-User-Id':'teacher_f','X-Role':'teacher','X-Teacher-Id':'teacher_f','X-Course-Ids':courseId,'X-Class-Ids':classId,'X-Permissions':'grading:read,grading:policy,grading:recalculate,grading:post,analytics:class,archives:read,archives:write,archives:freeze' }
 const studentHeaders = { 'X-User-Id':'user_s1','X-Role':'student','X-Student-Id':'student_1','X-Course-Ids':courseId,'X-Class-Ids':classId,'X-Permissions':'grading:read,analytics:read' }
 const adminHeaders = { 'X-User-Id':'admin_f','X-Role':'admin','X-Permissions':'audit:read,grading:all-courses,grading:all-classes' }
 async function api<T>(path:string, init:RequestInit={}, role:'teacher'|'student'|'admin'='teacher'):Promise<T>{
@@ -19,18 +19,18 @@ async function api<T>(path:string, init:RequestInit={}, role:'teacher'|'student'
 }
 export const gradingApi={
   policy:()=>api<any>(`/api/v1/grading/policies/${courseId}`),
-  gradebook:()=>api<any>(`/api/v1/gradebook/courses/${courseId}`),
-  trace:(studentId:string)=>api<any>(`/api/v1/gradebook/courses/${courseId}/trace/${studentId}`),
+  gradebook:()=>api<any>(`/api/v1/gradebook/courses/${courseId}?class_id=${classId}`),
+  trace:(studentId:string)=>api<any>(`/api/v1/gradebook/courses/${courseId}/trace/${studentId}?class_id=${classId}`),
   recalculate:()=>api<any>(`/api/v1/grading/courses/${courseId}/recalculate`,{method:'POST',body:JSON.stringify({class_id:classId})}),
-  post:()=>api<any>(`/api/v1/grading/courses/${courseId}/post`,{method:'POST'}),
-  overview:()=>api<any>(`/api/v1/analytics/courses/${courseId}/overview`),
-  section:(lessonId='lesson_3_2')=>api<any>(`/api/v1/analytics/courses/${courseId}/sections/${lessonId}`),
-  labsStudent:()=>api<any>(`/api/v1/analytics/courses/${courseId}/labs/by-student`),
-  labsLab:()=>api<any>(`/api/v1/analytics/courses/${courseId}/labs/by-lab`),
-  risks:()=>api<any>(`/api/v1/analytics/courses/${courseId}/risks`),
+  post:()=>api<any>(`/api/v1/grading/courses/${courseId}/post?class_id=${classId}`,{method:'POST'}),
+  overview:()=>api<any>(`/api/v1/analytics/courses/${courseId}/overview?class_id=${classId}`),
+  section:(lessonId='lesson_3_2')=>api<any>(`/api/v1/analytics/courses/${courseId}/sections/${lessonId}?class_id=${classId}`),
+  labsStudent:()=>api<any>(`/api/v1/analytics/courses/${courseId}/labs/by-student?class_id=${classId}`),
+  labsLab:()=>api<any>(`/api/v1/analytics/courses/${courseId}/labs/by-lab?class_id=${classId}`),
+  risks:()=>api<any>(`/api/v1/analytics/courses/${courseId}/risks?class_id=${classId}`),
   precheck:()=>api<any>(`/api/v1/archives/courses/${courseId}/precheck`,{method:'POST',body:JSON.stringify({class_id:classId})}),
   freeze:()=>api<any>(`/api/v1/archives/courses/${courseId}/freeze`,{method:'POST',body:JSON.stringify({class_id:classId})}),
   archive:()=>api<any>(`/api/v1/archives/courses/${courseId}?class_id=${classId}`),
-  studentScore:()=>api<any>(`/api/v1/analytics/courses/${courseId}/learning-summary?student_id=student_1`,{},'student'),
+  studentScore:()=>api<any>(`/api/v1/analytics/courses/${courseId}/learning-summary?class_id=${classId}&student_id=student_1`,{},'student'),
   audit:()=>api<any>('/api/v1/audit/events',{},'admin'),
 }
