@@ -1,0 +1,677 @@
+{
+  "schema_version": "1.0",
+  "content_version": "1.0.0",
+  "course_id": "course_data_security",
+  "deck_count": 37,
+  "slide_total": 300,
+  "visual_style": "prototype/current.html blue-white teaching theme",
+  "font": "Microsoft YaHei",
+  "decks": [
+    {
+      "lesson_id": "lesson_theory_1_1",
+      "lesson_code": "1.1",
+      "chapter_no": 1,
+      "title": "数据基础：定义、特征、分类与全生命周期",
+      "display_title": "数据基础：定义、特征、分类与全生命周期",
+      "filename": "theory-01-01-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1615643,
+      "sha256": "ba7064a0f77699210c3bf99b28ccc30bdec381070bce08590ec918a654f1b532",
+      "source_count": 1,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_1_2",
+      "lesson_code": "1.2",
+      "chapter_no": 1,
+      "title": "典型数据处理场景：开发利用、共享交易、跨境流动",
+      "display_title": "典型数据处理场景：开发利用、共享交易、跨境流动",
+      "filename": "theory-01-02-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616353,
+      "sha256": "a4ec3810060797567f5d2a740a4db82774c65b4fb98b3f612cb9423b383d42ae",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_1_3",
+      "lesson_code": "1.3",
+      "chapter_no": 1,
+      "title": "数据安全概念与三要素",
+      "display_title": "数据安全概念与三要素",
+      "filename": "theory-01-03-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616040,
+      "sha256": "c12901dedb689d28c90935b1c9f4918f0fd9e1bcd359879ce3937a0f706feb2c",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_1_4",
+      "lesson_code": "1.4",
+      "chapter_no": 1,
+      "title": "数据安全威胁分析：黑客攻击、恶意软件、社工攻击、物联网安全",
+      "display_title": "数据安全威胁分析：黑客攻击、恶意软件、社工攻击、物联网安全",
+      "filename": "theory-01-04-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616653,
+      "sha256": "92a2ec3387c83d965559a3110fa6ad58229ee598168b55765975d631ea610067",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_1_5",
+      "lesson_code": "1.5",
+      "chapter_no": 1,
+      "title": "数据安全法律法规与合规要求",
+      "display_title": "数据安全法律法规与合规要求",
+      "filename": "theory-01-05-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616869,
+      "sha256": "9fdcb999ec73c69301c2a7a7830c1c6f21a85afb1e772574b37cc3402fc091d6",
+      "source_count": 3,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_2_1",
+      "lesson_code": "2.1",
+      "chapter_no": 2,
+      "title": "数据分类的概念、目的、原则、方法与流程",
+      "display_title": "数据分类的概念、目的、原则、方法与流程",
+      "filename": "theory-02-01-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616512,
+      "sha256": "0cbf1bc95bbbe96c32908dce1a150f3f49c1a32917aad7360c6e4faee863f5b4",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_2_2",
+      "lesson_code": "2.2",
+      "chapter_no": 2,
+      "title": "数据分级的概念、目的、标准与实施流程",
+      "display_title": "数据分级的概念、目的、标准与实施流程",
+      "filename": "theory-02-02-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616523,
+      "sha256": "fe3425600440de4e257c038db41e25411c190e6b2d7de9f33917a55ccf62424a",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_2_3",
+      "lesson_code": "2.3",
+      "chapter_no": 2,
+      "title": "数据分类分级实践案例",
+      "display_title": "数据分类分级实践案例",
+      "filename": "theory-02-03-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616193,
+      "sha256": "5f99b281034b8f29ea5e3704a1652970465e2302d23dcf730f217a29e2d6b6b6",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_3_1",
+      "lesson_code": "3.1",
+      "chapter_no": 3,
+      "title": "对称加密算法：AES、DES 原理与加密模式",
+      "display_title": "对称加密算法：AES（高级加密标准）、DES（数据加密标准） 原理与加密模式",
+      "filename": "theory-03-01-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1617077,
+      "sha256": "11220a2346ac3b419836c616a8dfe0a18595114d49441baac03f7429a4731b1f",
+      "source_count": 3,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_3_2",
+      "lesson_code": "3.2",
+      "chapter_no": 3,
+      "title": "非对称加密算法：RSA 密钥生成、加解密与数字签名",
+      "display_title": "非对称加密算法：RSA（非对称加密算法） 密钥生成、加解密与数字签名",
+      "filename": "theory-03-02-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616573,
+      "sha256": "1aebc2719c92027bc1d6fe5d03308562e4678d4e7da1d36eddcb755a1e995144",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_3_3",
+      "lesson_code": "3.3",
+      "chapter_no": 3,
+      "title": "哈希算法与完整性校验：MD5、SHA 系列",
+      "display_title": "哈希算法与完整性校验：MD5（消息摘要算法第5版）、SHA（安全散列算法） 系列",
+      "filename": "theory-03-03-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616591,
+      "sha256": "fa4f5db70f7c83d703ac35a11b86a3edcc5b3e56cd862b08f491753c727e0060",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_3_4",
+      "lesson_code": "3.4",
+      "chapter_no": 3,
+      "title": "国密算法体系：SM2、SM3、SM4",
+      "display_title": "国密算法体系：SM2（国密公钥算法）、SM3（国密杂凑算法）、SM4（国密分组密码算法）",
+      "filename": "theory-03-04-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1615445,
+      "sha256": "30d72a517042b20fecdbce513abb676e0194effeba0ed81a7211bc2ead31fffc",
+      "source_count": 1,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_3_5",
+      "lesson_code": "3.5",
+      "chapter_no": 3,
+      "title": "数据编码：Base64 等编码方法",
+      "display_title": "数据编码：Base64（基础64编码） 等编码方法",
+      "filename": "theory-03-05-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616381,
+      "sha256": "5066de1ccbf6ad0a0e435e50f6d764be267588b9b0e42f4008d7245f40af2ad0",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_3_6",
+      "lesson_code": "3.6",
+      "chapter_no": 3,
+      "title": "数据存储加密（内容加密/磁盘加密）与传输加密（信源加密/通道加密）",
+      "display_title": "数据存储加密（内容加密/磁盘加密）与传输加密（信源加密/通道加密）",
+      "filename": "theory-03-06-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616578,
+      "sha256": "573d4f5349c4415a0f1c23b1114f9df2220b35d0475346c2390bc81d74013f3a",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_4_1",
+      "lesson_code": "4.1",
+      "chapter_no": 4,
+      "title": "敏感数据定义与自动识别方法",
+      "display_title": "敏感数据定义与自动识别方法",
+      "filename": "theory-04-01-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616363,
+      "sha256": "64014107f88c76622e281cb2380b1658f0a8319c111ef8e5f23b5dae7b60425e",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_4_2",
+      "lesson_code": "4.2",
+      "chapter_no": 4,
+      "title": "经典脱敏算法（替换/仿真/加密/遮掩/混淆/偏移/取整）",
+      "display_title": "经典脱敏算法（替换/仿真/加密/遮掩/混淆/偏移/取整）",
+      "filename": "theory-04-02-v1.pptx",
+      "slide_count": 9,
+      "size_bytes": 1619965,
+      "sha256": "7c6139e3a975e49d6ee9690162ff033aad344405b754c9548fd05b3e7c6f4c1d",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_4_3",
+      "lesson_code": "4.3",
+      "chapter_no": 4,
+      "title": "数据匿名化算法：K 匿名、T 相近",
+      "display_title": "数据匿名化算法：K 匿名、T 相近",
+      "filename": "theory-04-03-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1615427,
+      "sha256": "ee0885866e4e617d509f24f20cb462e55a6a4533de131353e55db020cc2d263c",
+      "source_count": 1,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_4_4",
+      "lesson_code": "4.4",
+      "chapter_no": 4,
+      "title": "静态脱敏与动态脱敏的对比与应用",
+      "display_title": "静态脱敏与动态脱敏的对比与应用",
+      "filename": "theory-04-04-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616423,
+      "sha256": "784653c26dc12bf2fb399eb064bbfa4433c3efe9409e981a4b21dfe4993840e7",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_4_5",
+      "lesson_code": "4.5",
+      "chapter_no": 4,
+      "title": "身份标识与认证机制",
+      "display_title": "身份标识与认证机制",
+      "filename": "theory-04-05-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616302,
+      "sha256": "f1cc261942b65bfb5dc82ed79d1ff03b4f219df336b6ac8b97746397389794db",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_4_6",
+      "lesson_code": "4.6",
+      "chapter_no": 4,
+      "title": "权限管理方法与 RBAC 访问控制模型",
+      "display_title": "权限管理方法与 RBAC（基于角色的访问控制） 访问控制模型",
+      "filename": "theory-04-06-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616474,
+      "sha256": "15bde49903dd31d4b0766c855a14eb24144673d649d3909e12010590359b4414",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_4_7",
+      "lesson_code": "4.7",
+      "chapter_no": 4,
+      "title": "数据库访问控制实例与越权访问防范",
+      "display_title": "数据库访问控制实例与越权访问防范",
+      "filename": "theory-04-07-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616458,
+      "sha256": "4e0d210c9bb2ffbf41df2e42fce27c948af1f4d186a05f4a535c5c488bc5ca9f",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_5_1",
+      "lesson_code": "5.1",
+      "chapter_no": 5,
+      "title": "数字水印基本原理与工作流程",
+      "display_title": "数字水印基本原理与工作流程",
+      "filename": "theory-05-01-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1615344,
+      "sha256": "1e9f2fece991a0c8abdeeb21122256c959f23b3abde080adfc1c3b38b1acbdda",
+      "source_count": 1,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_5_2",
+      "lesson_code": "5.2",
+      "chapter_no": 5,
+      "title": "水印嵌入算法与提取算法：盲水印 / 非盲水印",
+      "display_title": "水印嵌入算法与提取算法：盲水印 / 非盲水印",
+      "filename": "theory-05-02-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1615417,
+      "sha256": "52c488791b37933e441f4bb907a2274de056805de9823669cbc36bcae4552a0d",
+      "source_count": 1,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_5_3",
+      "lesson_code": "5.3",
+      "chapter_no": 5,
+      "title": "水印应用场景：版权保护、身份验证、内容追踪、隐私保护",
+      "display_title": "水印应用场景：版权保护、身份验证、内容追踪、隐私保护",
+      "filename": "theory-05-03-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1615575,
+      "sha256": "1d39dcdb8eaff1aa65e7a6aca7d2d237195e133e3e7d7abd7765b60863bc63c8",
+      "source_count": 1,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_5_4",
+      "lesson_code": "5.4",
+      "chapter_no": 5,
+      "title": "隐私计算导论：差分隐私、安全多方计算",
+      "display_title": "隐私计算导论：差分隐私、安全多方计算",
+      "filename": "theory-05-04-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616329,
+      "sha256": "1c96366050c2e715b2da37792bdd3a58102f39a567527ee09193131b34117912",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_5_5",
+      "lesson_code": "5.5",
+      "chapter_no": 5,
+      "title": "同态加密与联邦学习",
+      "display_title": "同态加密与联邦学习",
+      "filename": "theory-05-05-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616196,
+      "sha256": "180391ff20167e2c7b133e1950db73f6a34858fc3cb1cf37bb8182259962da26",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_5_6",
+      "lesson_code": "5.6",
+      "chapter_no": 5,
+      "title": "数据审计体系：数据库、应用、主机、网络审计",
+      "display_title": "数据审计体系：数据库、应用、主机、网络审计",
+      "filename": "theory-05-06-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616535,
+      "sha256": "b7403381a740bfa9e6aedcdc3e5b3c111c0e3910de7a8fb1c01c6713e6e45094",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_5_7",
+      "lesson_code": "5.7",
+      "chapter_no": 5,
+      "title": "审计日志管理与异常访问行为溯源分析",
+      "display_title": "审计日志管理与异常访问行为溯源分析",
+      "filename": "theory-05-07-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616502,
+      "sha256": "2e896926c4419a056abaf05c08c83c3cf514a65524febd0be7b419a9ff67f0c2",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_6_1",
+      "lesson_code": "6.1",
+      "chapter_no": 6,
+      "title": "数据容灾备份概念与核心指标：RPO / RTO",
+      "display_title": "数据容灾备份概念与核心指标：RPO（恢复点目标） / RTO（恢复时间目标）",
+      "filename": "theory-06-01-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616646,
+      "sha256": "00e07ba7efe5295fe1a96926b42f708e7eec9188c76cd6d189a52ecf8d295228",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_6_2",
+      "lesson_code": "6.2",
+      "chapter_no": 6,
+      "title": "灾备级别与灾备方案设计：双活、灾备、两地三中心",
+      "display_title": "灾备级别与灾备方案设计：双活、灾备、两地三中心",
+      "filename": "theory-06-02-v1.pptx",
+      "slide_count": 9,
+      "size_bytes": 1620125,
+      "sha256": "2f8053a7f098edc243380c8ca6649c9717b608335929af0faf44b925dfac7f1d",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_6_3",
+      "lesson_code": "6.3",
+      "chapter_no": 6,
+      "title": "数据销毁分类：物理销毁法与逻辑销毁法",
+      "display_title": "数据销毁分类：物理销毁法与逻辑销毁法",
+      "filename": "theory-06-03-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616470,
+      "sha256": "5ef64349247a4d55565e5f163368ce7483be6944ddf5bbc452b54d3bc1bc08f6",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_6_4",
+      "lesson_code": "6.4",
+      "chapter_no": 6,
+      "title": "网络数据销毁技术：密钥销毁 / 时间过期自销毁",
+      "display_title": "网络数据销毁技术：密钥销毁 / 时间过期自销毁",
+      "filename": "theory-06-04-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616505,
+      "sha256": "0838fb1f56ececb28a56c1a9d7614064b5e3657fe73ae62659a558da1129884d",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_6_5",
+      "lesson_code": "6.5",
+      "chapter_no": 6,
+      "title": "全量备份与增量备份策略",
+      "display_title": "全量备份与增量备份策略",
+      "filename": "theory-06-05-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1616441,
+      "sha256": "e84c76ffa01fe7c80d045fec45585977ee4f06d69ca63d30cb268ea04afd58d5",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_7_1",
+      "lesson_code": "7.1",
+      "chapter_no": 7,
+      "title": "数据安全治理的概念、目标与体系框架",
+      "display_title": "数据安全治理的概念、目标与体系框架",
+      "filename": "theory-07-01-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1617208,
+      "sha256": "8c2303d28c2fb4857e4e886d8c94a48adf6665e650c8ffb27cfed3d565c2b631",
+      "source_count": 3,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_7_2",
+      "lesson_code": "7.2",
+      "chapter_no": 7,
+      "title": "数据安全治理流程与方法",
+      "display_title": "数据安全治理流程与方法",
+      "filename": "theory-07-02-v1.pptx",
+      "slide_count": 9,
+      "size_bytes": 1619779,
+      "sha256": "aa735ce79fc3a4742836f7fb63b170e6a6d963290fa622db4a6667313978da20",
+      "source_count": 2,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_7_3",
+      "lesson_code": "7.3",
+      "chapter_no": 7,
+      "title": "行业数据安全治理实践（医疗/政务/工业领域案例）",
+      "display_title": "行业数据安全治理实践（医疗/政务/工业领域案例）",
+      "filename": "theory-07-03-v1.pptx",
+      "slide_count": 8,
+      "size_bytes": 1617518,
+      "sha256": "81b9374bcbf430c0dae4f1a404b62c0b45fdffb3d1478080de371fd9b416d620",
+      "source_count": 3,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    },
+    {
+      "lesson_id": "lesson_theory_7_4",
+      "lesson_code": "7.4",
+      "chapter_no": 7,
+      "title": "典型数据安全产品选型指南（加密类/脱敏类/审计类/管控类/备份类）",
+      "display_title": "典型数据安全产品选型指南（加密类/脱敏类/审计类/管控类/备份类）",
+      "filename": "theory-07-04-v1.pptx",
+      "slide_count": 9,
+      "size_bytes": 1620843,
+      "sha256": "08c2eb3663d904f054cf51c599b1c1298790dfe13a686a35a1103da326d6a97b",
+      "source_count": 3,
+      "quality_design": {
+        "knowledge_complete": true,
+        "layout_overflow_validated": true,
+        "animation_count": 0,
+        "copyright_noted": true
+      }
+    }
+  ]
+}
