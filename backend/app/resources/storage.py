@@ -1,6 +1,7 @@
 from hashlib import sha256
 from os import getenv
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from stat import S_ISLNK
 from tarfile import TarError, open as open_tar
 from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
@@ -20,6 +21,9 @@ MIME_BY_SUFFIX = {
     ".tar": "application/x-tar",
     ".gz": "application/gzip",
 }
+MAX_LAB_ARCHIVE_ENTRIES = 500
+MAX_LAB_ARCHIVE_ENTRY_BYTES = 256 * 1024 * 1024
+MAX_LAB_ARCHIVE_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024
 
 
 def upload_root() -> Path:
@@ -57,6 +61,30 @@ async def save_upload(upload: UploadFile) -> dict:
     return {"path": destination, "original_name": original_name, "mime_type": MIME_BY_SUFFIX[suffix], "size_bytes": size, "sha256": digest.hexdigest()}
 
 
+def _safe_archive_path(name: str) -> bool:
+    normalized = name.replace("\\", "/")
+    path = PurePosixPath(normalized)
+    return bool(
+        normalized
+        and "\x00" not in normalized
+        and not path.is_absolute()
+        and ".." not in path.parts
+        and not (path.parts and path.parts[0].endswith(":"))
+    )
+
+
+def _enforce_archive_limits(count: int, total_size: int, entry_size: int) -> None:
+    if count > MAX_LAB_ARCHIVE_ENTRIES:
+        raise ApiError("RESOURCE.LAB_FILE_TOO_MANY_ENTRIES", "实验文件包内文件数量超过平台限制", 422, {"max_entries": MAX_LAB_ARCHIVE_ENTRIES})
+    if entry_size > MAX_LAB_ARCHIVE_ENTRY_BYTES or total_size > MAX_LAB_ARCHIVE_UNCOMPRESSED_BYTES:
+        raise ApiError(
+            "RESOURCE.LAB_FILE_UNCOMPRESSED_TOO_LARGE",
+            "实验文件包解压后大小超过平台限制",
+            422,
+            {"max_entry_bytes": MAX_LAB_ARCHIVE_ENTRY_BYTES, "max_total_bytes": MAX_LAB_ARCHIVE_UNCOMPRESSED_BYTES},
+        )
+
+
 def archive_file_count(path_text: str, mime_type: str) -> int:
     path = Path(path_text)
     try:
@@ -65,10 +93,29 @@ def archive_file_count(path_text: str, mime_type: str) -> int:
                 corrupt = archive.testzip()
                 if corrupt:
                     raise BadZipFile(corrupt)
-                count = sum(not item.is_dir() for item in archive.infolist())
+                count = total_size = 0
+                for item in archive.infolist():
+                    if not _safe_archive_path(item.filename):
+                        raise ApiError("RESOURCE.LAB_FILE_UNSAFE_ENTRY", "实验文件包包含不安全路径", 422, {"entry": item.filename})
+                    unix_mode = item.external_attr >> 16
+                    if item.flag_bits & 0x1 or (unix_mode and S_ISLNK(unix_mode)):
+                        raise ApiError("RESOURCE.LAB_FILE_UNSAFE_ENTRY", "实验文件包不能包含加密文件或符号链接", 422, {"entry": item.filename})
+                    if item.is_dir():
+                        continue
+                    count += 1
+                    total_size += item.file_size
+                    _enforce_archive_limits(count, total_size, item.file_size)
         elif mime_type in {"application/x-tar", "application/gzip"}:
             with open_tar(path, mode="r:*") as archive:
-                count = sum(item.isfile() for item in archive.getmembers())
+                count = total_size = 0
+                for item in archive.getmembers():
+                    if not _safe_archive_path(item.name) or item.issym() or item.islnk() or item.isdev():
+                        raise ApiError("RESOURCE.LAB_FILE_UNSAFE_ENTRY", "实验文件包包含不安全路径或链接", 422, {"entry": item.name})
+                    if not item.isfile():
+                        continue
+                    count += 1
+                    total_size += item.size
+                    _enforce_archive_limits(count, total_size, item.size)
         else:
             raise ApiError("RESOURCE.LAB_FILE_TYPE_UNSUPPORTED", "实验文件包格式不受支持", 422)
     except (BadZipFile, TarError, OSError) as exc:

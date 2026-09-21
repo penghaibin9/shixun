@@ -1,0 +1,205 @@
+{
+  "version": "1.0.0",
+  "courseId": "course_data_security",
+  "packs": [
+    {
+      "lessonId": "lesson_lab_01",
+      "lessonCode": "实验01",
+      "slug": "lab01-aes-des-basics",
+      "title": "AES（高级加密标准）/DES（数据加密标准）基础加解密",
+      "objective": "使用命令行完成 AES（高级加密标准）加解密回环，并观察 DES（数据加密标准）的遗留兼容性限制。",
+      "environment": "Linux（开源操作系统）、OpenSSL（开放安全套接字层工具）3、Python 3（编程语言运行时）。",
+      "principles": ["对称加密使用同一秘密密钥完成加密和解密。", "现代实验以 AES（高级加密标准）为主，DES（数据加密标准）仅用于理解历史风险。"],
+      "steps": ["计算原文摘要。", "使用 AES-256-CBC（256位高级加密标准密码分组链接模式）加密。", "解密并逐字节比较。", "记录 DES（数据加密标准）命令的兼容性结果。"],
+      "expected": ["work/cipher.bin", "work/plain.out", "work/result.txt", "work/des-observation.txt"],
+      "verifyCommand": "sh scripts/run.sh",
+      "files": [
+        {"path": "data/plaintext.txt", "content": "跃科数据安全实验：对称加密回环验证。\n不要在正式系统中复用教学口令。\n"},
+        {"path": "scripts/run.sh", "content": "#!/bin/sh\nset -eu\nmkdir -p work\nexport LAB_PASSWORD=${LAB_PASSWORD:-Yueke-Lab-Only-2026}\nsha256sum data/plaintext.txt > work/source.sha256\nopenssl enc -aes-256-cbc -salt -pbkdf2 -in data/plaintext.txt -out work/cipher.bin -pass env:LAB_PASSWORD\nopenssl enc -d -aes-256-cbc -pbkdf2 -in work/cipher.bin -out work/plain.out -pass env:LAB_PASSWORD\ncmp data/plaintext.txt work/plain.out\nprintf 'AES_ROUNDTRIP_PASS\\n' > work/result.txt\nset +e\nopenssl enc -des-cbc -salt -pbkdf2 -in data/plaintext.txt -out work/des.bin -pass env:LAB_PASSWORD >/dev/null 2>&1\nstatus=$?\nset -e\nprintf 'DES_EXIT=%s\\nDES仅用于观察遗留兼容性，不作为安全方案。\\n' \"$status\" > work/des-observation.txt\n"},
+        {"path": "checks/verify.py", "content": "from pathlib import Path\nimport hashlib\nsource = Path('data/plaintext.txt').read_bytes()\nplain = Path('work/plain.out').read_bytes()\nassert source == plain\nassert Path('work/cipher.bin').read_bytes() != source\nprint('LAB01_PASS', hashlib.sha256(source).hexdigest())\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_02",
+      "lessonCode": "实验02",
+      "slug": "lab02-ecb-cbc-comparison",
+      "title": "ECB（电子密码本模式）/CBC（密码分组链接模式）对比",
+      "objective": "在相同密钥与重复明文块条件下比较两种分组模式的密文重复特征。",
+      "environment": "Linux（开源操作系统）、OpenSSL（开放安全套接字层工具）3、Python 3（编程语言运行时）。",
+      "principles": ["ECB（电子密码本模式）独立处理每个分组，可能泄露重复结构。", "CBC（密码分组链接模式）使用初始化向量和前一密文块形成链式关系。"],
+      "steps": ["生成四个完全相同的16字节明文块。", "使用固定教学密钥分别执行两种模式。", "把密文切成分组并统计唯一块数量。", "记录差异。"],
+      "expected": ["work/ecb.bin", "work/cbc.bin", "work/comparison.json"],
+      "verifyCommand": "sh scripts/run.sh && python3 checks/verify.py",
+      "files": [
+        {"path": "scripts/run.sh", "content": "#!/bin/sh\nset -eu\nmkdir -p data work\npython3 - <<'PY'\nfrom pathlib import Path\nPath('data/repeated.bin').write_bytes(b'YUEKE-BLOCK-0001' * 4)\nPY\nKEY=00112233445566778899aabbccddeeff\nIV=0102030405060708090a0b0c0d0e0f10\nopenssl enc -aes-128-ecb -nopad -nosalt -K \"$KEY\" -in data/repeated.bin -out work/ecb.bin\nopenssl enc -aes-128-cbc -nopad -nosalt -K \"$KEY\" -iv \"$IV\" -in data/repeated.bin -out work/cbc.bin\npython3 checks/verify.py\n"},
+        {"path": "checks/verify.py", "content": "from pathlib import Path\nimport json\necb = Path('work/ecb.bin').read_bytes()\ncbc = Path('work/cbc.bin').read_bytes()\necb_blocks = [ecb[i:i+16] for i in range(0, len(ecb), 16)]\ncbc_blocks = [cbc[i:i+16] for i in range(0, len(cbc), 16)]\nresult = {'ecb_total': len(ecb_blocks), 'ecb_unique': len(set(ecb_blocks)), 'cbc_total': len(cbc_blocks), 'cbc_unique': len(set(cbc_blocks))}\nassert result['ecb_unique'] == 1\nassert result['cbc_unique'] == result['cbc_total'] == 4\nPath('work/comparison.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')\nprint('LAB02_PASS', result)\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_03",
+      "lessonCode": "实验03",
+      "slug": "lab03-rsa-encryption",
+      "title": "RSA（非对称加密算法）密钥生成与加解密",
+      "objective": "生成2048位 RSA（非对称加密算法）密钥对，完成小消息的公钥加密和私钥解密。",
+      "environment": "Linux（开源操作系统）、OpenSSL（开放安全套接字层工具）3。",
+      "principles": ["公钥可分发，私钥必须受控保存。", "RSA（非对称加密算法）适合处理小数据或混合加密中的密钥材料。"],
+      "steps": ["生成私钥并导出公钥。", "检查私钥文件权限。", "使用公钥加密样例消息。", "使用私钥解密并比较原文。"],
+      "expected": ["work/private.pem", "work/public.pem", "work/cipher.bin", "work/plain.out", "work/result.txt"],
+      "verifyCommand": "sh scripts/run.sh",
+      "files": [
+        {"path": "data/message.txt", "content": "YUEKE-RSA-SESSION-KEY-2026\n"},
+        {"path": "scripts/run.sh", "content": "#!/bin/sh\nset -eu\nmkdir -p work\nopenssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out work/private.pem >/dev/null 2>&1\nchmod 600 work/private.pem\nopenssl pkey -in work/private.pem -pubout -out work/public.pem >/dev/null 2>&1\nopenssl pkeyutl -encrypt -pubin -inkey work/public.pem -in data/message.txt -out work/cipher.bin -pkeyopt rsa_padding_mode:oaep\nopenssl pkeyutl -decrypt -inkey work/private.pem -in work/cipher.bin -out work/plain.out -pkeyopt rsa_padding_mode:oaep\ncmp data/message.txt work/plain.out\nprintf 'RSA_ROUNDTRIP_PASS\\n' > work/result.txt\n"},
+        {"path": "checks/verify.py", "content": "from pathlib import Path\nassert Path('work/private.pem').read_text().startswith('-----BEGIN PRIVATE KEY-----')\nassert Path('work/public.pem').read_text().startswith('-----BEGIN PUBLIC KEY-----')\nassert Path('data/message.txt').read_bytes() == Path('work/plain.out').read_bytes()\nprint('LAB03_PASS')\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_04",
+      "lessonCode": "实验04",
+      "slug": "lab04-digital-signature",
+      "title": "RSA（非对称加密算法）数字签名生成与验证",
+      "objective": "对消息生成 SHA-256（256位安全哈希算法）签名，验证原消息成功且篡改消息失败。",
+      "environment": "Linux（开源操作系统）、OpenSSL（开放安全套接字层工具）3。",
+      "principles": ["签名者使用私钥生成签名，验证者使用公钥验签。", "签名提供来源认证和完整性验证，不默认提供机密性。"],
+      "steps": ["生成签名密钥对。", "对原消息签名并验签。", "构造单字节变化的消息。", "确认篡改消息验签失败。"],
+      "expected": ["work/signature.bin", "work/verify-original.txt", "work/verify-tampered.txt", "work/result.txt"],
+      "verifyCommand": "sh scripts/run.sh",
+      "files": [
+        {"path": "data/message.txt", "content": "跃科数字签名完整性实验。\n"},
+        {"path": "scripts/run.sh", "content": "#!/bin/sh\nset -eu\nmkdir -p work\nopenssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out work/private.pem >/dev/null 2>&1\nopenssl pkey -in work/private.pem -pubout -out work/public.pem >/dev/null 2>&1\nopenssl dgst -sha256 -sign work/private.pem -out work/signature.bin data/message.txt\nopenssl dgst -sha256 -verify work/public.pem -signature work/signature.bin data/message.txt > work/verify-original.txt\nprintf '跃科数字签名完整性实验！\\n' > work/tampered.txt\nset +e\nopenssl dgst -sha256 -verify work/public.pem -signature work/signature.bin work/tampered.txt > work/verify-tampered.txt 2>&1\nstatus=$?\nset -e\ntest \"$status\" -ne 0\ngrep -q 'Verified OK' work/verify-original.txt\nprintf 'SIGNATURE_POSITIVE_AND_NEGATIVE_PASS\\n' > work/result.txt\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_05",
+      "lessonCode": "实验05",
+      "slug": "lab05-file-hash",
+      "title": "文件哈希与完整性校验",
+      "objective": "建立可信 SHA-256（256位安全哈希算法）基准并检测文件内容变化。",
+      "environment": "Linux（开源操作系统）、sha256sum（256位安全哈希计算工具）、Python 3（编程语言运行时）。",
+      "principles": ["摘要比较必须依赖可信渠道提供的基准。", "文件名相同不代表内容相同。"],
+      "steps": ["计算原始文件摘要。", "复制并修改一个字符。", "重新计算摘要。", "验证两个摘要不同并输出报告。"],
+      "expected": ["work/original.sha256", "work/changed.sha256", "work/integrity-report.json"],
+      "verifyCommand": "sh scripts/run.sh",
+      "files": [
+        {"path": "data/evidence.txt", "content": "2026-09-22,student-001,LOGIN_SUCCESS\n"},
+        {"path": "scripts/run.sh", "content": "#!/bin/sh\nset -eu\nmkdir -p work\ncp data/evidence.txt work/changed.txt\nsha256sum data/evidence.txt | awk '{print $1}' > work/original.sha256\nprintf '2026-09-22,student-001,LOGIN_FAILED\\n' > work/changed.txt\nsha256sum work/changed.txt | awk '{print $1}' > work/changed.sha256\ntest \"$(cat work/original.sha256)\" != \"$(cat work/changed.sha256)\"\npython3 - <<'PY'\nfrom pathlib import Path\nimport json\nresult={'original':Path('work/original.sha256').read_text().strip(),'changed':Path('work/changed.sha256').read_text().strip(),'different':True}\nPath('work/integrity-report.json').write_text(json.dumps(result, indent=2), encoding='utf-8')\nprint('LAB05_PASS')\nPY\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_06",
+      "lessonCode": "实验06",
+      "slug": "lab06-base64-text",
+      "title": "Base64（基础64编码）与文本编码",
+      "objective": "区分字符集、字节和 Base64（基础64编码），完成 UTF-8（8位统一字符编码格式）文本回环。",
+      "environment": "Python 3（编程语言运行时）。",
+      "principles": ["文本先按字符集转换为字节，再执行 Base64（基础64编码）。", "Base64（基础64编码）可逆且不提供机密性。"],
+      "steps": ["读取 UTF-8（8位统一字符编码格式）文本。", "编码为 Base64（基础64编码）。", "解码并按原字符集还原。", "比较字节与文本并记录长度变化。"],
+      "expected": ["work/encoded.txt", "work/decoded.txt", "work/report.json"],
+      "verifyCommand": "python3 scripts/run.py",
+      "files": [
+        {"path": "data/message.txt", "content": "跃科网络空间安全实训平台\nBase64用于编码，不是加密。\n"},
+        {"path": "scripts/run.py", "content": "from pathlib import Path\nimport base64, json\nPath('work').mkdir(exist_ok=True)\nsource=Path('data/message.txt').read_bytes()\nencoded=base64.b64encode(source)\ndecoded=base64.b64decode(encoded, validate=True)\nassert decoded==source\nPath('work/encoded.txt').write_bytes(encoded+b'\\n')\nPath('work/decoded.txt').write_bytes(decoded)\nreport={'source_bytes':len(source),'encoded_bytes':len(encoded),'roundtrip':True,'confidentiality':False}\nPath('work/report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')\nprint('LAB06_PASS', report)\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_07",
+      "lessonCode": "实验07",
+      "slug": "lab07-lsb-steganography",
+      "title": "LSB（最低有效位）图片隐写与提取",
+      "objective": "在自生成的 PPM（便携式像素图）载体中嵌入短消息并无损提取。",
+      "environment": "Python 3（编程语言运行时），不依赖第三方图像库。",
+      "principles": ["修改颜色通道的最低有效位可承载少量信息。", "隐写隐藏通信存在，不等同于加密消息内容。"],
+      "steps": ["生成纯色 PPM（便携式像素图）载体。", "写入32位载荷长度和消息位。", "提取长度和载荷。", "比较原消息并统计像素变化。"],
+      "expected": ["work/carrier.ppm", "work/stego.ppm", "work/extracted.txt", "work/report.json"],
+      "verifyCommand": "python3 scripts/lsb.py",
+      "files": [
+        {"path": "data/secret.txt", "content": "YUEKE-LSB-2026"},
+        {"path": "scripts/lsb.py", "content": "from pathlib import Path\nimport json\nPath('work').mkdir(exist_ok=True)\nwidth=height=32\npixels=bytearray([120,180,220]*(width*height))\nheader=f'P6\\n{width} {height}\\n255\\n'.encode()\nPath('work/carrier.ppm').write_bytes(header+pixels)\nmessage=Path('data/secret.txt').read_bytes()\npayload=len(message).to_bytes(4,'big')+message\nbits=[(byte>>shift)&1 for byte in payload for shift in range(7,-1,-1)]\nassert len(bits)<=len(pixels)\nstego=bytearray(pixels)\nfor i,bit in enumerate(bits): stego[i]=(stego[i]&0xfe)|bit\nPath('work/stego.ppm').write_bytes(header+stego)\nread_bits=[value&1 for value in stego]\ndef take(start,count):\n    out=bytearray()\n    for offset in range(start,start+count,8):\n        value=0\n        for bit in read_bits[offset:offset+8]: value=(value<<1)|bit\n        out.append(value)\n    return bytes(out)\nlength=int.from_bytes(take(0,32),'big')\nextracted=take(32,length*8)\nassert extracted==message\nPath('work/extracted.txt').write_bytes(extracted)\nreport={'message_bytes':length,'embedded_bits':len(bits),'changed_channels':sum(a!=b for a,b in zip(pixels,stego))}\nPath('work/report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')\nprint('LAB07_PASS', report)\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_08",
+      "lessonCode": "实验08",
+      "slug": "lab08-database-rbac",
+      "title": "数据库用户、角色与权限配置",
+      "objective": "使用最小权限和 RBAC（基于角色的访问控制）设计只读、录入和审计职责。",
+      "environment": "MySQL 8.4（关系型数据库）隔离实验库。",
+      "principles": ["权限授予角色，用户只获得完成职责所需的角色。", "授权与拒绝路径都需要验证并留下审计证据。"],
+      "steps": ["创建订单与审计示例表。", "创建只读和录入角色。", "编写授权与回收语句。", "按测试矩阵验证允许和拒绝操作。"],
+      "expected": ["sql/schema.sql", "sql/roles.sql", "checks/permission-matrix.csv"],
+      "verifyCommand": "python3 checks/verify_package.py",
+      "files": [
+        {"path": "sql/schema.sql", "content": "CREATE TABLE lab_orders (order_id BIGINT PRIMARY KEY, customer_masked VARCHAR(32) NOT NULL, amount_cents BIGINT NOT NULL);\nCREATE TABLE lab_audit_view_source (event_id BIGINT PRIMARY KEY, action_name VARCHAR(64) NOT NULL);\nINSERT INTO lab_orders VALUES (1, '138****5678', 9900);\n"},
+        {"path": "sql/roles.sql", "content": "CREATE ROLE 'lab_reader', 'lab_operator', 'lab_auditor';\nGRANT SELECT ON lab_orders TO 'lab_reader';\nGRANT SELECT, INSERT, UPDATE ON lab_orders TO 'lab_operator';\nGRANT SELECT ON lab_audit_view_source TO 'lab_auditor';\n-- 教学环境执行后，应使用 REVOKE 和 DROP ROLE 完成清理。\n"},
+        {"path": "checks/permission-matrix.csv", "content": "role,select_orders,insert_orders,drop_orders,select_audit\nlab_reader,ALLOW,DENY,DENY,DENY\nlab_operator,ALLOW,ALLOW,DENY,DENY\nlab_auditor,DENY,DENY,DENY,ALLOW\n"},
+        {"path": "checks/verify_package.py", "content": "from pathlib import Path\nschema=Path('sql/schema.sql').read_text(encoding='utf-8')\nroles=Path('sql/roles.sql').read_text(encoding='utf-8')\nmatrix=Path('checks/permission-matrix.csv').read_text(encoding='utf-8').splitlines()\nassert 'CREATE TABLE lab_orders' in schema\nassert \"CREATE ROLE 'lab_reader'\" in roles\nassert 'DROP' in matrix[0] or 'drop_orders' in matrix[0]\nassert len(matrix)==4\nprint('LAB08_PACKAGE_PASS')\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_09",
+      "lessonCode": "实验09",
+      "slug": "lab09-data-masking",
+      "title": "手机号和身份证号脱敏规则",
+      "objective": "对正常值、空值和异常值实施可测试的服务端脱敏规则。",
+      "environment": "Python 3（编程语言运行时）。",
+      "principles": ["展示数据遵循最小必要原则。", "异常格式不得被误识别为已安全脱敏。"],
+      "steps": ["读取样例数据。", "校验手机号和身份证号格式。", "对有效值遮掩中间字段。", "输出结果并核对异常状态。"],
+      "expected": ["work/masked.csv", "work/report.json"],
+      "verifyCommand": "python3 scripts/mask.py",
+      "files": [
+        {"path": "data/input.csv", "content": "name,phone,id_card\n张三,13812345678,110101199001011234\n李四,,43010219881212321X\n测试,12345,INVALID\n"},
+        {"path": "scripts/mask.py", "content": "from pathlib import Path\nimport csv, json, re\nPath('work').mkdir(exist_ok=True)\nrows=list(csv.DictReader(Path('data/input.csv').open(encoding='utf-8')))\nout=[]; invalid=0\nfor row in rows:\n    phone=row['phone']; card=row['id_card']\n    if phone and re.fullmatch(r'1\\d{10}',phone): phone=phone[:3]+'****'+phone[-4:]\n    elif phone: phone='格式异常'; invalid+=1\n    if card and re.fullmatch(r'\\d{17}[0-9Xx]',card): card=card[:6]+'********'+card[-4:].upper()\n    elif card: card='格式异常'; invalid+=1\n    out.append({'name':row['name'],'phone':phone,'id_card':card})\nwith Path('work/masked.csv').open('w',encoding='utf-8',newline='') as f:\n    w=csv.DictWriter(f,fieldnames=['name','phone','id_card']); w.writeheader(); w.writerows(out)\nreport={'rows':len(out),'invalid_fields':invalid,'raw_sensitive_values_in_output':False}\ntext=Path('work/masked.csv').read_text(encoding='utf-8')\nassert '13812345678' not in text and '110101199001011234' not in text\nPath('work/report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')\nprint('LAB09_PASS',report)\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_10",
+      "lessonCode": "实验10",
+      "slug": "lab10-backup-restore",
+      "title": "全量和增量备份与恢复",
+      "objective": "创建一个全量基线和一个增量变更集，按顺序恢复并验证摘要。",
+      "environment": "Python 3（编程语言运行时）。",
+      "principles": ["增量恢复依赖完整基线和有序变更链。", "备份完成不等于可恢复，必须执行恢复验证。"],
+      "steps": ["读取初始数据并创建全量备份。", "应用新增和修改形成增量文件。", "在隔离目录恢复全量和增量。", "比较期望摘要并记录 RPO（恢复点目标）与 RTO（恢复时间目标）样例。"],
+      "expected": ["work/full.zip", "work/incremental.json", "work/restored/records.json", "work/report.json"],
+      "verifyCommand": "python3 scripts/backup_restore.py",
+      "files": [
+        {"path": "data/records.json", "content": "[{\"id\":1,\"value\":\"alpha\"},{\"id\":2,\"value\":\"beta\"}]\n"},
+        {"path": "data/incremental.json", "content": "{\"upsert\":[{\"id\":2,\"value\":\"beta-v2\"},{\"id\":3,\"value\":\"gamma\"}],\"delete\":[]}\n"},
+        {"path": "scripts/backup_restore.py", "content": "from pathlib import Path\nimport hashlib,json,time,zipfile\nstart=time.perf_counter(); Path('work/restored').mkdir(parents=True,exist_ok=True)\nwith zipfile.ZipFile('work/full.zip','w',zipfile.ZIP_DEFLATED) as z: z.write('data/records.json','records.json')\nPath('work/incremental.json').write_bytes(Path('data/incremental.json').read_bytes())\nwith zipfile.ZipFile('work/full.zip') as z: z.extractall('work/restored')\nrecords={x['id']:x for x in json.loads(Path('work/restored/records.json').read_text())}\nchange=json.loads(Path('work/incremental.json').read_text())\nfor item in change['upsert']: records[item['id']]=item\nfor key in change['delete']: records.pop(key,None)\nfinal=[records[key] for key in sorted(records)]\nPath('work/restored/records.json').write_text(json.dumps(final,ensure_ascii=False,indent=2),encoding='utf-8')\ndigest=hashlib.sha256(Path('work/restored/records.json').read_bytes()).hexdigest()\nassert final==[{'id':1,'value':'alpha'},{'id':2,'value':'beta-v2'},{'id':3,'value':'gamma'}]\nreport={'rpo_example_minutes':15,'rto_example_minutes':60,'restore_seconds':round(time.perf_counter()-start,4),'sha256':digest,'verified':True}\nPath('work/report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')\nprint('LAB10_PASS',report)\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_11",
+      "lessonCode": "实验11",
+      "slug": "lab11-log-audit",
+      "title": "日志抓取、解析与异常识别",
+      "objective": "解析结构化访问日志，发现短时连续失败登录和越权访问。",
+      "environment": "Python 3（编程语言运行时）。",
+      "principles": ["跨事件关联依赖准确时间、主体、来源和结果字段。", "告警应保留命中规则和原始证据定位信息。"],
+      "steps": ["读取逗号分隔日志。", "按账号和五分钟窗口统计失败登录。", "识别明确的越权结果。", "输出可追溯告警清单。"],
+      "expected": ["work/alerts.json", "work/summary.json"],
+      "verifyCommand": "python3 scripts/analyze.py",
+      "files": [
+        {"path": "data/access.csv", "content": "timestamp,user,source,action,result\n2026-09-22T08:00:00,student01,10.0.0.10,LOGIN,FAILED\n2026-09-22T08:01:00,student01,10.0.0.10,LOGIN,FAILED\n2026-09-22T08:02:00,student01,10.0.0.10,LOGIN,FAILED\n2026-09-22T08:03:00,student01,10.0.0.10,LOGIN,FAILED\n2026-09-22T08:04:00,student01,10.0.0.10,LOGIN,FAILED\n2026-09-22T08:05:00,student02,10.0.0.11,READ_OTHER_SCORE,DENIED\n2026-09-22T08:06:00,teacher01,10.0.0.20,READ_CLASS,ALLOWED\n"},
+        {"path": "scripts/analyze.py", "content": "from pathlib import Path\nimport csv,json\nfrom collections import Counter\nPath('work').mkdir(exist_ok=True)\nrows=list(csv.DictReader(Path('data/access.csv').open(encoding='utf-8')))\nfailed=Counter(row['user'] for row in rows if row['action']=='LOGIN' and row['result']=='FAILED')\nalerts=[]\nfor user,count in failed.items():\n    if count>=5: alerts.append({'rule':'FIVE_FAILED_LOGINS','user':user,'count':count})\nfor row in rows:\n    if row['result']=='DENIED': alerts.append({'rule':'ACCESS_DENIED','user':row['user'],'action':row['action'],'timestamp':row['timestamp']})\nassert {a['rule'] for a in alerts}=={'FIVE_FAILED_LOGINS','ACCESS_DENIED'}\nPath('work/alerts.json').write_text(json.dumps(alerts,ensure_ascii=False,indent=2),encoding='utf-8')\nPath('work/summary.json').write_text(json.dumps({'events':len(rows),'alerts':len(alerts)},indent=2),encoding='utf-8')\nprint('LAB11_PASS',alerts)\n"}
+      ]
+    },
+    {
+      "lessonId": "lesson_lab_12",
+      "lessonCode": "实验12",
+      "slug": "lab12-governance",
+      "title": "数据安全治理综合实践",
+      "objective": "把数据资产、分类分级、风险、控制、责任和整改期限形成可追溯闭环。",
+      "environment": "Python 3（编程语言运行时）和 CSV（逗号分隔值）数据文件。",
+      "principles": ["治理结论必须能够从资产和风险证据追溯。", "未完成控制应保留为真实待办，不得改写为通过。"],
+      "steps": ["读取资产清单和风险清单。", "按风险标识关联控制。", "识别缺失责任人、期限或未完成控制。", "输出整改清单和统计摘要。"],
+      "expected": ["work/remediation.csv", "work/summary.json"],
+      "verifyCommand": "python3 scripts/assess.py",
+      "files": [
+        {"path": "data/assets.csv", "content": "asset_id,name,classification,level,owner\nA01,学生身份库,个人信息,高,教务处\nA02,课程视频,教学资源,中,课程组\nA03,实验日志,安全审计,高,实验中心\n"},
+        {"path": "data/risks.csv", "content": "risk_id,asset_id,description,severity,control_id\nR01,A01,批量导出缺少二次审批,高,C01\nR02,A03,日志保留期未配置,中,C02\nR03,A02,公开下载缺少有效期,中,C03\n"},
+        {"path": "data/controls.csv", "content": "control_id,status,owner,due_date\nC01,IN_PROGRESS,教务处,2026-10-15\nC02,NOT_STARTED,实验中心,2026-10-30\nC03,DONE,课程组,2026-09-20\n"},
+        {"path": "scripts/assess.py", "content": "from pathlib import Path\nimport csv,json\nPath('work').mkdir(exist_ok=True)\ndef read(name): return list(csv.DictReader(Path(name).open(encoding='utf-8')))\nassets={x['asset_id']:x for x in read('data/assets.csv')}\ncontrols={x['control_id']:x for x in read('data/controls.csv')}\nrisks=read('data/risks.csv'); remediation=[]\nfor risk in risks:\n    assert risk['asset_id'] in assets and risk['control_id'] in controls\n    control=controls[risk['control_id']]\n    if control['status']!='DONE':\n        remediation.append({'risk_id':risk['risk_id'],'asset':assets[risk['asset_id']]['name'],'severity':risk['severity'],'control_id':risk['control_id'],'status':control['status'],'owner':control['owner'],'due_date':control['due_date']})\nwith Path('work/remediation.csv').open('w',encoding='utf-8',newline='') as f:\n    fields=['risk_id','asset','severity','control_id','status','owner','due_date']; w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(remediation)\nsummary={'assets':len(assets),'risks':len(risks),'open_remediation':len(remediation),'completed_controls':sum(x['status']=='DONE' for x in controls.values())}\nassert summary=={'assets':3,'risks':3,'open_remediation':2,'completed_controls':1}\nPath('work/summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')\nprint('LAB12_PASS',summary)\n"}
+      ]
+    }
+  ]
+}

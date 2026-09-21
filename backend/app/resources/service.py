@@ -181,7 +181,11 @@ class ResourceService:
             file_count = archive_file_count(file_object.object_key, file_object.mime_type)
             if data.lab_file_count is not None and data.lab_file_count != file_count:
                 raise ApiError("RESOURCE.LAB_FILE_COUNT_MISMATCH", "填写的文件数量与真实压缩包不一致", 422, {"actual_file_count": file_count})
-            self.repo.add(LabFilePack(lab_file_pack_id=str(uuid4()), resource_version_id=version.resource_version_id, file_count=file_count, total_size_bytes=file_object.size_bytes))
+            pack = LabFilePack(lab_file_pack_id=str(uuid4()), resource_version_id=version.resource_version_id, file_count=file_count, total_size_bytes=file_object.size_bytes)
+            self.repo.add(pack)
+            lesson = self.session.scalar(select(LessonResource).where(LessonResource.course_id == item.course_id, LessonResource.lesson_id == item.lesson_id))
+            if lesson:
+                lesson.linked_file_pack_id = pack.lab_file_pack_id
         item.status, item.updated_at = "DRAFT", now()
         enqueue_event(self.session, event_type="resource.version.created", aggregate_type="resource", aggregate_id=item.resource_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-version:{version.resource_version_id}", payload={"resource_version_id": version.resource_version_id, "version_no": version.version_no, "sha256": version.sha256})
         self.session.commit()

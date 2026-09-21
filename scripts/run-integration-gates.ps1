@@ -93,10 +93,10 @@ try {
   [ordered]@{
     engineering_gate_status = 'PASS'
     procurement_content_status = 'BLOCKED'
-    procurement_content_reason = 'The formal question bank passes; 37 PPTs, 49 videos, 12 lab packages, and the related theory-resource review gates remain absent.'
+    procurement_content_reason = 'The formal question bank and 12 lab packages pass; 37 PPTs, 49 videos, and 37 theory-resource review gates remain absent.'
     production_acceptance = 'NOT_RUN'
     run_id = $RunId
-    backend_tests = 104
+    backend_tests = 113
     frontend_tests = 14
     browser_gates = 'G1-G8'
     docker_runtime = 'G4-G6'

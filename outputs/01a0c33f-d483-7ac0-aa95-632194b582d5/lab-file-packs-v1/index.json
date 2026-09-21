@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "content_version": "1.0.0",
+  "course_id": "course_data_security",
+  "pack_count": 12,
+  "packs": [
+    {
+      "lesson_id": "lesson_lab_01",
+      "lesson_code": "实验01",
+      "slug": "lab01-aes-des-basics",
+      "title": "AES（高级加密标准）/DES（数据加密标准）基础加解密",
+      "filename": "lab01-aes-des-basics-v1.zip",
+      "file_count": 6,
+      "size_bytes": 2739,
+      "sha256": "a5304b44bc7841f8b7a497049c26c7f4599bf18be75b46f5e72a6294e7fa4861",
+      "verify_command": "sh scripts/run.sh"
+    },
+    {
+      "lesson_id": "lesson_lab_02",
+      "lesson_code": "实验02",
+      "slug": "lab02-ecb-cbc-comparison",
+      "title": "ECB（电子密码本模式）/CBC（密码分组链接模式）对比",
+      "filename": "lab02-ecb-cbc-comparison-v1.zip",
+      "file_count": 5,
+      "size_bytes": 2515,
+      "sha256": "6c21ef3d0b72b5fdbfa5f6e1cda90beaa57f9738f002d0f62f6212ba7f12e991",
+      "verify_command": "sh scripts/run.sh && python3 checks/verify.py"
+    },
+    {
+      "lesson_id": "lesson_lab_03",
+      "lesson_code": "实验03",
+      "slug": "lab03-rsa-encryption",
+      "title": "RSA（非对称加密算法）密钥生成与加解密",
+      "filename": "lab03-rsa-encryption-v1.zip",
+      "file_count": 6,
+      "size_bytes": 2467,
+      "sha256": "48cfa0d49c139e3acdc02a7cd2012caa11c61005e4430cc71dab0941b367a613",
+      "verify_command": "sh scripts/run.sh"
+    },
+    {
+      "lesson_id": "lesson_lab_04",
+      "lesson_code": "实验04",
+      "slug": "lab04-digital-signature",
+      "title": "RSA（非对称加密算法）数字签名生成与验证",
+      "filename": "lab04-digital-signature-v1.zip",
+      "file_count": 5,
+      "size_bytes": 2269,
+      "sha256": "3c57905fd767f59f9fa645b747f43b28826713bfb32d22e04c67974a089f5222",
+      "verify_command": "sh scripts/run.sh"
+    },
+    {
+      "lesson_id": "lesson_lab_05",
+      "lesson_code": "实验05",
+      "slug": "lab05-file-hash",
+      "title": "文件哈希与完整性校验",
+      "filename": "lab05-file-hash-v1.zip",
+      "file_count": 5,
+      "size_bytes": 2192,
+      "sha256": "97e66a0715dc2505485e06e45c67aebbbf69af57902d1662b1b53a2649325d6c",
+      "verify_command": "sh scripts/run.sh"
+    },
+    {
+      "lesson_id": "lesson_lab_06",
+      "lesson_code": "实验06",
+      "slug": "lab06-base64-text",
+      "title": "Base64（基础64编码）与文本编码",
+      "filename": "lab06-base64-text-v1.zip",
+      "file_count": 5,
+      "size_bytes": 2123,
+      "sha256": "85c5c075b4e08cdcdd91503a0c277a81950cdea98272a146b7fd2aaf2553a2c9",
+      "verify_command": "python3 scripts/run.py"
+    },
+    {
+      "lesson_id": "lesson_lab_07",
+      "lesson_code": "实验07",
+      "slug": "lab07-lsb-steganography",
+      "title": "LSB（最低有效位）图片隐写与提取",
+      "filename": "lab07-lsb-steganography-v1.zip",
+      "file_count": 5,
+      "size_bytes": 2469,
+      "sha256": "2d046ec54df51e8583dd326cfdc41258b2a2efe7ca44affc00006093cf54b83a",
+      "verify_command": "python3 scripts/lsb.py"
+    },
+    {
+      "lesson_id": "lesson_lab_08",
+      "lesson_code": "实验08",
+      "slug": "lab08-database-rbac",
+      "title": "数据库用户、角色与权限配置",
+      "filename": "lab08-database-rbac-v1.zip",
+      "file_count": 7,
+      "size_bytes": 2865,
+      "sha256": "22988f0081847ec0cb9bb57fe689cb8fa0f1bcbcb8e375114f88597d33048b01",
+      "verify_command": "python3 checks/verify_package.py"
+    },
+    {
+      "lesson_id": "lesson_lab_09",
+      "lesson_code": "实验09",
+      "slug": "lab09-data-masking",
+      "title": "手机号和身份证号脱敏规则",
+      "filename": "lab09-data-masking-v1.zip",
+      "file_count": 5,
+      "size_bytes": 2410,
+      "sha256": "4e744f1fab5dbbf9bf0a2aa9fafbb591c31dcfe414c952b1f0554b4a588d6c2f",
+      "verify_command": "python3 scripts/mask.py"
+    },
+    {
+      "lesson_id": "lesson_lab_10",
+      "lesson_code": "实验10",
+      "slug": "lab10-backup-restore",
+      "title": "全量和增量备份与恢复",
+      "filename": "lab10-backup-restore-v1.zip",
+      "file_count": 6,
+      "size_bytes": 2682,
+      "sha256": "adea0353e95a2d7dcbcd01e2818b65534fbde6c010ea4999d398ec872eb9eb7e",
+      "verify_command": "python3 scripts/backup_restore.py"
+    },
+    {
+      "lesson_id": "lesson_lab_11",
+      "lesson_code": "实验11",
+      "slug": "lab11-log-audit",
+      "title": "日志抓取、解析与异常识别",
+      "filename": "lab11-log-audit-v1.zip",
+      "file_count": 5,
+      "size_bytes": 2395,
+      "sha256": "439137027e60e0d012b89f8838e779ee14f02c44b43b12038387c4ddd5028627",
+      "verify_command": "python3 scripts/analyze.py"
+    },
+    {
+      "lesson_id": "lesson_lab_12",
+      "lesson_code": "实验12",
+      "slug": "lab12-governance",
+      "title": "数据安全治理综合实践",
+      "filename": "lab12-governance-v1.zip",
+      "file_count": 7,
+      "size_bytes": 3171,
+      "sha256": "18ac5c2d6a09c8b44a2d15aeabe48b3ffebc2c2c9c1e693c27009f258b880409",
+      "verify_command": "python3 scripts/assess.py"
+    }
+  ]
+}
