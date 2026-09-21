@@ -1,0 +1,4 @@
+# Only add ignored local files here if a Codex Worktree truly needs them.
+# Never commit real secrets.
+# Examples (enable only when needed):
+# .env.local

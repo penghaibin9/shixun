@@ -1,0 +1,22 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "跃科网络空间安全实训平台 API", "version": "1.0.0"},
+  "paths": {
+    "/api/v1/auth/context": {
+      "get": {
+        "summary": "获取当前请求权限上下文",
+        "responses": {
+          "200": {"description": "当前上下文", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UserContext"}}}},
+          "401": {"description": "未认证", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserContext": {"type": "object", "required": ["user_id", "role", "permissions", "course_ids", "class_ids"], "properties": {"user_id": {"type": "string"}, "role": {"type": "string", "enum": ["teacher", "student", "admin"]}, "teacher_id": {"type": ["string", "null"]}, "student_id": {"type": ["string", "null"]}, "permissions": {"type": "array", "items": {"type": "string"}}, "course_ids": {"type": "array", "items": {"type": "string"}}, "class_ids": {"type": "array", "items": {"type": "string"}}}},
+      "Error": {"type": "object", "required": ["code", "message", "request_id", "details"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "request_id": {"type": "string"}, "details": {"type": "object"}}},
+      "Page": {"type": "object", "required": ["items", "page", "page_size", "total"], "properties": {"items": {"type": "array"}, "page": {"type": "integer", "minimum": 1}, "page_size": {"type": "integer", "minimum": 1}, "total": {"type": "integer", "minimum": 0}}}
+    }
+  }
+}
