@@ -3,7 +3,7 @@
 | 所有者 | 表前缀或表名 | 约束 |
 |---|---|---|
 | 总控 | `auth_*`、`file_object`、`domain_event_outbox` | 认证、公共文件及可靠事件投递 |
-| A | `course_*`、`class_*`、`teaching_*` | 课程和归班事实仅此处创建 |
+| A | `course_*`、`class_*`、`teaching_*` | 课程和归班事实仅此处创建；教师学生管理必须复用 `class_membership` |
 | B | `resource_*`、`question_*` | 文件必须引用 `file_id` |
 | C | `lab_definition`、`lab_version`、`lab_scene_*`、`lab_dag_*`、`lab_checkpoint`、`lab_release*` | 定义而不启动实例 |
 | D | `runtime_*`、`infra_*`、`checkpoint_result` | 仅 D 可操作容器运行时 |

@@ -89,6 +89,8 @@
 ### A teaching-core
 负责：
 - course / class / class_membership
+- 教师本人任课班级的学生日常管理（分页、搜索、导入、加入、移出、导出）
+- `page-teacher-students`
 - 签到
 - 投票
 - 作业
@@ -177,6 +179,7 @@
 
 A：
 - courses
+- teacher-students
 - attendance-management
 - teacher-assignments
 - student-course

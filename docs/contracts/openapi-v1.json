@@ -10,13 +10,28 @@
           "401": {"description": "未认证", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
         }
       }
-    }
+    },
+    "/api/v1/classes/{class_id}/members": {
+      "get": {"summary": "分页查询本人任课班级学生", "parameters": [{"name": "class_id", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "page", "in": "query", "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"name": "page_size", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}, {"name": "search", "in": "query", "schema": {"type": "string"}}, {"name": "status", "in": "query", "schema": {"type": "string"}}, {"name": "sort", "in": "query", "schema": {"type": "string", "enum": ["student_no", "name"]}}], "responses": {"200": {"description": "学生分页", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MemberPage"}}}}, "403": {"description": "无权访问班级", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}},
+      "post": {"summary": "将已有学生账号加入本人任课班级", "parameters": [{"name": "class_id", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"201": {"description": "已加入"}, "403": {"description": "无权操作班级", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/v1/classes/{class_id}/members/{student_id}": {
+      "get": {"summary": "查询班级学生详情", "parameters": [{"name": "class_id", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "student_id", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "学生详情", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClassMember"}}}}, "403": {"description": "无权访问"}}},
+      "delete": {"summary": "解除本人任课班级归班关系", "parameters": [{"name": "class_id", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "student_id", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"204": {"description": "已移出班级"}, "403": {"description": "无权操作"}}}
+    },
+    "/api/v1/classes/{class_id}/members/import": {"post": {"summary": "使用统一 XLSX 导入逻辑导入班级学生", "responses": {"202": {"description": "导入任务已创建"}, "403": {"description": "无权操作"}}}},
+    "/api/v1/classes/{class_id}/members/import-template": {"get": {"summary": "下载学生导入模板", "responses": {"200": {"description": "XLSX 模板"}, "403": {"description": "无权访问"}}}},
+    "/api/v1/classes/{class_id}/members/export.xlsx": {"get": {"summary": "导出本人任课班级学生名单", "responses": {"200": {"description": "XLSX 名单"}, "403": {"description": "无权访问"}}}},
+    "/api/v1/classes/{class_id}/students/{student_id}/learning-summary": {"get": {"summary": "聚合单个学生学习汇总", "responses": {"200": {"description": "跨域读取模型", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LearningSummary"}}}}, "403": {"description": "无权访问"}}}}
   },
   "components": {
     "schemas": {
       "UserContext": {"type": "object", "required": ["user_id", "role", "permissions", "course_ids", "class_ids"], "properties": {"user_id": {"type": "string"}, "role": {"type": "string", "enum": ["teacher", "student", "admin"]}, "teacher_id": {"type": ["string", "null"]}, "student_id": {"type": ["string", "null"]}, "permissions": {"type": "array", "items": {"type": "string"}}, "course_ids": {"type": "array", "items": {"type": "string"}}, "class_ids": {"type": "array", "items": {"type": "string"}}}},
       "Error": {"type": "object", "required": ["code", "message", "request_id", "details"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "request_id": {"type": "string"}, "details": {"type": "object"}}},
-      "Page": {"type": "object", "required": ["items", "page", "page_size", "total"], "properties": {"items": {"type": "array"}, "page": {"type": "integer", "minimum": 1}, "page_size": {"type": "integer", "minimum": 1}, "total": {"type": "integer", "minimum": 0}}}
+      "Page": {"type": "object", "required": ["items", "page", "page_size", "total"], "properties": {"items": {"type": "array"}, "page": {"type": "integer", "minimum": 1}, "page_size": {"type": "integer", "minimum": 1}, "total": {"type": "integer", "minimum": 0}}},
+      "ClassMember": {"type": "object", "required": ["student_id", "class_id", "student_no", "name", "account_status", "joined_at"], "properties": {"student_id": {"type": "string"}, "class_id": {"type": "string"}, "student_no": {"type": "string"}, "name": {"type": "string"}, "account_status": {"type": "string", "enum": ["ACTIVE", "INACTIVE"]}, "joined_at": {"type": "string", "format": "date-time"}}},
+      "MemberPage": {"allOf": [{"$ref": "#/components/schemas/Page"}, {"type": "object", "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/ClassMember"}}}}]},
+      "LearningSummary": {"type": "object", "required": ["student_id", "course_id", "class_id", "data_status"], "properties": {"student_id": {"type": "string"}, "course_id": {"type": "string"}, "class_id": {"type": "string"}, "data_status": {"type": "string", "enum": ["READY", "PENDING", "PARTIAL"]}, "attendance": {"type": ["object", "null"]}, "assignment": {"type": ["object", "null"]}, "quiz": {"type": ["object", "null"]}, "lab": {"type": ["object", "null"]}, "grade": {"type": ["object", "null"]}, "risk_flags": {"type": "array", "items": {"type": "object"}}}}
     }
   }
 }

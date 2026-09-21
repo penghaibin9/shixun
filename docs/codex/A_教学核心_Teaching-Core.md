@@ -23,13 +23,14 @@
 
 ## 1. 负责范围
 
-只负责：课程、班级、学生归班、XLSX 导学生、签到、在线投票、作业、测验、教学事件。
+只负责：课程、班级、学生归班、教师本人任课班级的学生日常管理、XLSX 导学生、签到、在线投票、作业、测验、教学事件。
 
 不负责：资源文件、Docker、实验定义、实验运行、正式成绩、学情、审计中心。
 
 ## 2. 对照原型
 
 - `page-courses`
+- `page-teacher-students`
 - `page-attendance-management`
 - `page-teacher-assignments`
 - `page-student-course`
@@ -110,8 +111,13 @@ GET    /api/v1/classes
 GET    /api/v1/classes/{class_id}
 
 GET    /api/v1/classes/{class_id}/members
+GET    /api/v1/classes/{class_id}/members/{student_id}
+POST   /api/v1/classes/{class_id}/members
 POST   /api/v1/classes/{class_id}/members/import
+DELETE /api/v1/classes/{class_id}/members/{student_id}
 GET    /api/v1/classes/{class_id}/members/import-template
+GET    /api/v1/classes/{class_id}/members/export.xlsx
+GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 GET    /api/v1/import-jobs/{job_id}
 GET    /api/v1/import-jobs/{job_id}/error-rows.xlsx
 
@@ -140,7 +146,16 @@ POST   /api/v1/quizzes/{id}/attempts
 POST   /api/v1/quizzes/{id}/attempts/{attempt_id}/submit
 ```
 
-## 6. XLSX 导学生必须做真
+## 6. 教师学生管理
+
+- 教学管理菜单首项为 `page-teacher-students`，教师只能选择本人任课课程和班级。
+- 列表必须服务端分页，支持姓名/学号搜索、班级/账号状态过滤以及学号/姓名排序，并提供加载、空数据和无权限状态。
+- 新增学生默认只将已有学生账号加入班级；移出只解除 `class_membership`，不得创建第二套学生关系、删除 `auth_user` 或修改角色。
+- 学生详情基础信息来自 `class_membership`；签到/作业/测验由 A 提供，实验由 E/D ReadModel（读取模型）提供，总评/风险由 F ReadModel 提供。未就绪时显示“数据待汇总”，不得复制跨域事实。
+- 权限测试覆盖本人班级通过、其他教师班级拒绝、其他班学生详情拒绝、跨班移出拒绝、学生角色拒绝。
+- Playwright（浏览器自动化）覆盖选择课程/班级、43 人分页、搜索、详情汇总、返回与导出，以及切换教师后的越权拒绝。
+
+## 7. XLSX 导学生必须做真
 
 模板至少：
 
@@ -171,7 +186,7 @@ POST   /api/v1/quizzes/{id}/attempts/{attempt_id}/submit
 
 43 人用于测试 fixture/seed，禁止写死业务代码。
 
-## 7. 签到细节
+## 8. 签到细节
 
 ```text
 attendance_task:
@@ -207,7 +222,7 @@ lesson
 状态
 ```
 
-## 8. 投票
+## 9. 投票
 
 `poll_type`：
 
@@ -219,7 +234,7 @@ TEACHING_FEEDBACK
 
 结果必须后端真实统计。
 
-## 9. 作业/测验
+## 10. 作业/测验
 
 - 题来自 B question bank。
 - 发布时锁定 question version/snapshot。
@@ -228,7 +243,7 @@ TEACHING_FEEDBACK
 - 支持截止、班级、随机题序、限时。
 - 学生只可提交本人任务。
 
-## 10. 事件输出
+## 11. 事件输出
 
 ```text
 attendance.completed
@@ -248,7 +263,7 @@ source_id
 raw_score/max_score（适用时）
 ```
 
-## 11. 前端
+## 12. 前端
 
 还原原型：
 
@@ -260,7 +275,7 @@ raw_score/max_score（适用时）
 
 select/check/radio 统一用公共 Yk 组件。
 
-## 12. 权限必测
+## 13. 权限必测
 
 - 教师 A 访问教师 B 班 -> deny
 - 学生 A 访问学生 B 数据 -> deny
@@ -268,7 +283,7 @@ select/check/radio 统一用公共 Yk 组件。
 - 关闭签到不可重复签到
 - permission 通过 UserContext，不硬编码 `if role == teacher`
 
-## 13. 测试
+## 14. 测试
 
 后端：
 
@@ -295,7 +310,7 @@ Playwright 主链：
 -> 学生提交
 ```
 
-## 14. 不可触碰区
+## 15. 不可触碰区
 
 禁止修改：
 
@@ -312,7 +327,7 @@ node_agent/*
 
 禁止自己创建 Docker、计算正式总评、自建题库、自建学生表。
 
-## 15. Gate
+## 16. Gate
 
 ### G1
 全新 MySQL：
@@ -324,7 +339,7 @@ node_agent/*
 
 另验收三类投票、作业/测验、事件 outbox、跨班隔离。
 
-## 16. 完成后给我
+## 17. 完成后给我
 
 - commit
 - migration

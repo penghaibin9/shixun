@@ -16,6 +16,23 @@
 
 已落地的总控接口：`GET /api/v1/auth/context`，从身份提供方解析请求用户、角色、权限及课程/班级范围。生产身份由认证中间件注入；开发环境请求头仅用于契约测试，不能作为生产认证方案。
 
+## 教师学生管理
+
+A 负责以下接口，班级成员唯一事实均为 `class_membership`：
+
+```text
+GET    /api/v1/classes/{class_id}/members
+GET    /api/v1/classes/{class_id}/members/{student_id}
+POST   /api/v1/classes/{class_id}/members
+POST   /api/v1/classes/{class_id}/members/import
+DELETE /api/v1/classes/{class_id}/members/{student_id}
+GET    /api/v1/classes/{class_id}/members/import-template
+GET    /api/v1/classes/{class_id}/members/export.xlsx
+GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
+```
+
+成员列表必须服务端分页，支持姓名/学号搜索、账号状态过滤及学号/姓名排序。学习汇总由总控聚合 A 的签到/作业/测验、E 的实验状态、F 的总评/风险 ReadModel；未接入的跨域字段返回 `null` 和 `data_status: "PENDING"`，A 不得跨域直连表或自行计算实验成绩与风险。
+
 ## 共享 ID（标识符）
 
 冻结：`user_id`、`teacher_id`、`student_id`、`course_id`、`class_id`、`class_membership_id`、`chapter_id`、`lesson_id`、`file_id`、`resource_id`、`resource_version_id`、`lab_definition_id`、`lab_version_id`、`lab_release_id`、`checkpoint_id`、`runtime_request_id`、`runtime_instance_group_id`、`runtime_instance_id`、`checkpoint_result_id`、`assignment_id`、`assignment_submission_id`、`quiz_id`、`quiz_attempt_id`、`submission_id`、`grade_event_id`、`gradebook_id`、`audit_event_id`。
