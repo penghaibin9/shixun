@@ -2,12 +2,14 @@
 
 | 所有者 | 表前缀或表名 | 约束 |
 |---|---|---|
-| 总控 | `auth_*`、`file_object`、`domain_event_outbox` | 认证、公共文件及可靠事件投递 |
-| A | `course_*`、`class_*`、`teaching_*` | 课程和归班事实仅此处创建；教师学生管理必须复用 `class_membership` |
-| B | `resource_*`、`question_*` | 文件必须引用 `file_id` |
-| C | `lab_definition`、`lab_version`、`lab_scene_*`、`lab_dag_*`、`lab_checkpoint`、`lab_release*` | 定义而不启动实例 |
+| 总控 | `file_object`、`domain_event_outbox`；后续认证表使用 `auth_*` | 认证、公共文件及可靠事件投递 |
+| A | `course*`、`class*`、`teaching_*`、`attendance_*`、`poll*`、`assignment*`、`quiz*` | 课程和归班事实仅此处创建；教师学生管理必须复用 `class_membership` |
+| B | `resource*`、`lesson_resource`、`ppt_asset`、`video_asset`、`lab_file_pack`、`question*` | 文件必须引用 `file_id` |
+| C | `lab_definition`、`lab_version`、`lab_scene*`、`lab_dag_*`、`lab_checkpoint`、`lab_release`、`lab_template`、`lab_knowledge_point`、`lab_explain_diagram`、`lab_image_binding`、`lab_publish_config`、`lab_question_knowledge_map` | 定义而不启动实例 |
 | D | `runtime_*`、`infra_*`、`checkpoint_result` | 仅 D 可操作容器运行时 |
-| E | `classroom_*`、`teaching_log_distribution_*` | 仅保留必要课堂事实 |
-| F | `grading_*`、`analytics_*`、`audit_*`、`course_archive*` | 消费上游事实，不复造上游记录 |
+| E | `classroom_*`、`teaching_log_distribution_*`、`student_log_assignment` | 仅保留必要课堂事实 |
+| F | `grading_*`、`grade*`、`analytics_*`、`audit_event`、`course_archive*`、`student_course_score`、`student_risk_flag` | 消费上游事实，不复造上游记录 |
 
 迁移仅可新增：各线新增自己的 Alembic（数据库迁移）版本；`integration（集成）` 在出现多头时创建合并版本。每次集成都必须在全新 MySQL 8.4 空库执行升级。
+
+机器可校验的逐表唯一归属冻结在 `docs/contracts/database-ownership-v1.json`。契约测试要求 SQLAlchemy（数据库映射层）当前登记的每张表恰好出现一次；新增、遗漏或重复认领都会阻断集成。

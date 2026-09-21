@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.labs import models
 from app.labs.database import get_session
+from app.labs.seed import seed_rsa
 from app.main import app
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要真实 MySQL 8.4 的 YUEKE_DATABASE_URL")
@@ -20,6 +21,13 @@ HEADERS = {
     "X-Course-Ids": "course_data_security",
     "X-Class-Ids": "class_netsec_2301",
 }
+
+
+@pytest.fixture(scope="module", autouse=True)
+def rsa_baseline():
+    """真实空库测试必须显式验证幂等的 RSA 基线初始化。"""
+    if os.getenv("YUEKE_DATABASE_URL"):
+        seed_rsa()
 
 
 @pytest.fixture()

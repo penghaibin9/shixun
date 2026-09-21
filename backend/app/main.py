@@ -2,8 +2,9 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 
-from .common.context import CurrentUser
+from .common.context import CurrentUser, UserContextResponse
 from .common.errors import ApiError, api_error_handler, validation_error_handler
 from .grading.api import router as grading_router
 from .integration.api import router as integration_router
@@ -25,6 +26,39 @@ app.include_router(grading_router)
 app.include_router(integration_router)
 
 
+def frozen_openapi() -> dict:
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(title=app.title, version=app.version, routes=app.routes, openapi_version=app.openapi_version)
+    schemas = schema.setdefault("components", {}).setdefault("schemas", {})
+    schemas["Error"] = {
+        "type": "object",
+        "required": ["code", "message", "request_id", "details"],
+        "properties": {
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+            "request_id": {"type": "string"},
+            "details": {"type": "object", "additionalProperties": True},
+        },
+    }
+    error_response = {"description": "标准错误信封", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+    for path, operations in schema["paths"].items():
+        if not path.startswith("/api/v1/"):
+            continue
+        for method, operation in operations.items():
+            if method not in {"get", "post", "put", "patch", "delete"}:
+                continue
+            responses = operation.setdefault("responses", {})
+            responses.setdefault("401", error_response)
+            responses.setdefault("403", error_response)
+            responses["422"] = error_response
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = frozen_openapi
+
+
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request.state.request_id = request.headers.get("X-Request-Id", f"req_{uuid4().hex}")
@@ -38,6 +72,6 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/v1/auth/context")
-async def auth_context(user: CurrentUser) -> dict:
-    return {"user_id": user.user_id, "role": user.role, "teacher_id": user.teacher_id, "student_id": user.student_id, "permissions": sorted(user.permissions), "course_ids": sorted(user.course_ids), "class_ids": sorted(user.class_ids)}
+@app.get("/api/v1/auth/context", response_model=UserContextResponse)
+async def auth_context(user: CurrentUser) -> UserContextResponse:
+    return UserContextResponse(user_id=user.user_id, role=user.role, teacher_id=user.teacher_id, student_id=user.student_id, permissions=sorted(user.permissions), course_ids=sorted(user.course_ids), class_ids=sorted(user.class_ids))

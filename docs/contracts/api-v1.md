@@ -14,6 +14,8 @@
 
 成功列表统一为 `items`、`page`、`page_size`、`total`；错误统一为 `code`、`message`、`request_id`、`details`。所有写接口必须鉴权、做数据范围校验、参数校验、适用时使用幂等键，并在同一事务写审计事件和事件发件箱。
 
+`docs/contracts/openapi-v1.json` 由 `scripts/freeze_openapi.py` 从当前 FastAPI（后端接口框架）真实路由生成，契约测试要求其与运行时规范逐字段一致。前端执行 `npm run contracts:generate` 生成 `frontend/src/app/api-contract.generated.ts`，共享错误信封和用户上下文类型必须直接引用生成结果；禁止手工维护第二份同名共享 DTO（数据传输对象）。
+
 已落地的总控接口：`GET /api/v1/auth/context`，从身份提供方解析请求用户、角色、权限及课程/班级范围。生产身份由认证中间件注入；开发环境请求头仅用于契约测试，不能作为生产认证方案。
 
 ## 教师学生管理

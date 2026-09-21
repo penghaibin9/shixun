@@ -1,5 +1,7 @@
-export type ApiError = { code: string; message: string; request_id: string; details: Record<string, unknown> }
-export type UserContext = { user_id: string; role: 'teacher' | 'student' | 'admin'; teacher_id: string | null; student_id: string | null; permissions: string[]; course_ids: string[]; class_ids: string[] }
+import type { components } from './api-contract.generated'
+
+export type ApiError = components['schemas']['Error']
+export type UserContext = components['schemas']['UserContextResponse']
 
 export type LabSpec = {
   lab_definition_id: string; version: number; name: string; duration_minutes: number; total_score: number

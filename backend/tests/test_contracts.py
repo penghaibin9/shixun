@@ -4,6 +4,13 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.common.models import Base
+from app.grading import models as grading_models  # noqa: F401
+from app.lab_classroom import models as classroom_models  # noqa: F401
+from app.labs import models as lab_models  # noqa: F401
+from app.resources import models as resource_models  # noqa: F401
+from app.runtime import models as runtime_models  # noqa: F401
+from app.teaching import models as teaching_models  # noqa: F401
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,6 +24,18 @@ def test_frozen_openapi_is_valid_and_has_v1_contracts():
     assert "Error" in contract["components"]["schemas"]
 
 
+def test_frozen_openapi_exactly_matches_application():
+    contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    assert contract == app.openapi()
+
+
+def test_database_tables_have_exactly_one_frozen_owner():
+    contract = json.loads((ROOT / "docs/contracts/database-ownership-v1.json").read_text(encoding="utf-8"))
+    claimed = [table for tables in contract["owners"].values() for table in tables]
+    assert len(claimed) == len(set(claimed))
+    assert set(claimed) == set(Base.metadata.tables)
+
+
 def test_context_requires_identity_and_returns_frozen_shape():
     client = TestClient(app)
     assert client.get("/api/v1/auth/context").json()["code"] == "AUTH.UNAUTHENTICATED"
@@ -24,3 +43,11 @@ def test_context_requires_identity_and_returns_frozen_shape():
     assert response.status_code == 200
     assert response.json()["course_ids"] == ["course_1"]
     assert response.headers["X-Request-Id"].startswith("req_")
+
+
+def test_production_rejects_development_identity_headers(monkeypatch):
+    monkeypatch.setenv("YUEKE_ENV", "production")
+    client = TestClient(app)
+    response = client.get("/api/v1/auth/context", headers={"X-User-Id": "spoofed", "X-Role": "admin", "X-Permissions": "audit:read"})
+    assert response.status_code == 401
+    assert response.json()["code"] == "AUTH.TRUSTED_IDENTITY_REQUIRED"
