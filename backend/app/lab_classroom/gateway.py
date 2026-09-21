@@ -9,12 +9,15 @@ from app.common.errors import ApiError
 
 
 def downstream_headers(user: UserContext) -> dict[str, str]:
+    permissions = set(user.permissions)
+    if permissions.intersection({"classroom.release.read", "classroom.lab.read", "classroom.logs.distribute", "classroom.readmodel.read"}):
+        permissions.add("teaching.members.read")
     return {
         "X-User-Id": user.user_id,
         "X-Role": user.role,
         "X-Teacher-Id": user.teacher_id or "",
         "X-Student-Id": user.student_id or "",
-        "X-Permissions": ",".join(sorted(user.permissions)),
+        "X-Permissions": ",".join(sorted(permissions)),
         "X-Course-Ids": ",".join(sorted(user.course_ids)),
         "X-Class-Ids": ",".join(sorted(user.class_ids)),
         "X-Service-Origin": "lab-classroom",

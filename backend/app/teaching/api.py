@@ -1,13 +1,15 @@
 from io import BytesIO
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Header, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Header, Path, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
 from app.common.context import CurrentUser
 from app.database import get_session
+from app.common.errors import ApiError
+from app.common.xlsx import XlsxValidationError, read_xlsx_upload
 
 from . import models as m
 from .schemas import AssignmentCreate, AttendanceCreate, ClassCreate, CourseCreate, CoursePatch, MemberCreate, PollAnswerIn, PollCreate, QuizCreate, QuizSubmitIn, SubmissionIn
@@ -62,7 +64,11 @@ def member_template(class_id: str, db: Db, user: CurrentUser):
 
 @router.post("/classes/{class_id}/members/import", status_code=201)
 async def import_members(class_id: str, db: Db, user: CurrentUser, file: Annotated[UploadFile, File()], idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
-    return service(db, user).import_members(class_id, await file.read(), idempotency_key or "")
+    try:
+        content = await read_xlsx_upload(file)
+    except XlsxValidationError as exc:
+        raise ApiError(f"IMPORT.{exc.kind}", str(exc), 413 if exc.kind == "FILE_TOO_LARGE" else 422) from exc
+    return service(db, user).import_members(class_id, content, idempotency_key or "")
 
 
 @router.get("/import-jobs/{job_id}")
@@ -136,6 +142,14 @@ def attendance_records(task_id: str, db: Db, user: CurrentUser): return service(
 def attendance_summary(db: Db, user: CurrentUser): return service(db, user).section_summary()
 
 
+@router.get("/attendance/sign-links/{token}")
+def attendance_link(token: Annotated[str, Path(min_length=20)], db: Db, user: CurrentUser): return service(db, user).attendance_link(token)
+
+
+@router.post("/attendance/sign-links/{token}/sign")
+def sign_attendance_by_token(token: Annotated[str, Path(min_length=20)], db: Db, user: CurrentUser): return service(db, user).sign_by_token(token)
+
+
 @router.post("/attendance/{task_id}/sign")
 def sign_attendance(task_id: str, token: Annotated[str, Query(min_length=20)], db: Db, user: CurrentUser): return service(db, user).sign(task_id, token)
 
@@ -203,6 +217,6 @@ def teacher_read_model(db: Db, user: CurrentUser):
 @router.get("/teaching/student-read-model")
 def student_read_model(db: Db, user: CurrentUser):
     svc = service(db, user); svc.require("teaching.student.read"); student_id = svc.require_student()
-    memberships = db.query(m.ClassMembership).filter_by(student_id=student_id).all()
+    memberships = db.query(m.ClassMembership).filter_by(student_id=student_id, status="ACTIVE").all()
     tasks = svc.repo.attendance_tasks(frozenset(x.class_id for x in memberships))
     return {"class_count": len(memberships), "open_attendance": [{"task_id": x.task_id, "title": x.title, "expires_at": x.expires_at} for x in tasks if x.status == "PUBLISHED"]}

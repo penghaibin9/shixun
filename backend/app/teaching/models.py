@@ -90,6 +90,7 @@ class ImportJob(Base):
     job_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     class_id: Mapped[str] = mapped_column(ForeignKey("class.class_id", ondelete="CASCADE"), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(24))
     success_count: Mapped[int] = mapped_column(Integer, default=0)
     failure_count: Mapped[int] = mapped_column(Integer, default=0)

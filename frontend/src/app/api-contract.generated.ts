@@ -350,6 +350,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attendance/sign-links/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Attendance Link */
+        get: operations["attendance_link_api_v1_attendance_sign_links__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/sign-links/{token}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign Attendance By Token */
+        post: operations["sign_attendance_by_token_api_v1_attendance_sign_links__token__sign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attendance/{task_id}/sign": {
         parameters: {
             query?: never;
@@ -2613,6 +2647,23 @@ export interface paths {
         };
         /** Archive Manifest */
         get: operations["archive_manifest_api_v1_archives_courses__course_id__manifest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/archives/courses/{course_id}/artifacts/{artifact_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Archive Artifact */
+        get: operations["archive_artifact_api_v1_archives_courses__course_id__artifacts__artifact_type__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5291,6 +5342,120 @@ export interface operations {
                 "x-class-ids"?: string | null;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    attendance_link_api_v1_attendance_sign_links__token__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    sign_attendance_by_token_api_v1_attendance_sign_links__token__sign_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                token: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -13636,6 +13801,66 @@ export interface operations {
             };
             path: {
                 course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    archive_artifact_api_v1_archives_courses__course_id__artifacts__artifact_type__get: {
+        parameters: {
+            query: {
+                class_id: string;
+            };
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                course_id: string;
+                artifact_type: string;
             };
             cookie?: never;
         };

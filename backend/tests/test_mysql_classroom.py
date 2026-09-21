@@ -23,5 +23,9 @@ def test_mysql_distribution_and_event_projection():
     created=client.post("/api/v1/teaching-logs/distributions",headers={**teacher("classroom.logs.distribute"),"Idempotency-Key":key},json=body)
     assert created.status_code==201,created.text
     event={"event_id":str(uuid4()),"event_type":"lab.instance.started","aggregate_id":"runtime-mysql","actor_user_id":"system","occurred_at":"2026-09-21T12:00:00","idempotency_key":key,"payload":{"lab_release_id":"release-1","course_id":"course-a","class_id":"class-a","student_id":f"student-{key[:6]}","runtime_instance_id":"runtime-mysql","status":"RUNNING","step":0,"score":0}}
-    assert client.post("/api/v1/classroom/events/runtime",headers=teacher("classroom.events.consume"),json=event).status_code==200
+    rejected=client.post("/api/v1/classroom/events/runtime",headers=teacher("classroom.events.consume"),json=event)
+    assert rejected.status_code==403
+    assert rejected.json()["code"]=="AUTH.INTERNAL_SERVICE_REQUIRED"
+    service_headers={"X-User-Id":"service_contract_dispatcher","X-Role":"admin","X-Permissions":"classroom.events.consume"}
+    assert client.post("/api/v1/classroom/events/runtime",headers=service_headers,json=event).status_code==200
     app.dependency_overrides.clear()

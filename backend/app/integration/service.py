@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.models import DomainEventOutbox
-from app.grading.schemas import EventEnvelope
+from app.grading.schemas import AuditIngest, EventEnvelope
 from app.grading.service import EVENT_TYPES, GradingService
 from app.lab_classroom.gateway import get_gateways
 from app.lab_classroom.schemas import RuntimeEventIn
@@ -23,6 +23,26 @@ CLASSROOM_EVENTS = {
     "lab.submitted",
 }
 GRADING_EVENTS = set(EVENT_TYPES) | {"resource.delivery.frozen", "course.roster.frozen"}
+CLASSROOM_AUDIT_ACTIONS = {
+    "runtime.remind",
+    "runtime.rejudge",
+    "runtime.extend",
+    "runtime.unlock",
+    "runtime.rebuild",
+    "runtime.destroy",
+    "release.extend-all",
+    "release.remind-idle",
+    "terminal.assist.opened",
+    "logs.distributed",
+}
+TEACHING_AUDIT_ACTIONS = {
+    "course.created", "course.updated", "class.created",
+    "membership.added", "membership.removed", "membership.imported",
+    "attendance.created", "attendance.published", "attendance.closed", "attendance.signed",
+    "poll.created", "poll.published", "poll.answered",
+    "assignment.created", "assignment.published", "assignment.submitted",
+    "quiz.created", "quiz.published", "quiz.completed",
+}
 
 
 class OutboxDispatcher:
@@ -43,7 +63,7 @@ class OutboxDispatcher:
             role="admin",
             teacher_id=None,
             student_id=None,
-            permissions=frozenset({"grading:consume", "classroom.events.consume", "runtime.read"}),
+            permissions=frozenset({"grading:consume", "audit:ingest", "classroom.events.consume", "runtime.read"}),
             course_ids=frozenset({str(payload["course_id"])}) if payload.get("course_id") else frozenset(),
             class_ids=frozenset({str(payload["class_id"])}) if payload.get("class_id") else frozenset(),
         )
@@ -91,6 +111,53 @@ class OutboxDispatcher:
                 if event.event_type in GRADING_EVENTS:
                     GradingService(self.session, context, self.request_id, "internal").consume(EventEnvelope.model_validate(envelope))
                     targets.append("grading_facts")
+                if event.event_type == "classroom.audit.requested":
+                    payload = envelope["payload"]
+                    action = payload.get("action")
+                    missing = [name for name in ("action", "class_id") if not payload.get(name)]
+                    if missing:
+                        raise ApiError("INTEGRATION.CLASSROOM_AUDIT_PAYLOAD_INVALID", "课堂审计事件缺少必要字段", 422, {"missing": missing})
+                    if action not in CLASSROOM_AUDIT_ACTIONS:
+                        raise ApiError("INTEGRATION.CLASSROOM_AUDIT_ACTION_UNSUPPORTED", "课堂审计动作不在允许范围内", 422, {"action": action})
+                    resource_type = "lab_release" if action.startswith("release.") else "teaching_log_distribution" if action == "logs.distributed" else "runtime_instance"
+                    GradingService(self.session, context, self.request_id, "internal").ingest_audit(AuditIngest(
+                        source_event_id=event.event_id,
+                        actor_user_id=event.actor_user_id,
+                        actor_role=payload.get("actor_role") or "service",
+                        action=action,
+                        resource_type=resource_type,
+                        resource_id=event.aggregate_id,
+                        course_id=payload.get("course_id"),
+                        class_id=payload["class_id"],
+                        student_id=payload.get("student_id"),
+                        result="SUCCESS",
+                        reason=payload.get("reason"),
+                        occurred_at=event.occurred_at,
+                        details={"event_type": event.event_type, "payload": payload},
+                    ))
+                    targets.append("audit_event")
+                if event.event_type == "teaching.audit":
+                    payload = envelope["payload"]
+                    action = payload.get("action")
+                    if action not in TEACHING_AUDIT_ACTIONS:
+                        raise ApiError("INTEGRATION.TEACHING_AUDIT_ACTION_UNSUPPORTED", "教学审计动作不在允许范围内", 422, {"action": action})
+                    GradingService(self.session, context, self.request_id, "internal").ingest_audit(AuditIngest(
+                        source_event_id=event.event_id,
+                        actor_user_id=event.actor_user_id,
+                        actor_role=payload.get("actor_role") or "service",
+                        action=action,
+                        resource_type=event.aggregate_type,
+                        resource_id=event.aggregate_id,
+                        course_id=payload.get("course_id"),
+                        class_id=payload.get("class_id"),
+                        student_id=payload.get("student_id"),
+                        result="SUCCESS",
+                        occurred_at=event.occurred_at,
+                        details={"event_type": event.event_type, "payload": payload},
+                    ))
+                    targets.append("audit_event")
+                if not targets:
+                    raise ApiError("INTEGRATION.EVENT_UNCONSUMED", "事件没有已登记的消费者，已保留待处理", 422, {"event_type": event.event_type})
                 event.published_at = datetime.utcnow()
                 self.session.add(event)
                 self.session.commit()

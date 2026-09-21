@@ -346,6 +346,13 @@ class RuntimeService:
         request = self.session.get(models.RuntimeRequest, group.runtime_request_id)
         node = self.session.get(models.InfraNode, group.node_id)
         agent = self.agent_factory(node.agent_url)
+        previous_results = list(self.session.scalars(
+            select(models.CheckpointResult)
+            .where(models.CheckpointResult.runtime_instance_id == item.runtime_instance_id)
+            .order_by(models.CheckpointResult.judged_at)
+        ))
+        latest_scores = {result.checkpoint_id: result.score_awarded for result in previous_results}
+        total_score = int(request.spec_snapshot_json.get("total_score", 100))
         for checkpoint in request.spec_snapshot_json["checkpoints"]:
             result = await agent.exec(group.provider_group_id, {"operation": "judge", "checkpoint": checkpoint, "timeout_seconds": min(int(checkpoint["timeout_seconds"]), 30), "output_limit_bytes": 8192})
             attempt = (self.session.scalar(select(func.max(models.CheckpointResult.attempt)).where(models.CheckpointResult.runtime_instance_id == item.runtime_instance_id, models.CheckpointResult.checkpoint_id == checkpoint["checkpoint_id"])) or 0) + 1
@@ -353,8 +360,9 @@ class RuntimeService:
             evidence = {**result.get("evidence", {}), "order_no": int(checkpoint.get("order_no", 0))}
             stored = models.CheckpointResult(checkpoint_result_id=new_id("cpr"), runtime_instance_id=item.runtime_instance_id, student_id=item.student_id, checkpoint_id=checkpoint["checkpoint_id"], attempt=attempt, status="PASSED" if passed else "FAILED", score_awarded=checkpoint["score"] if passed else 0, max_score=checkpoint["score"], evidence_json=evidence, message=result.get("message", "通过" if passed else checkpoint["failure_message"]), judged_at=now())
             self.session.add(stored)
+            latest_scores[checkpoint["checkpoint_id"]] = stored.score_awarded
             event_type = "lab.checkpoint.passed" if passed else "lab.checkpoint.failed"
-            self._event(event_type, instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status=item.status, current_step=int(checkpoint.get("order_no", 0)), raw_score=stored.score_awarded, max_score=stored.max_score, source_id=stored.checkpoint_result_id, checkpoint_id=checkpoint["checkpoint_id"], checkpoint_status=stored.status, score_awarded=stored.score_awarded), idempotency_key=f"{event_type}:{instance_id}:{checkpoint['checkpoint_id']}:{attempt}")
+            self._event(event_type, instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status=item.status, current_step=int(checkpoint.get("order_no", 0)), raw_score=sum(latest_scores.values()), max_score=total_score, source_id=stored.checkpoint_result_id, checkpoint_id=checkpoint["checkpoint_id"], checkpoint_status=stored.status, score_awarded=stored.score_awarded), idempotency_key=f"{event_type}:{instance_id}:{checkpoint['checkpoint_id']}:{attempt}")
         request.last_activity_at = now()
         self.session.commit()
         return self.instance(instance_id)

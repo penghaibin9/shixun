@@ -4,11 +4,18 @@ import re
 from io import BytesIO
 from itertools import islice
 from typing import Iterable
-from zipfile import BadZipFile, ZipFile
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
+
+from app.common.xlsx import (
+    MAX_XLSX_ARCHIVE_ENTRIES,
+    MAX_XLSX_UNCOMPRESSED_BYTES,
+    MAX_XLSX_UPLOAD_BYTES,
+    XlsxValidationError,
+    validate_xlsx_archive,
+)
 
 
 HEADERS = [
@@ -42,11 +49,6 @@ QUESTION_TYPE_NAMES = {
 }
 QUESTION_TYPE_ORDER = ("FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE")
 MAX_IMPORT_ROWS = 196
-MAX_XLSX_UPLOAD_BYTES = 10 * 1024 * 1024
-MAX_XLSX_ARCHIVE_ENTRIES = 256
-MAX_XLSX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
-
-
 class InvalidQuestionWorkbook(ValueError):
     def __init__(self, code: str, message: str):
         super().__init__(message)
@@ -153,19 +155,16 @@ def _safe_export_text(value) -> str:
 
 
 def _validate_xlsx_archive(data: bytes) -> None:
-    if len(data) > MAX_XLSX_UPLOAD_BYTES:
-        raise InvalidQuestionWorkbook("QUESTION_IMPORT.FILE_TOO_LARGE", "题库导入文件不能超过 10 MB")
     try:
-        with ZipFile(BytesIO(data)) as archive:
-            entries = archive.infolist()
-            if len(entries) > MAX_XLSX_ARCHIVE_ENTRIES:
-                raise InvalidQuestionWorkbook("QUESTION_IMPORT.ARCHIVE_TOO_COMPLEX", "XLSX（电子表格）内部文件数超出限制")
-            if any(entry.flag_bits & 0x1 for entry in entries):
-                raise InvalidQuestionWorkbook("QUESTION_IMPORT.ENCRYPTED_XLSX", "不支持加密的 XLSX（电子表格）")
-            if sum(entry.file_size for entry in entries) > MAX_XLSX_UNCOMPRESSED_BYTES:
-                raise InvalidQuestionWorkbook("QUESTION_IMPORT.ARCHIVE_TOO_LARGE", "XLSX（电子表格）解压后内容超出限制")
-    except BadZipFile as exc:
-        raise InvalidQuestionWorkbook("QUESTION_IMPORT.INVALID_XLSX", "文件不是有效的 XLSX（电子表格）") from exc
+        validate_xlsx_archive(
+            data,
+            max_upload_bytes=MAX_XLSX_UPLOAD_BYTES,
+            max_entries=MAX_XLSX_ARCHIVE_ENTRIES,
+            max_uncompressed_bytes=MAX_XLSX_UNCOMPRESSED_BYTES,
+        )
+    except XlsxValidationError as exc:
+        message = "题库导入文件不能超过 10 MB" if exc.kind == "FILE_TOO_LARGE" else str(exc)
+        raise InvalidQuestionWorkbook(f"QUESTION_IMPORT.{exc.kind}", message) from exc
 
 
 def parse_question_workbook(data: bytes, lessons: Iterable) -> tuple[list[dict], int]:

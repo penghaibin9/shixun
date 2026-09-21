@@ -1,4 +1,5 @@
 from io import BytesIO
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response, StreamingResponse
@@ -97,6 +98,12 @@ def archive_get(course_id: str, class_id: str, request: Request, user: CurrentUs
 
 @router.get("/archives/courses/{course_id}/manifest")
 def archive_manifest(course_id: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)): return svc(session,user,request).archive(course_id,class_id).get("manifest") or {"status":"PENDING"}
+
+
+@router.get("/archives/courses/{course_id}/artifacts/{artifact_type}")
+def archive_artifact(course_id: str, artifact_type: str, class_id: str, request: Request, user: CurrentUser, session: Session = Depends(get_session)):
+    content,name,mime_type,digest=svc(session,user,request).artifact_download(course_id,class_id,artifact_type)
+    return Response(content=content,media_type=mime_type,headers={"Content-Disposition":f"attachment; filename*=UTF-8''{quote(name)}","ETag":f'"{digest}"',"Cache-Control":"private, immutable"})
 
 
 @router.get("/audit/events")

@@ -34,10 +34,20 @@ async def shell(instance_id: str, headers: dict[str, str], commands: str, marker
         ready = json.loads(await socket.recv())
         if ready.get("type") != "ready":
             raise RuntimeError("终端未就绪")
+        await socket.send(json.dumps({"type": "resize", "cols": 100, "rows": 30}))
         await socket.send(commands + "\n")
         while marker.encode() not in output:
             frame = await asyncio.wait_for(socket.recv(), timeout=30)
             output += frame if isinstance(frame, bytes) else frame.encode()
+    try:
+        async with websockets.connect(ws_url, open_timeout=10) as replay:
+            await replay.send(json.dumps({"token": token}))
+            await replay.recv()
+    except websockets.ConnectionClosed as exc:
+        if exc.code != 4403:
+            raise RuntimeError(f"终端令牌重复使用返回了异常关闭码: {exc.code}") from exc
+    else:
+        raise RuntimeError("终端令牌可被重复使用")
     return output.decode(errors="replace")
 
 
@@ -112,7 +122,7 @@ echo NETWORK_DONE"""
             second = checked(await client.post(f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy", headers=headers, json={"reason": "幂等重复回收"}))
             if second["status"] != "DESTROYED":
                 raise RuntimeError("幂等销毁失败")
-    print(json.dumps({"G4": "PASS", "G5": "PASS", "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "network": sorted(required), "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True}, ensure_ascii=False))
+    print(json.dumps({"G4": "PASS", "G5": "PASS", "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "network": sorted(required), "terminal_resize": True, "single_use_terminal_token": True, "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

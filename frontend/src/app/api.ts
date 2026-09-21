@@ -50,6 +50,18 @@ export function teachingIdentity(role = 'teacher'): Record<string, string> {
 
 export async function api<T>(path:string,init:RequestInit={},role?:'teacher'|'student'):Promise<T>{const response=await fetch(path,{...init,headers:{...teachingIdentity(role),...(init.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(init.headers||{})}});if(!response.ok)throw await response.json() as ApiError;return response.json() as Promise<T>}
 export async function download(path:string):Promise<Blob>{const response=await fetch(path,{headers:teachingIdentity()});if(!response.ok)throw await response.json() as ApiError;return response.blob()}
+async function readBlobBytes(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer()
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error ?? new Error('文件读取失败'))
+    reader.onload = () => reader.result instanceof ArrayBuffer
+      ? resolve(reader.result)
+      : reject(new Error('文件读取结果无效'))
+    reader.readAsArrayBuffer(blob)
+  })
+}
+export async function fileIdempotencyKey(prefix:string,file:File):Promise<string>{const digest=await crypto.subtle.digest('SHA-256',await readBlobBytes(file));const hex=Array.from(new Uint8Array(digest),value=>value.toString(16).padStart(2,'0')).join('');return `${prefix}-${hex}`}
 
 export type LessonResource = { course_id: string; lesson_id: string; lesson_kind: 'THEORY' | 'LAB'; chapter_no: number | null; lesson_code: string; title: string; purpose: string | null; environment: string | null; principle: string | null; steps_summary: string | null; core_experiment: string | null }
 export type ResourceVersion = { resource_version_id: string; version_no: number; file_id: string; status: string; sha256: string }
@@ -174,6 +186,50 @@ export async function classroomApi<T>(path: string, role: 'teacher' | 'student' 
     throw error as ApiError
   }
   return response.json() as Promise<T>
+}
+
+export function subscribeClassroomEvents(
+  releaseId: string,
+  onEvent: (event: unknown) => void,
+  onError?: (message: string) => void,
+): () => void {
+  const controller = new AbortController()
+  let cursor = 0
+  const pause = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds))
+  void (async () => {
+    while (!controller.signal.aborted) {
+      try {
+        const response = await fetch(`/api/v1/classroom/lab-releases/${encodeURIComponent(releaseId)}/events?cursor=${cursor}`, {
+          headers: classroomHeaders('teacher', { Accept: 'text/event-stream' }),
+          signal: controller.signal,
+        })
+        if (!response.ok || !response.body) throw new Error('课堂实时连接不可用')
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (!controller.signal.aborted) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
+          let boundary = buffer.indexOf('\n\n')
+          while (boundary >= 0) {
+            const block = buffer.slice(0, boundary)
+            buffer = buffer.slice(boundary + 2)
+            const id = block.split('\n').find(line => line.startsWith('id:'))?.slice(3).trim()
+            const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trim()).join('\n')
+            if (id && Number.isFinite(Number(id))) cursor = Number(id)
+            if (data) onEvent(JSON.parse(data))
+            boundary = buffer.indexOf('\n\n')
+          }
+        }
+      } catch (reason) {
+        if (controller.signal.aborted) return
+        onError?.((reason as Error).message || '课堂实时连接已断开')
+      }
+      if (!controller.signal.aborted) await pause(1000)
+    }
+  })()
+  return () => controller.abort()
 }
 
 const courseId = localStorage.getItem('yk-course-id') || 'course_data_security', classId = localStorage.getItem('yk-class-id') || 'class_netsec_2301'

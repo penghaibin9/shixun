@@ -30,31 +30,109 @@ class ClassroomService:
         if not self.user.student_id: raise ApiError("AUTH.STUDENT_REQUIRED", "当前身份没有关联学生", 403)
         return self.user.student_id
     def audit(self, action: str, aggregate_id: str, payload: dict):
-        enqueue_event(self.session, event_type="classroom.audit.requested", aggregate_type="classroom_action", aggregate_id=aggregate_id, actor_user_id=self.user.user_id, idempotency_key=f"{action}:{aggregate_id}:{uuid4()}", payload={"action": action, **payload})
+        enqueue_event(self.session, event_type="classroom.audit.requested", aggregate_type="classroom_action", aggregate_id=aggregate_id, actor_user_id=self.user.user_id, idempotency_key=f"{action}:{aggregate_id}:{uuid4()}", payload={"action": action, "actor_role": self.user.role, **payload})
+
+    def _release_context(self, release_id: str) -> dict:
+        data = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/summary", self.user)
+        self.require_class(data["class_id"])
+        return data
+
+    def _class_members(self, class_id: str) -> list[dict]:
+        members, page = [], 1
+        while True:
+            result = self.gateways.teaching.request(
+                "GET", f"/api/v1/classes/{class_id}/members", self.user,
+                params={"status": "ACTIVE", "page": page, "page_size": 100},
+            )
+            rows = result.get("items", [])
+            members.extend(rows)
+            if not rows or len(members) >= int(result.get("total", len(members))):
+                return members
+            page += 1
+
+    @staticmethod
+    def _classroom_status(runtime: dict | None) -> str:
+        if not runtime:
+            return "NOT_STARTED"
+        if runtime.get("submission_status") == "SUBMITTED" or runtime.get("status") in {"SUBMITTED", "COMPLETED"}:
+            return "SUBMITTED"
+        if runtime.get("status") in {"FAILED", "CANCELED", "DESTROYED"}:
+            return "FAILED"
+        return "RUNNING"
+
+    def _release_snapshot(self, release_id: str) -> tuple[dict, list[dict]]:
+        context = self._release_context(release_id)
+        runtime_result = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/students", self.user)
+        runtime_by_student = {row["student_id"]: row for row in runtime_result.get("items", []) if row.get("student_id")}
+        for projection in self.repo.projections(release_id):
+            runtime_by_student[projection.student_id] = {
+                **runtime_by_student.get(projection.student_id, {}),
+                "student_id": projection.student_id,
+                "runtime_instance_id": projection.runtime_instance_id,
+                "status": projection.status,
+                "current_step": projection.current_step,
+                "total_steps": projection.total_steps,
+                "raw_score": float(projection.raw_score),
+                "max_score": float(projection.max_score),
+            }
+        roster = self._class_members(context["class_id"])
+        default_steps = max((int(row.get("total_steps") or 0) for row in runtime_by_student.values()), default=0)
+        items = []
+        for member in roster:
+            runtime = runtime_by_student.get(member["student_id"])
+            items.append({
+                **(runtime or {}),
+                "student_id": member["student_id"],
+                "student_name": member.get("student_name") or member["student_id"],
+                "student_no": member.get("student_number") or "",
+                "status": self._classroom_status(runtime),
+                "current_step": int((runtime or {}).get("current_step") or 0),
+                "total_steps": int((runtime or {}).get("total_steps") or default_steps),
+                "raw_score": int((runtime or {}).get("raw_score") or 0),
+                "max_score": int((runtime or {}).get("max_score") or 100),
+                "runtime_instance_id": (runtime or {}).get("runtime_instance_id"),
+            })
+        return context, items
 
     def release_summary(self, release_id: str):
         self.require("classroom.release.read")
-        data = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/summary", self.user)
-        self.require_class(data["class_id"]); return data
+        context, items = self._release_snapshot(release_id)
+        counts = {status: sum(row["status"] == status for row in items) for status in ("NOT_STARTED", "RUNNING", "SUBMITTED", "FAILED")}
+        return {
+            **context,
+            "student_count": len(items),
+            "started": len(items) - counts["NOT_STARTED"],
+            "completed": counts["SUBMITTED"],
+            "running": counts["RUNNING"],
+            "failed": counts["FAILED"],
+            "not_started": counts["NOT_STARTED"],
+            "status_counts": counts,
+            "runtime_student_count": int(context.get("student_count", 0)),
+        }
+
     def release_students(self, release_id: str):
-        summary = self.release_summary(release_id)
-        data = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/students", self.user)
-        return data | {"dependency": "D", "class_id": summary["class_id"]}
+        self.require("classroom.release.read")
+        summary, items = self._release_snapshot(release_id)
+        return {"items": items, "page": 1, "page_size": len(items), "total": len(items), "lab_release_id": release_id, "course_id": summary["course_id"], "class_id": summary["class_id"], "dependency": "A+D"}
+
     def release_student(self, release_id: str, student_id: str):
-        summary = self.release_summary(release_id)
-        data = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/students/{student_id}", self.user)
-        return data | {"class_id": summary["class_id"]}
+        self.require("classroom.release.read")
+        summary, items = self._release_snapshot(release_id)
+        item = next((row for row in items if row["student_id"] == student_id), None)
+        if not item:
+            raise ApiError("CLASSROOM.STUDENT_NOT_IN_CLASS", "学生不在该实验班级的有效名单中", 404)
+        return item | {"class_id": summary["class_id"], "course_id": summary["course_id"], "lab_release_id": release_id}
     def runtime_action(self, runtime_id: str, action: str, body: RuntimeActionIn):
         self.require(f"classroom.runtime.{action}")
         instance = self.gateways.runtime.request("GET", f"/api/v1/runtime/instances/{runtime_id}", self.user)
         self.require_class(instance["class_id"])
         result = self.gateways.runtime.request("POST", f"/api/v1/runtime/instances/{runtime_id}/{action}", self.user, json=body.model_dump(exclude_none=True))
-        self.audit(f"runtime.{action}", runtime_id, {"class_id": instance["class_id"], "student_id": instance.get("student_id"), "reason": body.reason})
+        self.audit(f"runtime.{action}", runtime_id, {"course_id": instance.get("course_id"), "class_id": instance["class_id"], "student_id": instance.get("student_id"), "reason": body.reason, "minutes": body.minutes})
         self.session.commit(); return result
     def release_action(self, release_id: str, action: str, body: RuntimeActionIn):
         self.require(f"classroom.release.{action}"); summary = self.release_summary(release_id)
         result = self.gateways.runtime.request("POST", f"/api/v1/runtime/lab-releases/{release_id}/{action}", self.user, json=body.model_dump(exclude_none=True))
-        self.audit(f"release.{action}", release_id, {"class_id": summary["class_id"]}); self.session.commit(); return result
+        self.audit(f"release.{action}", release_id, {"course_id": summary.get("course_id"), "class_id": summary["class_id"], "reason": body.reason, "minutes": body.minutes}); self.session.commit(); return result
 
     def student_start(self, release_id: str):
         self.require("classroom.lab.start"); student_id = self.require_student()
@@ -62,8 +140,31 @@ class ClassroomService:
         return self.gateways.runtime.request("POST", f"/api/v1/runtime/lab-releases/{release_id}/start", self.user, json={"student_id": student_id})
     def student_release(self, release_id: str):
         self.require("classroom.lab.read"); student_id = self.require_student()
-        data = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/students/{student_id}", self.user)
-        self.require_class(data["class_id"]); return data
+        context = self._release_context(release_id)
+        member = next((row for row in self._class_members(context["class_id"]) if row["student_id"] == student_id), None)
+        if not member:
+            raise ApiError("CLASSROOM.STUDENT_NOT_IN_CLASS", "当前学生不在该实验班级的有效名单中", 403)
+        try:
+            runtime = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/students/{student_id}", self.user)
+        except ApiError as exc:
+            if exc.code != "RUNTIME.STUDENT_NOT_STARTED":
+                raise
+            runtime = None
+        return {
+            **(runtime or {}),
+            "lab_release_id": release_id,
+            "course_id": context["course_id"],
+            "class_id": context["class_id"],
+            "student_id": student_id,
+            "student_name": member.get("student_name") or student_id,
+            "student_no": member.get("student_number") or "",
+            "status": self._classroom_status(runtime),
+            "current_step": int((runtime or {}).get("current_step") or 0),
+            "total_steps": int((runtime or {}).get("total_steps") or 0),
+            "raw_score": int((runtime or {}).get("raw_score") or 0),
+            "max_score": int((runtime or {}).get("max_score") or 100),
+            "runtime_instance_id": (runtime or {}).get("runtime_instance_id"),
+        }
     def student_submit(self, release_id: str):
         self.require("classroom.lab.submit"); student_id = self.require_student()
         data = self.student_release(release_id)
@@ -74,7 +175,7 @@ class ClassroomService:
         if not assist and instance.get("student_id") != self.require_student(): raise ApiError("AUTH.SCOPE_DENIED", "不能访问他人的终端", 403)
         result = self.gateways.runtime.request("POST", f"/api/v1/runtime/instances/{runtime_id}/terminal-token", self.user, json={"mode": "ASSIST" if assist else "STUDENT"})
         if assist:
-            self.audit("terminal.assist.opened", runtime_id, {"class_id": instance["class_id"], "student_id": instance.get("student_id")}); self.session.commit()
+            self.audit("terminal.assist.opened", runtime_id, {"course_id": instance.get("course_id"), "class_id": instance["class_id"], "student_id": instance.get("student_id")}); self.session.commit()
         return result
 
     def audit_logs(self, params: dict):
@@ -118,7 +219,7 @@ class ClassroomService:
         for artifact in artifacts[:body.requested_count]: self.repo.add(m.TeachingLogDistributionItem(item_id=str(uuid4()), distribution_id=task.distribution_id, artifact_id=artifact["artifact_id"], source_system="D", source_student_id=artifact.get("student_id"), artifact_type=body.distribution_type, artifact_meta_json={k: artifact.get(k) for k in ("name", "size_bytes", "occurred_at")}))
         for student_id in body.target_student_ids: self.repo.add(m.StudentLogAssignment(assignment_id=str(uuid4()), distribution_id=task.distribution_id, class_id=body.class_id, student_id=student_id, status="ASSIGNED", assigned_at=now(), downloaded_at=None))
         enqueue_event(self.session, event_type="teaching.log.distributed", aggregate_type="teaching_log_distribution", aggregate_id=task.distribution_id, actor_user_id=self.user.user_id, idempotency_key=key, payload={"course_id": body.course_id, "class_id": body.class_id, "lab_release_id": body.lab_release_id, "target_student_ids": body.target_student_ids, "artifact_ids": [x["artifact_id"] for x in artifacts[:body.requested_count]]})
-        self.audit("logs.distributed", task.distribution_id, {"class_id": body.class_id, "target_count": len(body.target_student_ids), "artifact_count": body.requested_count})
+        self.audit("logs.distributed", task.distribution_id, {"course_id": body.course_id, "class_id": body.class_id, "lab_release_id": body.lab_release_id, "target_count": len(body.target_student_ids), "artifact_count": body.requested_count})
         self.session.commit(); return self.distribution(task.distribution_id)
     def distributions(self):
         self.require("classroom.logs.read"); items = self.repo.distributions(self.user.class_ids)
@@ -140,6 +241,8 @@ class ClassroomService:
 
     def consume_event(self, event: RuntimeEventIn):
         self.require("classroom.events.consume")
+        if self.user.role != "admin" or not self.user.user_id.startswith("service_"):
+            raise ApiError("AUTH.INTERNAL_SERVICE_REQUIRED", "运行事件入口仅允许受信任的内部服务调用", 403)
         if self.repo.consumed(event.event_id): return {"event_id": event.event_id, "status": "ALREADY_CONSUMED"}
         payload = dict(event.payload); required = {"lab_release_id", "course_id", "class_id", "student_id", "runtime_instance_id", "status"}
         missing = sorted(key for key in required if key not in payload or (key != "runtime_instance_id" and payload[key] is None))
@@ -149,16 +252,22 @@ class ClassroomService:
         payload.setdefault("current_step", payload.get("step", 0)); payload.setdefault("raw_score", payload.get("score", 0))
         implied_status = {"lab.instance.started":"RUNNING", "lab.instance.failed":"FAILED", "lab.instance.destroyed":"DESTROYED", "lab.submitted":"SUBMITTED"}.get(event.event_type)
         if implied_status: payload["status"] = implied_status
+        occurred_at = event.occurred_at.replace(tzinfo=None)
+        latest_event = self.repo.latest_runtime_event(payload["lab_release_id"], payload["student_id"])
         projection = self.repo.projection(payload["lab_release_id"], payload["student_id"])
-        if not projection:
+        status_rank = {"NOT_STARTED":0, "RUNNING":1, "FAILED":2, "DESTROYED":3, "SUBMITTED":4, "COMPLETED":4}
+        stale = bool(latest_event and occurred_at < latest_event.occurred_at)
+        if latest_event and occurred_at == latest_event.occurred_at and projection:
+            stale = status_rank.get(payload.get("status"), 0) < status_rank.get(projection.status, 0)
+        if not projection and not stale:
             projection = self.repo.add(m.RuntimeProjection(projection_id=str(uuid4()), lab_release_id=payload["lab_release_id"], course_id=payload["course_id"], class_id=payload["class_id"], student_id=payload["student_id"], runtime_instance_id=payload.get("runtime_instance_id"), status=payload.get("status", "NOT_STARTED"), current_step=payload.get("current_step", 0), total_steps=payload.get("total_steps", 0), raw_score=payload.get("raw_score", 0), max_score=payload.get("max_score", 100), started_at=as_datetime(payload.get("started_at")), last_activity_at=as_datetime(payload.get("last_activity_at")), updated_at=now()))
-        else:
+        elif projection and not stale:
             for field in ("runtime_instance_id", "status", "current_step", "total_steps", "raw_score", "max_score", "started_at", "last_activity_at"):
                 if field in payload: setattr(projection, field, as_datetime(payload[field]) if field in {"started_at", "last_activity_at"} else payload[field])
             projection.updated_at = now()
-        self.repo.add(m.ConsumedRuntimeEvent(event_id=event.event_id, event_type=event.event_type, aggregate_id=event.aggregate_id, idempotency_key=event.idempotency_key, payload_json=payload, occurred_at=event.occurred_at, consumed_at=now()))
-        self.repo.add(m.ClassroomRuntimeEvent(event_id=event.event_id, lab_release_id=payload["lab_release_id"], student_id=payload["student_id"], event_type=event.event_type, payload_json=payload, occurred_at=event.occurred_at))
-        self.session.commit(); return {"event_id": event.event_id, "status": "CONSUMED"}
+        self.repo.add(m.ConsumedRuntimeEvent(event_id=event.event_id, event_type=event.event_type, aggregate_id=event.aggregate_id, idempotency_key=event.idempotency_key, payload_json=payload, occurred_at=occurred_at, consumed_at=now()))
+        self.repo.add(m.ClassroomRuntimeEvent(event_id=event.event_id, lab_release_id=payload["lab_release_id"], student_id=payload["student_id"], event_type=event.event_type, payload_json=payload, occurred_at=occurred_at))
+        self.session.commit(); return {"event_id": event.event_id, "status": "STALE_IGNORED" if stale else "CONSUMED"}
 
     def learning_summary(self, student_id: str, class_id: str):
         self.require("classroom.readmodel.read"); self.require_class(class_id)

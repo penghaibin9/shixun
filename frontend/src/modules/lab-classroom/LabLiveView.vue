@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { classroomApi, type ApiError } from '../../app/api'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { classroomApi, subscribeClassroomEvents, type ApiError } from '../../app/api'
 import YkDrawer from '../../components/common/YkDrawer.vue'
 import YkTabs from '../../components/common/YkTabs.vue'
 import YkSelect from '../../components/common/YkSelect.vue'
@@ -8,15 +8,19 @@ import TerminalPanel from './TerminalPanel.vue'
 type Student={student_id:string;student_name:string;student_no?:string;status:string;current_step:number;total_steps:number;raw_score:number;max_score:number;runtime_instance_id?:string}
 type Summary={started:number;completed:number;running:number;failed:number;not_started:number}
 const releaseId=ref(localStorage.getItem('yk-release-id')||'release-1'), summary=ref<Summary|null>(null), students=ref<Student[]>([]), error=ref(''), loading=ref(true), filter=ref('ALL'), query=ref(''), selected=ref<Student|null>(null), detail=ref<any>(null), tab=ref('steps'), busy=ref('')
+const liveState=ref<'正在连接'|'实时更新中'|'正在重连'>('正在连接')
+let stopEvents:(()=>void)|null=null, refreshTimer:ReturnType<typeof setTimeout>|null=null
 const filtered=computed(()=>students.value.filter(x=>(filter.value==='ALL'||x.status===filter.value)&&(`${x.student_name}${x.student_no||''}`).includes(query.value)))
 const label=(status:string)=>({RUNNING:'进行中',SUBMITTED:'已提交',COMPLETED:'已完成',FAILED:'异常',NOT_STARTED:'未开始'}[status]||status)
 async function load(){loading.value=true;error.value='';try{const [s,l]=await Promise.all([classroomApi<Summary>(`/api/v1/classroom/lab-releases/${releaseId.value}/summary`),classroomApi<{items:Student[]}>(`/api/v1/classroom/lab-releases/${releaseId.value}/students`)]);summary.value=s;students.value=l.items}catch(e){error.value=(e as ApiError).message}finally{loading.value=false}}
 async function action(name:string, runtimeId?:string){if(!runtimeId)return;busy.value=name;try{await classroomApi(`/api/v1/classroom/runtime/${runtimeId}/${name}`,'teacher',{method:'POST',body:JSON.stringify({reason:'课堂管理操作'})});await load()}catch(e){error.value=(e as ApiError).message}finally{busy.value=''}}
 async function releaseAction(name:'extend-all'|'remind-idle'){busy.value=name;try{await classroomApi(`/api/v1/classroom/lab-releases/${releaseId.value}/${name}`,'teacher',{method:'POST',body:JSON.stringify(name==='extend-all'?{minutes:10}:{reason:'课堂批量提醒'})});await load()}catch(e){error.value=(e as ApiError).message}finally{busy.value=''}}
 async function openStudent(item:Student){selected.value=item;detail.value=null;try{detail.value=await classroomApi(`/api/v1/classroom/lab-releases/${releaseId.value}/students/${item.student_id}`)}catch(e){error.value=(e as ApiError).message}}
-onMounted(load)
+function refreshFromEvent(){liveState.value='实时更新中';if(refreshTimer)clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>void load(),100)}
+onMounted(()=>{void load();stopEvents=subscribeClassroomEvents(releaseId.value,refreshFromEvent,()=>{liveState.value='正在重连'})})
+onBeforeUnmount(()=>{stopEvents?.();if(refreshTimer)clearTimeout(refreshTimer)})
 </script>
-<template><div class="stack"><header class="page-header"><div><h1>实验课堂</h1><p>实时掌握全班实验进度、异常与得分。</p></div><button class="yk-button" @click="load">刷新</button></header>
+<template><div class="stack"><header class="page-header"><div><h1>实验课堂</h1><p>实时掌握全班实验进度、异常与得分。<span class="muted" data-testid="live-state">{{liveState}}</span></p></div><button class="yk-button" @click="load">刷新</button></header>
 <div v-if="error" class="pending-panel" role="alert"><b>课堂运行服务待就绪</b><div>{{ error }}</div></div><div v-if="loading" class="card">正在加载课堂数据…</div>
 <section v-if="summary" class="grid grid-4"><div class="card kpi">已启动<b>{{summary.started}}</b></div><div class="card kpi">进行中<b>{{summary.running}}</b></div><div class="card kpi">已完成<b>{{summary.completed}}</b></div><div class="card kpi">异常 / 未开始<b>{{summary.failed}} / {{summary.not_started}}</b></div></section>
 <section class="card"><div class="toolbar"><input v-model="query" aria-label="搜索学生" placeholder="搜索姓名或学号"><YkSelect v-model="filter" label="状态筛选" :options="[{label:'全部状态',value:'ALL'},{label:'进行中',value:'RUNNING'},{label:'已提交',value:'SUBMITTED'},{label:'异常',value:'FAILED'},{label:'未开始',value:'NOT_STARTED'}]"/><span class="muted">共 {{filtered.length}} 名学生</span><button class="yk-button" :disabled="!!busy" @click="releaseAction('remind-idle')">提醒未活动学生</button><button class="yk-button" :disabled="!!busy" @click="releaseAction('extend-all')">全班延长 10 分钟</button></div>

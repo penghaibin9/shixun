@@ -300,26 +300,79 @@ async def terminal(websocket: WebSocket, group_id: str, node_key: str):
         await websocket.close(code=4404)
         return
     await websocket.accept()
-    process = await asyncio.create_subprocess_exec("docker", "exec", "-i", "--user", "65534:65534", name, "/bin/sh", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+    master_fd = None
+    if os.name == "posix":
+        import fcntl
+        import pty
+        import struct
+        import termios
+
+        master_fd, slave_fd = pty.openpty()
+        fcntl.ioctl(master_fd, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+        process = await asyncio.create_subprocess_exec(
+            "docker", "exec", "-it", "--user", "65534:65534", name, "/bin/sh",
+            stdin=slave_fd, stdout=slave_fd, stderr=slave_fd, start_new_session=True,
+        )
+        os.close(slave_fd)
+    else:
+        process = await asyncio.create_subprocess_exec("docker", "exec", "-i", "--user", "65534:65534", name, "/bin/sh", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+
+    def decode_message(message: dict) -> tuple[str, bytes | tuple[int, int]]:
+        if message.get("bytes") is not None:
+            return "input", message["bytes"]
+        text = message.get("text", "")
+        try:
+            control = json.loads(text)
+        except (TypeError, json.JSONDecodeError):
+            return "input", str(text).encode()
+        if isinstance(control, dict) and control.get("type") == "resize":
+            rows = max(8, min(int(control.get("rows", 24)), 200))
+            cols = max(20, min(int(control.get("cols", 80)), 400))
+            return "resize", (rows, cols)
+        return "input", str(text).encode()
 
     async def to_container():
         while True:
             message = await websocket.receive()
-            data = message.get("bytes") or message.get("text", "").encode()
-            process.stdin.write(data)
-            await process.stdin.drain()
+            if message.get("type") == "websocket.disconnect":
+                raise WebSocketDisconnect(message.get("code", 1000))
+            kind, value = decode_message(message)
+            if kind == "resize":
+                if master_fd is not None:
+                    rows, cols = value
+                    fcntl.ioctl(master_fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+                continue
+            data = value
+            if master_fd is not None:
+                await asyncio.to_thread(os.write, master_fd, data)
+            else:
+                process.stdin.write(data.replace(b"\r", b"\n"))
+                await process.stdin.drain()
 
     async def from_container():
-        while data := await process.stdout.read(4096):
-            await websocket.send_bytes(data)
+        if master_fd is not None:
+            while True:
+                try:
+                    data = await asyncio.to_thread(os.read, master_fd, 4096)
+                except OSError:
+                    return
+                if not data:
+                    return
+                await websocket.send_bytes(data)
+        else:
+            while data := await process.stdout.read(4096):
+                await websocket.send_bytes(data)
 
     try:
         await asyncio.gather(to_container(), from_container())
     except WebSocketDisconnect:
         pass
     finally:
-        process.terminate()
+        if process.returncode is None:
+            process.terminate()
         await process.wait()
+        if master_fd is not None:
+            os.close(master_fd)
 
 
 @app.post("/runtime-groups/{group_id}/capture/start", dependencies=[Depends(require_control)])

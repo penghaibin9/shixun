@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from io import BytesIO
 from uuid import uuid4
@@ -22,10 +23,10 @@ def identity(*permissions: str, course_id: str = "", class_id: str = "", student
     return headers
 
 
-def xlsx_43() -> bytes:
+def xlsx_43(class_name: str) -> bytes:
     book = Workbook(); sheet = book.active; sheet.append(HEADERS)
     run = uuid4().hex[:6]
-    for number in range(1, 44): sheet.append([f"{run}{number:03d}", f"验收学生{number}", "网络安全 2301 班", "", ""])
+    for number in range(1, 44): sheet.append([f"{run}{number:03d}", f"验收学生{number}", class_name, "", ""])
     stream = BytesIO(); book.save(stream); return stream.getvalue()
 
 
@@ -43,15 +44,24 @@ def test_mysql_84_g1_g2_main_chain():
     created_class = client.post("/api/v1/classes", headers=teaching, json={"name":"MySQL 验收班","term":"2026 秋季","course_id":course_id})
     assert created_class.status_code == 201, created_class.text
     class_id = created_class.json()["class_id"]; teaching["X-Class-Ids"] = class_id
-    imported = client.post(f"/api/v1/classes/{class_id}/members/import", headers={**teaching,"Idempotency-Key":uuid4().hex}, files={"file":("students.xlsx",xlsx_43())})
-    assert imported.status_code == 201 and imported.json()["success_count"] == 43
+    import_key, import_file = uuid4().hex, xlsx_43("MySQL 验收班")
+    def import_once():
+        with TestClient(app) as concurrent_client:
+            return concurrent_client.post(f"/api/v1/classes/{class_id}/members/import", headers={**teaching,"Idempotency-Key":import_key}, files={"file":("students.xlsx",import_file)})
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        imports = list(pool.map(lambda _: import_once(), range(2)))
+    assert all(response.status_code == 201 and response.json()["success_count"] == 43 for response in imports)
+    assert len({response.json()["job_id"] for response in imports}) == 1
     members = client.get(f"/api/v1/classes/{class_id}/members?page_size=100", headers=teaching).json()
     assert members["total"] == 43
     start, end = datetime.utcnow()-timedelta(minutes=1), datetime.utcnow()+timedelta(minutes=5)
     task = client.post("/api/v1/attendance/tasks", headers=teaching, json={"course_id":course_id,"class_id":class_id,"task_type":"CLASSROOM","title":"真实 MySQL 签到","starts_at":start.isoformat(),"expires_at":end.isoformat()}).json()
     published = client.post(f"/api/v1/attendance/tasks/{task['task_id']}/publish", headers=teaching).json()
     student_id = members["items"][0]["student_id"]
-    signed = client.post(f"/api/v1/attendance/{task['task_id']}/sign", headers=identity("teaching.attendance.sign",course_id=course_id,class_id=class_id,student_id=student_id), params={"token":published["sign_token"]})
+    student = identity("teaching.attendance.sign", student_id=student_id)
+    link = client.get(f"/api/v1/attendance/sign-links/{published['sign_token']}", headers=student)
+    assert link.status_code == 200 and link.json()["task_id"] == task["task_id"]
+    signed = client.post(f"/api/v1/attendance/sign-links/{published['sign_token']}/sign", headers=student)
     assert signed.status_code == 200
     summary = client.get("/api/v1/attendance/section-summary", headers=teaching).json()["items"][0]
     assert summary["expected"] == 43 and summary["present"] == 1
@@ -61,5 +71,8 @@ def test_mysql_84_g1_g2_main_chain():
     assert blocked.status_code == 409 and blocked.json()["code"] == "CLASS.ROSTER_FROZEN"
     dispatcher = {"X-User-Id":"service_contract_dispatcher","X-Role":"admin","X-Permissions":"integration:dispatch"}
     dispatched = client.post("/api/v1/integration/outbox/dispatch", headers=dispatcher, params={"limit":500})
-    assert dispatched.status_code == 200 and dispatched.json()["failed"] == 0
-    assert any(item["event_type"] == "course.roster.frozen" and item["targets"] == ["grading_facts"] for item in dispatched.json()["results"])
+    assert dispatched.status_code == 200
+    results = dispatched.json()["results"]
+    assert any(item["event_type"] == "course.roster.frozen" and item["status"] == "PUBLISHED" and item["targets"] == ["grading_facts"] for item in results)
+    teaching_audits = [item for item in results if item["event_type"] == "teaching.audit"]
+    assert teaching_audits and all(item["status"] == "PUBLISHED" and item["targets"] == ["audit_event"] for item in teaching_audits)

@@ -144,6 +144,13 @@ def test_rsa_five_checkpoints_score_and_e_read_models(db_and_client):
     with Session(engine) as session:
         assert session.scalar(select(func.count()).select_from(models.CheckpointResult)) == 5
         assert session.scalar(select(func.count()).select_from(DomainEventOutbox).where(DomainEventOutbox.event_type.in_(["lab.checkpoint.passed", "lab.checkpoint.failed"]))) == 5
+        checkpoint_events = list(session.scalars(
+            select(DomainEventOutbox)
+            .where(DomainEventOutbox.event_type.in_(["lab.checkpoint.passed", "lab.checkpoint.failed"]))
+            .order_by(DomainEventOutbox.occurred_at, DomainEventOutbox.event_id)
+        ))
+        assert sorted(event.payload_json["raw_score"] for event in checkpoint_events) == [20, 40, 70, 90, 100]
+        assert all(event.payload_json["max_score"] == 100 for event in checkpoint_events)
 
 
 def test_no_capacity_returns_accepted_queue_fact(db_and_client):

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import ExcelJS from 'exceljs'
 
 
-test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page }, testInfo) => {
+test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page, browser }, testInfo) => {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('学生导入')
   sheet.addRow(['学号*', '姓名*', '班级', '手机号（可选）', '邮箱（可选）'])
@@ -10,6 +10,13 @@ test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page 
   for (let index = 1; index <= 43; index += 1) sheet.addRow([`${run}${String(index).padStart(2, '0')}`, `浏览器学生${index}`, '网络安全 2301 班', '', ''])
   const filePath = testInfo.outputPath('students-43.xlsx')
   await workbook.xlsx.writeFile(filePath)
+  const badWorkbook = new ExcelJS.Workbook()
+  const badSheet = badWorkbook.addWorksheet('学生导入')
+  badSheet.addRow(['学号*', '姓名*', '班级', '手机号（可选）', '邮箱（可选）'])
+  badSheet.addRow([`${run}01`, '重复学生', '网络安全 2301 班', '', ''])
+  badSheet.addRow(['=2+2', '公式风险', '网络安全 2301 班', '', ''])
+  const badFilePath = testInfo.outputPath('students-errors.xlsx')
+  await badWorkbook.xlsx.writeFile(badFilePath)
 
   await page.goto('/courses')
   await page.evaluate(() => localStorage.clear())
@@ -21,6 +28,12 @@ test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page 
   await page.getByLabel('选择学生名单').setInputFiles(filePath)
   await page.getByRole('button', { name: '导入学生' }).click()
   await expect(page.getByTestId('message')).toContainText('成功 43 人')
+  await page.getByLabel('选择学生名单').setInputFiles(badFilePath)
+  await page.getByRole('button', { name: '导入学生' }).click()
+  await expect(page.getByTestId('message')).toContainText('失败 2 人')
+  const errorDownload = page.waitForEvent('download')
+  await page.getByTestId('import-error-download').click()
+  expect((await errorDownload).suggestedFilename()).toBe('student-import-errors.xlsx')
 
   await page.goto('/teacher-students')
   await expect(page.getByRole('heading', { name: '学生管理' })).toBeVisible()
@@ -35,9 +48,18 @@ test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page 
   await page.goto('/attendance-management')
   await page.getByRole('button', { name: '发布签到' }).click()
   await expect(page.getByTestId('attendance-message')).toContainText('签到已发布')
-  await page.goto('/student-attendance')
-  await page.getByRole('button', { name: '立即签到' }).click()
-  await expect(page.getByText('签到成功')).toBeVisible()
+  const signUrl = await page.getByTestId('attendance-link').getAttribute('href')
+  const studentId = await page.evaluate(() => localStorage.getItem('yk-student-id'))
+  expect(signUrl).toContain('/student-attendance/')
+  expect(studentId).toBeTruthy()
+  const studentContext = await browser.newContext()
+  await studentContext.addInitScript(id => localStorage.setItem('yk-student-id', id), studentId!)
+  const studentPage = await studentContext.newPage()
+  await studentPage.goto(signUrl!)
+  await expect(studentPage.getByText('RSA 数字签名课堂签到')).toBeVisible()
+  await studentPage.getByRole('button', { name: '立即签到' }).click()
+  await expect(studentPage.getByText('签到成功')).toBeVisible()
+  await studentContext.close()
   await page.goto('/attendance-management')
   await page.getByRole('button', { name: '刷新结果' }).click()
   await expect(page.locator('.kpi').nth(1)).toContainText('1')

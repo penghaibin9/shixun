@@ -1,10 +1,18 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from hashlib import sha256
+import json
+from pathlib import Path
+import re
+import tempfile
+from threading import Event
+from time import sleep
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
 from app.common.models import DomainEventOutbox, FileObject
@@ -12,6 +20,7 @@ from app.main import app
 from app.grading.models import (AnalyticsCourseSummary, AnalyticsLabSummary, AnalyticsSectionSummary, AnalyticsStudentLabSummary,
     AuditEvent, CourseArchive, CourseArchiveArtifact, GradeEvent, Gradebook, GradebookItem, GradingPolicy,
     GradingPolicyItem, StudentCourseScore, StudentRiskFlag)
+from app.grading.service import GradingService
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要专属 MySQL 集成库")
 COURSE, CLASS = "course_data_security", "class_2301"
@@ -21,6 +30,17 @@ SERVICE = {"X-User-Id":"service_event_consumer","X-Role":"admin","X-Permissions"
 BROWSER_SPOOF = {"X-User-Id":"teacher_f","X-Role":"teacher","X-Teacher-Id":"teacher_f","X-Permissions":"grading:consume,audit:ingest"}
 
 
+def remove_test_archive_files(items):
+    allowed_roots = [Path(tempfile.gettempdir()).resolve(), (Path(__file__).parents[1] / "var" / "resource_uploads").resolve()]
+    for item in items:
+        path = Path(item.object_key).resolve()
+        structurally_valid = bool(re.fullmatch(r"[0-9a-f]{64}", path.name)) and path.parent.parent.name == "objects" and path.parent.parent.parent.name == "course_archives"
+        if not structurally_valid or not any(root == path or root in path.parents for root in allowed_roots):
+            continue
+        try:path.chmod(0o600);path.unlink(missing_ok=True)
+        except OSError:pass
+
+
 @pytest.fixture(autouse=True)
 def clean_database():
     if not os.getenv("YUEKE_DATABASE_URL"): yield; return
@@ -28,11 +48,15 @@ def clean_database():
     order=[CourseArchiveArtifact,CourseArchive,StudentRiskFlag,AnalyticsLabSummary,AnalyticsStudentLabSummary,AnalyticsSectionSummary,AnalyticsCourseSummary,StudentCourseScore,GradebookItem,Gradebook,GradeEvent,GradingPolicyItem,GradingPolicy,AuditEvent]
     with Session(engine) as session:
         for model in order: session.execute(delete(model))
-        session.execute(delete(DomainEventOutbox));session.execute(delete(FileObject).where(FileObject.storage_provider == "generated-api"));session.commit()
+        archive_files=list(session.scalars(select(FileObject).where(FileObject.bucket=="course-archives")))
+        session.execute(delete(DomainEventOutbox));session.execute(delete(FileObject).where(FileObject.bucket=="course-archives"));session.execute(delete(FileObject).where(FileObject.storage_provider == "generated-api"));session.commit()
+        remove_test_archive_files(archive_files)
     yield
     with Session(engine) as session:
         for model in order: session.execute(delete(model))
-        session.execute(delete(DomainEventOutbox));session.execute(delete(FileObject).where(FileObject.storage_provider == "generated-api"));session.commit()
+        archive_files=list(session.scalars(select(FileObject).where(FileObject.bucket=="course-archives")))
+        session.execute(delete(DomainEventOutbox));session.execute(delete(FileObject).where(FileObject.bucket=="course-archives"));session.execute(delete(FileObject).where(FileObject.storage_provider == "generated-api"));session.commit()
+        remove_test_archive_files(archive_files)
 
 
 @pytest.fixture()
@@ -52,6 +76,22 @@ def seed_complete_facts(client):
             data=envelope(event_type,student,source,score);rows.append(data)
             response=client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data);assert response.status_code==200
     return rows
+
+
+def freeze_envelope(event_type, *, class_id=CLASS, member_count=2):
+    if event_type=="course.roster.frozen":
+        aggregate_id=class_id
+        payload={"course_id":COURSE,"class_id":class_id,"member_count":member_count,"snapshot_hash":sha256(f"{class_id}:{member_count}".encode()).hexdigest(),"frozen_at":datetime.now(timezone.utc).isoformat()}
+    else:
+        aggregate_id=COURSE
+        payload={"course_id":COURSE,"manifest_id":"resource_manifest_1","version_no":1}
+    return {"event_id":str(uuid4()),"event_type":event_type,"aggregate_type":"upstream_manifest","aggregate_id":aggregate_id,"actor_user_id":"upstream","occurred_at":datetime.now(timezone.utc).isoformat(),"idempotency_key":str(uuid4()),"payload":payload}
+
+
+def consume_freeze(client, event_type, **kwargs):
+    response=client.post("/api/v1/grading/events/consume",headers=SERVICE,json=freeze_envelope(event_type,**kwargs))
+    assert response.status_code==200
+    return response
 
 
 def test_event_replay_three_times_creates_one_grade_event(client):
@@ -87,6 +127,141 @@ def test_lab_submission_requires_release_id_and_keeps_source_for_trace(client):
     assert lab_source["source_id"]=="submission_1" and lab_source["lab_release_id"]=="lab_release_rsa"
 
 
+def test_lab_component_requires_submission_and_ignores_cumulative_checkpoint_snapshots(client):
+    release_id="lab_release_rsa"
+    for index,score in enumerate([20,40,70,90,100],start=1):
+        checkpoint=envelope("lab.checkpoint.passed","student_1",f"checkpoint_{index}",score)
+        checkpoint["payload"].update({"lab_release_id":release_id,"runtime_instance_id":"runtime_1","checkpoint_id":f"cp_{index}"})
+        assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=checkpoint).status_code==200
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    trace=client.get(f"/api/v1/gradebook/courses/{COURSE}/trace/student_1",headers=MANAGER,params={"class_id":CLASS}).json()
+    assert next(item for item in trace["components"] if item["component"]=="LAB")["score"]==0
+    submitted=envelope("lab.submitted","student_1","submission_final",100,lab_release_id=release_id)
+    assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=submitted).status_code==200
+    rejudge=envelope("lab.checkpoint.passed","student_1","checkpoint_rejudge",50)
+    rejudge["payload"].update({"lab_release_id":release_id,"runtime_instance_id":"runtime_1","checkpoint_id":"cp_3"})
+    assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=rejudge).status_code==200
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    trace=client.get(f"/api/v1/gradebook/courses/{COURSE}/trace/student_1",headers=MANAGER,params={"class_id":CLASS}).json()
+    assert next(item for item in trace["components"] if item["component"]=="LAB")["score"]==100
+
+
+def test_fact_snapshot_blocks_stale_post_and_isolates_events_after_post(client,monkeypatch,tmp_path):
+    seed_complete_facts(client);consume_freeze(client,"course.roster.frozen")
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    unapplied=envelope("quiz.completed","student_1","quiz_after_calculation",10)
+    assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=unapplied).json()["status"]=="CONSUMED"
+    stale=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+    assert stale.status_code==409 and stale.json()["code"]=="GRADING.GRADEBOOK_STALE"
+    assert unapplied["event_id"] in stale.json()["details"]["unapplied_source_event_ids"]
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS}).status_code==200
+    late=envelope("quiz.completed","student_1","quiz_after_post",100)
+    late_response=client.post("/api/v1/grading/events/consume",headers=SERVICE,json=late)
+    assert late_response.status_code==200 and late_response.json()["status"]=="LATE_IGNORED"
+    consume_freeze(client,"resource.delivery.frozen")
+    monkeypatch.setenv("YUEKE_RESOURCE_UPLOAD_DIR",str(tmp_path))
+    frozen=client.post(f"/api/v1/archives/courses/{COURSE}/freeze",headers=MANAGER,json={"class_id":CLASS})
+    assert frozen.status_code==200
+    assert unapplied["event_id"] in frozen.json()["source_event_ids"]
+    assert late["event_id"] not in frozen.json()["source_event_ids"]
+    engine=create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:
+        stored=session.scalar(select(GradeEvent).where(GradeEvent.event_id==late["event_id"]))
+        assert stored and stored.status=="LATE"
+        assert session.scalar(select(AuditEvent).where(AuditEvent.action=="GRADE_EVENT_LATE_IGNORED",AuditEvent.resource_id==stored.grade_event_id))
+
+
+def test_post_and_fact_ingestion_share_the_gradebook_scope_lock(client, monkeypatch):
+    seed_complete_facts(client);consume_freeze(client,"course.roster.frozen")
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    post_holds_lock=Event();release_post=Event();consume_started=Event()
+    original_integrity=GradingService.gradebook_integrity
+
+    def paused_integrity(service, book):
+        post_holds_lock.set()
+        if not release_post.wait(5):
+            raise RuntimeError("测试未释放成绩册范围锁")
+        return original_integrity(service,book)
+
+    monkeypatch.setattr(GradingService,"gradebook_integrity",paused_integrity)
+    incoming=envelope("quiz.completed","student_1","quiz_racing_with_post",100)
+
+    def post_gradebook():
+        with TestClient(app) as local_client:
+            return local_client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+
+    def consume_fact():
+        consume_started.set()
+        with TestClient(app) as local_client:
+            return local_client.post("/api/v1/grading/events/consume",headers=SERVICE,json=incoming)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        post_future=pool.submit(post_gradebook)
+        assert post_holds_lock.wait(5)
+        consume_future=pool.submit(consume_fact)
+        assert consume_started.wait(5)
+        try:
+            sleep(0.25)
+            assert not consume_future.done(),"成绩事件未等待入账事务的范围锁"
+        finally:
+            release_post.set()
+        posted=post_future.result(timeout=10)
+        late=consume_future.result(timeout=10)
+
+    assert posted.status_code==200 and posted.json()["status"]=="POSTED"
+    assert late.status_code==200 and late.json()["status"]=="LATE_IGNORED"
+    engine=create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:
+        stored=session.scalar(select(GradeEvent).where(GradeEvent.event_id==incoming["event_id"]))
+        assert stored and stored.status=="LATE"
+
+
+def test_recalculate_cannot_overwrite_a_concurrent_post(client, monkeypatch):
+    seed_complete_facts(client);consume_freeze(client,"course.roster.frozen")
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    recalculate_holds_lock=Event();release_recalculate=Event();post_started=Event()
+    original_build_risks=GradingService.build_risks
+
+    def paused_build_risks(service, *args, **kwargs):
+        if not recalculate_holds_lock.is_set():
+            recalculate_holds_lock.set()
+            if not release_recalculate.wait(5):
+                raise RuntimeError("测试未释放重算范围锁")
+        return original_build_risks(service,*args,**kwargs)
+
+    monkeypatch.setattr(GradingService,"build_risks",paused_build_risks)
+
+    def recalculate_gradebook():
+        with TestClient(app) as local_client:
+            return local_client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS})
+
+    def post_gradebook():
+        post_started.set()
+        with TestClient(app) as local_client:
+            return local_client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        recalculate_future=pool.submit(recalculate_gradebook)
+        assert recalculate_holds_lock.wait(5)
+        post_future=pool.submit(post_gradebook)
+        assert post_started.wait(5)
+        try:
+            sleep(0.25)
+            assert not post_future.done(),"成绩入账未等待正在执行的重算事务"
+        finally:
+            release_recalculate.set()
+        recalculated=recalculate_future.result(timeout=10)
+        posted=post_future.result(timeout=10)
+
+    assert recalculated.status_code==200 and recalculated.json()["status"]=="READY"
+    assert posted.status_code==200 and posted.json()["status"]=="POSTED"
+    engine=create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:
+        book=session.scalar(select(Gradebook).where(Gradebook.course_id==COURSE,Gradebook.class_id==CLASS))
+        assert book and book.status=="POSTED"
+
+
 def test_policy_weight_recalculate_trace_post_analytics_and_student_scope(client):
     bad=client.put(f"/api/v1/grading/policies/{COURSE}",headers=MANAGER,json={"attendance":10,"assignment":20,"quiz":20,"lab":30,"interaction":10})
     assert bad.status_code==422 and bad.json()["code"]=="GRADING.POLICY_WEIGHT_INVALID"
@@ -107,6 +282,7 @@ def test_policy_weight_recalculate_trace_post_analytics_and_student_scope(client
     assert section["status"]=="READY" and sum(section["distribution"].values())==2
     labs=client.get(f"/api/v1/analytics/courses/{COURSE}/labs/by-lab",headers=MANAGER,params={"class_id":CLASS}).json()
     assert labs["items"][0]["lab_release_id"]=="lab_rsa" and labs["items"][0]["submitted_students"]==2 and labs["items"][0]["avg_score"]==90.0
+    consume_freeze(client,"course.roster.frozen")
     posted=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
     assert posted.status_code==200 and posted.json()["status"]=="POSTED"
     own=client.get(f"/api/v1/gradebook/courses/{COURSE}/students/student_1",headers=STUDENT,params={"class_id":CLASS})
@@ -120,26 +296,78 @@ def test_policy_weight_recalculate_trace_post_analytics_and_student_scope(client
     assert client.get(f"/api/v1/analytics/courses/{COURSE}/export.xlsx",headers=MANAGER,params={"class_id":CLASS}).content.startswith(b"PK")
 
 
-def test_archive_blocks_until_upstream_facts_then_locks_and_audits(client):
+def test_post_blocks_missing_enabled_component_but_allows_zero_weight_component(client):
+    for student in ["student_1","student_2"]:
+        for event_type,source in [("attendance.completed","att"),("assignment.submitted","ass"),("quiz.completed","quiz"),("lab.submitted","lab")]:
+            data=envelope(event_type,student,f"{source}_{student}",80,lab_release_id="lab_rsa")
+            assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data).status_code==200
+    consume_freeze(client,"course.roster.frozen")
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    blocked=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+    assert blocked.status_code==409 and blocked.json()["code"]=="GRADING.GRADEBOOK_INCOMPLETE"
+    assert all(item["missing_components"]==["INTERACTION"] for item in blocked.json()["details"]["incomplete_students"])
+    policy=client.put(f"/api/v1/grading/policies/{COURSE}",headers=MANAGER,json={"attendance":10,"assignment":20,"quiz":20,"lab":50,"interaction":0})
+    assert policy.status_code==200
+    recalculated=client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS})
+    assert recalculated.status_code==200
+    posted=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+    assert posted.status_code==200 and posted.json()["status"]=="POSTED"
+
+
+def test_post_blocks_when_frozen_roster_count_exceeds_gradebook(client):
+    seed_complete_facts(client);consume_freeze(client,"course.roster.frozen",member_count=3)
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    blocked=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+    assert blocked.status_code==409 and blocked.json()["code"]=="GRADING.ROSTER_COUNT_MISMATCH"
+    assert blocked.json()["details"]=={"roster_member_count":3,"gradebook_student_count":2,"snapshot_hash":sha256(f"{CLASS}:3".encode()).hexdigest()}
+
+
+def test_archive_blocks_until_verified_snapshots_then_persists_fixed_artifacts(client,monkeypatch,tmp_path):
     seed_complete_facts(client)
     client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS})
-    client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+    denied_post=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+    assert denied_post.status_code==409 and denied_post.json()["code"]=="GRADING.ROSTER_FREEZE_REQUIRED"
     blocked=client.post(f"/api/v1/archives/courses/{COURSE}/precheck",headers=MANAGER,json={"class_id":CLASS}).json()
-    assert set(blocked["blocking_items"])=={"roster_frozen","resources_frozen"}
-    for event_type,aggregate in [("course.roster.frozen","roster_2301"),("resource.delivery.frozen","resource_manifest_1")]:
-        data={"event_id":str(uuid4()),"event_type":event_type,"aggregate_type":"upstream_manifest","aggregate_id":aggregate,"actor_user_id":"upstream","occurred_at":datetime.now(timezone.utc).isoformat(),"idempotency_key":str(uuid4()),"payload":{"course_id":COURSE,"class_id":CLASS}}
-        if event_type=="course.roster.frozen":data["payload"]["class_id"]="class_other"
-        assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data).status_code==200
+    assert set(blocked["blocking_items"])=={"roster_frozen","roster_student_count_matches","gradebook_posted","resources_frozen"}
+    shell=freeze_envelope("resource.delivery.frozen");shell["payload"]={"course_id":COURSE}
+    rejected=client.post("/api/v1/grading/events/consume",headers=SERVICE,json=shell)
+    assert rejected.status_code==422 and rejected.json()["code"]=="GRADING.UPSTREAM_FREEZE_PAYLOAD_INVALID"
+    consume_freeze(client,"course.roster.frozen",class_id="class_other")
     wrong_class=client.post(f"/api/v1/archives/courses/{COURSE}/precheck",headers=MANAGER,json={"class_id":CLASS}).json()
-    assert wrong_class["blocking_items"]==["roster_frozen"]
-    roster={"event_id":str(uuid4()),"event_type":"course.roster.frozen","aggregate_type":"upstream_manifest","aggregate_id":"roster_2301_correct","actor_user_id":"upstream","occurred_at":datetime.now(timezone.utc).isoformat(),"idempotency_key":str(uuid4()),"payload":{"course_id":COURSE,"class_id":CLASS}}
-    assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=roster).status_code==200
+    assert {"roster_frozen","roster_student_count_matches","gradebook_posted","resources_frozen"}==set(wrong_class["blocking_items"])
+    consume_freeze(client,"course.roster.frozen")
+    posted=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
+    assert posted.status_code==200 and posted.json()["status"]=="POSTED"
+    still_blocked=client.post(f"/api/v1/archives/courses/{COURSE}/precheck",headers=MANAGER,json={"class_id":CLASS}).json()
+    assert still_blocked["blocking_items"]==["resources_frozen"]
+    consume_freeze(client,"resource.delivery.frozen")
     ready=client.post(f"/api/v1/archives/courses/{COURSE}/precheck",headers=MANAGER,json={"class_id":CLASS}).json();assert ready["blocking"]==0
+    assert ready["roster_snapshot"]["member_count"]==2 and ready["roster_snapshot"]["snapshot_hash"]
+    assert ready["resource_manifest"]["manifest_id"]=="resource_manifest_1" and ready["resource_manifest"]["version_no"]==1
+    monkeypatch.setenv("YUEKE_RESOURCE_UPLOAD_DIR",str(tmp_path))
     frozen=client.post(f"/api/v1/archives/courses/{COURSE}/freeze",headers=MANAGER,json={"class_id":CLASS})
-    assert frozen.status_code==200 and len(frozen.json()["artifacts"])==3
-    assert all(x.get("file_id") for x in frozen.json()["artifacts"][:2])
+    assert frozen.status_code==200 and len(frozen.json()["artifacts"])==4
+    artifacts={item["type"]:item for item in frozen.json()["artifacts"]}
+    assert all(artifacts[k].get("file_id") for k in ["GRADEBOOK_XLSX","ANALYTICS_XLSX","RESOURCE_VERSION_MANIFEST_JSON"])
+    downloads={}
+    for kind in ["GRADEBOOK_XLSX","ANALYTICS_XLSX","RESOURCE_VERSION_MANIFEST_JSON"]:
+        response=client.get(artifacts[kind]["evidence_ref"],headers=MANAGER)
+        assert response.status_code==200 and sha256(response.content).hexdigest()==artifacts[kind]["sha256"]
+        assert response.headers["cache-control"]=="private, immutable"
+        downloads[kind]=response.content
+    resource_snapshot=json.loads(downloads["RESOURCE_VERSION_MANIFEST_JSON"])
+    assert resource_snapshot["delivery_manifests"][0]["manifest_id"]=="resource_manifest_1"
     engine=create_engine(os.environ["YUEKE_DATABASE_URL"])
-    with Session(engine) as session: assert session.query(FileObject).filter(FileObject.storage_provider == "generated-api").count()==2
+    with Session(engine) as session:
+        files=list(session.scalars(select(FileObject).where(FileObject.bucket=="course-archives")))
+        assert len(files)==3 and all(item.storage_provider=="local" and Path(item.object_key).is_file() for item in files)
+        file_paths={item.file_id:Path(item.object_key) for item in files}
+        score=session.scalar(select(StudentCourseScore).where(StudentCourseScore.student_id=="student_1"));score.total_score=1;session.commit()
+    fixed=client.get(artifacts["GRADEBOOK_XLSX"]["evidence_ref"],headers=MANAGER)
+    assert fixed.content==downloads["GRADEBOOK_XLSX"]
+    tampered=file_paths[artifacts["RESOURCE_VERSION_MANIFEST_JSON"]["file_id"]];tampered.chmod(0o600);tampered.write_bytes(b"tampered")
+    rejected_download=client.get(artifacts["RESOURCE_VERSION_MANIFEST_JSON"]["evidence_ref"],headers=MANAGER)
+    assert rejected_download.status_code==409 and rejected_download.json()["code"]=="ARCHIVE.ARTIFACT_INTEGRITY_FAILED"
     locked=client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS})
     assert locked.status_code==409 and locked.json()["code"]=="ARCHIVE.GRADEBOOK_LOCKED"
     audits=client.get("/api/v1/audit/events",headers=MANAGER,params={"course_id":COURSE}).json()

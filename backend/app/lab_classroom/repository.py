@@ -10,6 +10,10 @@ class ClassroomRepository:
     def get(self, model, object_id): return self.session.get(model, object_id)
     def projection(self, release_id: str, student_id: str):
         return self.session.scalar(select(m.RuntimeProjection).where(m.RuntimeProjection.lab_release_id == release_id, m.RuntimeProjection.student_id == student_id))
+    def latest_runtime_event(self, release_id: str, student_id: str):
+        return self.session.scalar(select(m.ClassroomRuntimeEvent).where(m.ClassroomRuntimeEvent.lab_release_id == release_id, m.ClassroomRuntimeEvent.student_id == student_id).order_by(m.ClassroomRuntimeEvent.occurred_at.desc(), m.ClassroomRuntimeEvent.event_sequence.desc()).limit(1))
+    def projections(self, release_id: str):
+        return list(self.session.scalars(select(m.RuntimeProjection).where(m.RuntimeProjection.lab_release_id == release_id)))
     def consumed(self, event_id: str): return self.session.get(m.ConsumedRuntimeEvent, event_id)
     def distribution_by_key(self, class_id: str, key: str):
         return self.session.scalar(select(m.TeachingLogDistributionTask).where(m.TeachingLogDistributionTask.class_id == class_id, m.TeachingLogDistributionTask.idempotency_key == key))

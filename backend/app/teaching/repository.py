@@ -50,12 +50,21 @@ class TeachingRepository:
     def import_job(self, class_id: str, key: str):
         return self.session.scalar(select(m.ImportJob).where(m.ImportJob.class_id == class_id, m.ImportJob.idempotency_key == key))
 
+    def class_for_update(self, class_id: str):
+        return self.session.scalar(select(m.TeachingClass).where(m.TeachingClass.class_id == class_id).with_for_update())
+
     def attendance_tasks(self, class_ids: frozenset[str]):
         stmt = select(m.AttendanceTask).where(m.AttendanceTask.class_id.in_(class_ids)).order_by(m.AttendanceTask.starts_at.desc())
         return list(self.session.scalars(stmt))
 
     def attendance_record(self, task_id: str, student_id: str):
         return self.session.scalar(select(m.AttendanceRecord).where(m.AttendanceRecord.task_id == task_id, m.AttendanceRecord.student_id == student_id))
+
+    def attendance_task_by_token_hash(self, token_hash: str, *, lock: bool = False):
+        query = select(m.AttendanceTask).where(m.AttendanceTask.sign_token_hash == token_hash)
+        if lock:
+            query = query.with_for_update()
+        return self.session.scalar(query)
 
     def attendance_records(self, task_id: str):
         return list(self.session.scalars(select(m.AttendanceRecord).where(m.AttendanceRecord.task_id == task_id).order_by(m.AttendanceRecord.signed_at)))
