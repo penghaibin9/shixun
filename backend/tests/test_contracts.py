@@ -29,6 +29,22 @@ def test_frozen_openapi_exactly_matches_application():
     assert contract == app.openapi()
 
 
+def test_question_import_contract_requires_bounded_idempotency_and_binary_xlsx():
+    contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    operation = contract["paths"]["/api/v1/questions/import"]["post"]
+    idempotency = next(item for item in operation["parameters"] if item["name"] == "Idempotency-Key")
+    assert idempotency["required"] is True
+    assert idempotency["schema"]["maxLength"] == 128
+
+    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    for path in (
+        "/api/v1/questions/import-template.xlsx",
+        "/api/v1/questions/import-jobs/{job_id}/error-rows.xlsx",
+    ):
+        content = contract["paths"][path]["get"]["responses"]["200"]["content"]
+        assert content[media_type]["schema"] == {"type": "string", "format": "binary"}
+
+
 def test_database_tables_have_exactly_one_frozen_owner():
     contract = json.loads((ROOT / "docs/contracts/database-ownership-v1.json").read_text(encoding="utf-8"))
     claimed = [table for tables in contract["owners"].values() for table in tables]

@@ -1,10 +1,12 @@
 from datetime import datetime
+from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
 from openpyxl import Workbook
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.context import UserContext
@@ -13,9 +15,27 @@ from app.common.models import FileObject
 from app.common.outbox import enqueue_event
 
 from .catalog import COURSE_ID
-from .models import (LabFilePack, LessonResource, PptAsset, Question, QuestionBank, QuestionExplanation, QuestionLessonMap,
-                     QuestionOption, Resource, ResourceDeliveryManifest, ResourceQualityCheck, ResourceReview, ResourceVersion, VideoAsset)
+from .models import (
+    LabFilePack,
+    LessonResource,
+    PptAsset,
+    Question,
+    QuestionBank,
+    QuestionExplanation,
+    QuestionImportJob,
+    QuestionImportRow,
+    QuestionLessonMap,
+    QuestionOption,
+    QuestionReview,
+    Resource,
+    ResourceDeliveryManifest,
+    ResourceQualityCheck,
+    ResourceReview,
+    ResourceVersion,
+    VideoAsset,
+)
 from .media import probe_local_video
+from .question_xlsx import MAX_XLSX_UPLOAD_BYTES, InvalidQuestionWorkbook, error_rows_bytes, parse_question_workbook, template_bytes
 from .repository import ResourceRepository
 from .schemas import QuestionCreate, QuestionPatch, ResourceCreate, VersionCreate
 from .storage import archive_file_count, save_upload, upload_root
@@ -220,54 +240,302 @@ class ResourceService:
         rows = self.repo.lessons(course_id, kind)
         return {"items": [self.lesson_dict(row) for row in rows], "page": 1, "page_size": len(rows), "total": len(rows)}
 
+    def question_template(self, course_id: str) -> bytes:
+        self._course(course_id, "resources:write")
+        return template_bytes(self._question_catalog(course_id))
+
+    def list_questions(self, course_id: str) -> dict:
+        self._course(course_id)
+        rows = self.repo.list_questions(course_id, published_only=self.user.role == "student")
+        items = []
+        for question, lesson_id, explanation in rows:
+            options = [self.option_dict(option) for option in self.repo.question_options(question.question_id)]
+            item = self.question_dict(question, lesson_id, explanation, options=options)
+            if self.user.role == "student":
+                item.pop("answer", None)
+                item.pop("explanation", None)
+                for option in item["options"]:
+                    option.pop("is_correct", None)
+            items.append(item)
+        return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
+
+    def import_questions(self, course_id: str, data: bytes, filename: str, idempotency_key: str) -> dict:
+        self._course(course_id, "resources:write")
+        if not idempotency_key:
+            raise ApiError("REQUEST.IDEMPOTENCY_REQUIRED", "题库导入必须提供 Idempotency-Key", 400)
+        if not filename.lower().endswith(".xlsx"):
+            raise ApiError("QUESTION_IMPORT.INVALID_FILE_TYPE", "题库导入只接受 XLSX（电子表格）文件", 422)
+        if not data:
+            raise ApiError("QUESTION_IMPORT.FILE_EMPTY", "题库导入文件不能为空", 422)
+        if len(data) > MAX_XLSX_UPLOAD_BYTES:
+            raise ApiError("QUESTION_IMPORT.FILE_TOO_LARGE", "题库导入文件不能超过 10 MB", 413)
+
+        request_sha256 = sha256(data).hexdigest()
+        previous = self.repo.question_import_job(course_id, idempotency_key)
+        if previous:
+            if previous.request_sha256 != request_sha256:
+                raise ApiError(
+                    "REQUEST.IDEMPOTENCY_CONFLICT",
+                    "同一 Idempotency-Key 已用于不同的题库文件",
+                    409,
+                    {"import_job_id": previous.import_job_id},
+                )
+            return self.import_job_dict(previous)
+
+        lessons = self._question_catalog(course_id)
+        try:
+            parsed_rows, total_rows = parse_question_workbook(data, lessons)
+        except InvalidQuestionWorkbook as exc:
+            raise ApiError(exc.code, exc.message, 422) from exc
+
+        bank = self._ensure_question_bank(course_id)
+        bank = self.repo.lock_question_bank(course_id) or bank
+        locked_previous = self.repo.question_import_job(course_id, idempotency_key, lock=True)
+        if locked_previous:
+            if locked_previous.request_sha256 != request_sha256:
+                raise ApiError(
+                    "REQUEST.IDEMPOTENCY_CONFLICT",
+                    "同一 Idempotency-Key 已用于不同的题库文件",
+                    409,
+                    {"import_job_id": locked_previous.import_job_id},
+                )
+            return self.import_job_dict(locked_previous)
+
+        existing_slots = self.repo.existing_question_slots(course_id, lock=True)
+        for row in parsed_rows:
+            normalized = row.get("normalized_data")
+            if normalized and (normalized["lesson_id"], normalized["question_type"]) in existing_slots:
+                row["errors"].append(
+                    {
+                        "field": "题型*",
+                        "code": "QUESTION_IMPORT.SLOT_CONFLICT",
+                        "message": "该课时的此题型已存在，不能重复导入",
+                    }
+                )
+                row["status"] = "ERROR"
+
+        validation_failed = any(row["errors"] for row in parsed_rows)
+        stamp = now()
+        job = QuestionImportJob(
+            import_job_id=str(uuid4()),
+            course_id=course_id,
+            question_bank_id=bank.question_bank_id,
+            idempotency_key=idempotency_key,
+            request_sha256=request_sha256,
+            original_filename=filename[:255],
+            status="VALIDATION_FAILED" if validation_failed else "COMPLETED",
+            total_rows=total_rows,
+            success_count=0 if validation_failed else total_rows,
+            failure_count=(
+                sum(1 for row in parsed_rows if row["row_number"] > 0 and row["errors"])
+                or (1 if validation_failed else 0)
+            ),
+            created_by=self.user.user_id,
+            created_at=stamp,
+            completed_at=stamp,
+        )
+        self.repo.add(job)
+        self.session.flush()
+
+        for parsed in parsed_rows:
+            question = None
+            normalized = parsed.get("normalized_data")
+            if not validation_failed and normalized:
+                question = Question(
+                    question_id=str(uuid4()),
+                    question_bank_id=bank.question_bank_id,
+                    import_job_id=job.import_job_id,
+                    source_row_number=parsed["row_number"],
+                    question_type=normalized["question_type"],
+                    stem=normalized["stem"],
+                    answer_json=normalized["answer"],
+                    status="PENDING_REVIEW",
+                    created_by=self.user.user_id,
+                    created_at=stamp,
+                    submitted_at=stamp,
+                    reviewed_by=None,
+                    reviewed_at=None,
+                )
+                self.repo.add(question)
+                self.repo.add(QuestionExplanation(question_id=question.question_id, explanation=normalized["explanation"]))
+                self.repo.add(
+                    QuestionLessonMap(
+                        question_lesson_map_id=str(uuid4()),
+                        question_id=question.question_id,
+                        lesson_id=normalized["lesson_id"],
+                    )
+                )
+                for option in normalized["options"]:
+                    self.repo.add(
+                        QuestionOption(
+                            question_option_id=str(uuid4()),
+                            question_id=question.question_id,
+                            option_key=option["key"],
+                            option_text=option["text"],
+                            is_correct=option["is_correct"],
+                        )
+                    )
+                enqueue_event(
+                    self.session,
+                    event_type="question.created",
+                    aggregate_type="question",
+                    aggregate_id=question.question_id,
+                    actor_user_id=self.user.user_id,
+                    idempotency_key=f"question-imported:{job.import_job_id}:{parsed['row_number']}",
+                    payload={
+                        "course_id": course_id,
+                        "lesson_id": normalized["lesson_id"],
+                        "question_type": normalized["question_type"],
+                        "import_job_id": job.import_job_id,
+                        "source_row_number": parsed["row_number"],
+                    },
+                )
+            self.repo.add(
+                QuestionImportRow(
+                    import_row_id=str(uuid4()),
+                    import_job_id=job.import_job_id,
+                    row_number=parsed["row_number"],
+                    status=("ERROR" if parsed["errors"] else ("VALID" if validation_failed else "IMPORTED")),
+                    raw_data_json=parsed["raw_data"],
+                    normalized_data_json=normalized,
+                    errors_json=parsed["errors"],
+                    question_id=question.question_id if question else None,
+                    created_at=stamp,
+                )
+            )
+
+        enqueue_event(
+            self.session,
+            event_type="question.import.validation_failed" if validation_failed else "question.import.completed",
+            aggregate_type="question_import_job",
+            aggregate_id=job.import_job_id,
+            actor_user_id=self.user.user_id,
+            idempotency_key=f"question-import:{job.import_job_id}",
+            payload={
+                "course_id": course_id,
+                "import_job_id": job.import_job_id,
+                "status": job.status,
+                "total_rows": job.total_rows,
+                "success_count": job.success_count,
+                "failure_count": job.failure_count,
+            },
+        )
+        self.session.commit()
+        return self.import_job_dict(job)
+
+    def get_question_import_job(self, import_job_id: str) -> dict:
+        job = self.repo.get_question_import_job(import_job_id)
+        if not job:
+            raise ApiError("QUESTION_IMPORT.NOT_FOUND", "题库导入任务不存在", 404)
+        self._course(job.course_id, "resources:write")
+        return self.import_job_dict(job)
+
+    def question_import_errors_xlsx(self, import_job_id: str) -> bytes:
+        job = self.repo.get_question_import_job(import_job_id)
+        if not job:
+            raise ApiError("QUESTION_IMPORT.NOT_FOUND", "题库导入任务不存在", 404)
+        self._course(job.course_id, "resources:write")
+        rows = [self.import_row_dict(row) for row in self.repo.question_import_rows(import_job_id, "ERROR")]
+        return error_rows_bytes(rows)
+
+    def review_queue(self, course_id: str, page: int, page_size: int) -> dict:
+        self._course(course_id, "resources:review")
+        rows, total = self.repo.review_queue(course_id, offset=(page - 1) * page_size, limit=page_size)
+        items = []
+        for question, lesson_id, explanation, lesson_code, lesson_title in rows:
+            options = [self.option_dict(option) for option in self.repo.question_options(question.question_id)]
+            item = self.question_dict(question, lesson_id, explanation, options=options)
+            item.update(
+                {
+                    "course_id": course_id,
+                    "lesson_code": lesson_code,
+                    "lesson_title": lesson_title,
+                    "can_review": question.created_by != self.user.user_id,
+                }
+            )
+            items.append(item)
+        return {"items": items, "page": page, "page_size": page_size, "total": total}
+
     def create_question(self, data: QuestionCreate) -> dict:
         self._course(data.course_id, "resources:write")
         if not any(row.lesson_id == data.lesson_id for row in self.repo.lessons(data.course_id)):
             raise ApiError("QUESTION.LESSON_NOT_FOUND", "题目必须关联课程资源目录中的课时", 422)
-        if not self.session.scalar(select(QuestionBank).where(QuestionBank.course_id == data.course_id)):
-            self.repo.add(QuestionBank(question_bank_id=f"qb_{data.course_id}", course_id=data.course_id, name="课程统一题库", status="DRAFT", created_by=self.user.user_id, created_at=now()))
-            self.session.flush()
-        bank = self.session.scalar(select(QuestionBank).where(QuestionBank.course_id == data.course_id))
+        bank = self._ensure_question_bank(data.course_id)
+        bank = self.repo.lock_question_bank(data.course_id) or bank
+        if (data.lesson_id, data.question_type) in self.repo.existing_question_slots(data.course_id, lock=True):
+            raise ApiError("QUESTION.SLOT_CONFLICT", "该课时的此题型已存在，不能重复创建", 409)
         question = Question(question_id=str(uuid4()), question_bank_id=bank.question_bank_id, question_type=data.question_type, stem=data.stem, answer_json=data.answer, status="DRAFT", created_by=self.user.user_id, created_at=now(), reviewed_by=None, reviewed_at=None)
         self.repo.add(question)
         self.repo.add(QuestionExplanation(question_id=question.question_id, explanation=data.explanation))
         self.repo.add(QuestionLessonMap(question_lesson_map_id=str(uuid4()), question_id=question.question_id, lesson_id=data.lesson_id))
         for index, option in enumerate(data.options):
-            self.repo.add(QuestionOption(question_option_id=str(uuid4()), question_id=question.question_id, option_key=str(option.get("key", index + 1)), option_text=str(option.get("text", "")), is_correct=bool(option.get("is_correct", False))))
+            values = option.model_dump()
+            self.repo.add(QuestionOption(question_option_id=str(uuid4()), question_id=question.question_id, option_key=str(values.get("key", index + 1)), option_text=str(values.get("text", "")), is_correct=bool(values.get("is_correct", False))))
         enqueue_event(self.session, event_type="question.created", aggregate_type="question", aggregate_id=question.question_id, actor_user_id=self.user.user_id, idempotency_key=f"question-created:{question.question_id}", payload={"course_id": data.course_id, "lesson_id": data.lesson_id, "question_type": data.question_type})
         self.session.commit()
         return self.question_dict(question, data.lesson_id, data.explanation)
 
     def patch_question(self, question_id: str, data: QuestionPatch) -> dict:
         question = self.session.get(Question, question_id)
-        if not question or question.status != "DRAFT":
+        if not question or question.status not in {"DRAFT", "REJECTED"}:
             raise ApiError("QUESTION.NOT_EDITABLE", "题目不存在或已审核，不能覆盖修改", 409)
         bank = self.session.get(QuestionBank, question.question_bank_id)
         self._course(bank.course_id, "resources:write")
+        question = self.repo.lock_question(question_id)
+        if not question or question.status not in {"DRAFT", "REJECTED"}:
+            raise ApiError("QUESTION.NOT_EDITABLE", "题目不存在或已审核，不能覆盖修改", 409)
         if data.stem is not None: question.stem = data.stem
         if data.answer is not None:
             if not data.answer: raise ApiError("QUESTION.ANSWER_REQUIRED", "答案不能为空", 422)
             question.answer_json = data.answer
         if data.explanation is not None:
             self.session.get(QuestionExplanation, question_id).explanation = data.explanation
+        if question.status == "REJECTED":
+            question.status = "DRAFT"
+            question.reviewed_by = None
+            question.reviewed_at = None
+            question.submitted_at = None
         enqueue_event(self.session, event_type="question.updated", aggregate_type="question", aggregate_id=question.question_id, actor_user_id=self.user.user_id, idempotency_key=f"question-updated:{question.question_id}:{uuid4()}", payload={"course_id": bank.course_id})
         self.session.commit()
         return {"question_id": question.question_id, "status": question.status}
 
-    def review_question(self, question_id: str) -> dict:
+    def review_question(self, question_id: str, data=None) -> dict:
         question = self.session.get(Question, question_id)
         if not question: raise ApiError("QUESTION.NOT_FOUND", "题目不存在", 404)
         bank = self.session.get(QuestionBank, question.question_bank_id)
         self._course(bank.course_id, "resources:review")
+        question = self.repo.lock_question(question_id)
+        if not question: raise ApiError("QUESTION.NOT_FOUND", "题目不存在", 404)
         if question.created_by == self.user.user_id: raise ApiError("QUESTION.REVIEWER_MUST_BE_INDEPENDENT", "出题人不能审核自己的题目", 409)
+        decision = data.decision if data else "APPROVED"
+        comment = data.comment.strip() if data and data.comment else None
+        expected_status = "PUBLISHED" if decision == "APPROVED" else "REJECTED"
+        if question.status == expected_status:
+            return {"question_id": question.question_id, "status": question.status, "reviewed_by": question.reviewed_by, "reviewed_at": question.reviewed_at.isoformat() if question.reviewed_at else None}
+        if question.status not in {"DRAFT", "PENDING_REVIEW"}:
+            raise ApiError("QUESTION.INVALID_REVIEW_STATE", "当前题目状态不能执行审核", 409, {"status": question.status})
+        if decision == "REJECTED" and not comment:
+            raise ApiError("QUESTION.REJECTION_COMMENT_REQUIRED", "驳回题目时必须填写原因", 422)
         explanation = self.session.get(QuestionExplanation, question_id)
         mapping = self.session.scalar(select(QuestionLessonMap).where(QuestionLessonMap.question_id == question_id))
         if not question.answer_json or not explanation or not explanation.explanation or not mapping:
             raise ApiError("QUESTION.INCOMPLETE", "答案、解析和课时映射必须完整", 422)
-        question.status, question.reviewed_by, question.reviewed_at = "PUBLISHED", self.user.user_id, now()
-        enqueue_event(self.session, event_type="question.published", aggregate_type="question", aggregate_id=question.question_id, actor_user_id=self.user.user_id, idempotency_key=f"question-published:{question.question_id}", payload={"course_id": bank.course_id, "lesson_id": mapping.lesson_id})
+        reviewed_at = now()
+        review = QuestionReview(question_review_id=str(uuid4()), question_id=question.question_id, decision=decision, comment=comment, reviewer_id=self.user.user_id, reviewed_at=reviewed_at)
+        self.repo.add(review)
+        question.status, question.reviewed_by, question.reviewed_at = expected_status, self.user.user_id, reviewed_at
+        question.submitted_at = question.submitted_at or reviewed_at
+        enqueue_event(
+            self.session,
+            event_type="question.published" if decision == "APPROVED" else "question.rejected",
+            aggregate_type="question",
+            aggregate_id=question.question_id,
+            actor_user_id=self.user.user_id,
+            idempotency_key=f"question-review:{review.question_review_id}",
+            payload={"course_id": bank.course_id, "lesson_id": mapping.lesson_id, "decision": decision, "comment": comment},
+        )
         self.session.commit()
-        return {"question_id": question.question_id, "status": question.status}
+        return {"question_id": question.question_id, "status": question.status, "reviewed_by": question.reviewed_by, "reviewed_at": reviewed_at.isoformat()}
 
     def coverage(self, course_id: str) -> dict:
         self._course(course_id)
@@ -365,6 +633,85 @@ class ResourceService:
         if not item: raise ApiError("RESOURCE.NOT_FOUND", "资源不存在或不可访问", 404)
         self._course(item.course_id, permission); return item
 
+    def _ensure_question_bank(self, course_id: str) -> QuestionBank:
+        bank = self.repo.question_bank(course_id)
+        if bank:
+            return bank
+        bank = QuestionBank(
+            question_bank_id=f"qb_{course_id}" if len(f"qb_{course_id}") <= 36 else str(uuid4()),
+            course_id=course_id,
+            name="课程统一题库",
+            status="DRAFT",
+            created_by=self.user.user_id,
+            created_at=now(),
+        )
+        try:
+            with self.session.begin_nested():
+                self.repo.add(bank)
+                self.session.flush()
+            return bank
+        except IntegrityError:
+            existing = self.repo.lock_question_bank(course_id)
+            if existing:
+                return existing
+            raise
+
+    def _question_catalog(self, course_id: str) -> list[LessonResource]:
+        lessons = self.repo.lessons(course_id)
+        theory_count = sum(item.lesson_kind == "THEORY" for item in lessons)
+        lab_count = sum(item.lesson_kind == "LAB" for item in lessons)
+        if theory_count != 37 or lab_count != 12:
+            raise ApiError(
+                "QUESTION_IMPORT.CATALOG_INCOMPLETE",
+                "当前课程必须先具备完整的 37 个理论课时和 12 个实验课时目录",
+                409,
+                {
+                    "lesson_count": len(lessons),
+                    "theory_lesson_count": theory_count,
+                    "lab_lesson_count": lab_count,
+                },
+            )
+        return lessons
+
+    def import_job_dict(self, job: QuestionImportJob) -> dict:
+        rows = [self.import_row_dict(row) for row in self.repo.question_import_rows(job.import_job_id)]
+        error_rows = [
+            {"row_number": row["row_number"], **error}
+            for row in rows
+            for error in row["errors"]
+        ]
+        return {
+            "import_job_id": job.import_job_id,
+            "job_id": job.import_job_id,
+            "course_id": job.course_id,
+            "status": job.status,
+            "total_rows": job.total_rows,
+            "total_count": job.total_rows,
+            "success_count": job.success_count,
+            "imported_count": job.success_count,
+            "failure_count": job.failure_count,
+            "error_count": job.failure_count,
+            "review_queue_count": job.success_count if job.status == "COMPLETED" else 0,
+            "original_filename": job.original_filename,
+            "request_sha256": job.request_sha256,
+            "created_by": job.created_by,
+            "created_at": job.created_at.isoformat(),
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "rows": rows,
+            "error_rows": error_rows,
+        }
+
+    @staticmethod
+    def import_row_dict(row: QuestionImportRow) -> dict:
+        return {
+            "row_number": row.row_number,
+            "status": row.status,
+            "question_id": row.question_id,
+            "raw_data": row.raw_data_json,
+            "normalized_data": row.normalized_data_json,
+            "errors": row.errors_json or [],
+        }
+
     @staticmethod
     def resource_dict(item: Resource) -> dict:
         return {"resource_id": item.resource_id, "course_id": item.course_id, "lesson_id": item.lesson_id, "name": item.name, "resource_type": item.resource_type, "status": item.status, "created_by": item.created_by, "created_at": item.created_at.isoformat()}
@@ -382,8 +729,28 @@ class ResourceService:
         return {key: getattr(item, key) for key in ["course_id", "lesson_id", "lesson_kind", "chapter_no", "lesson_code", "title", "purpose", "environment", "principle", "steps_summary", "core_experiment", "linked_file_pack_id", "linked_video_resource_id", "linked_lab_definition_id"]}
 
     @staticmethod
-    def question_dict(item, lesson_id: str, explanation: str) -> dict:
-        return {"question_id": item.question_id, "question_type": item.question_type, "stem": item.stem, "answer": item.answer_json, "status": item.status, "lesson_id": lesson_id, "explanation": explanation}
+    def option_dict(item: QuestionOption) -> dict:
+        return {"key": item.option_key, "text": item.option_text, "is_correct": item.is_correct}
+
+    @staticmethod
+    def question_dict(item, lesson_id: str, explanation: str, *, options: list[dict] | None = None) -> dict:
+        return {
+            "question_id": item.question_id,
+            "question_type": item.question_type,
+            "stem": item.stem,
+            "answer": item.answer_json,
+            "status": item.status,
+            "lesson_id": lesson_id,
+            "explanation": explanation,
+            "options": options or [],
+            "created_by": item.created_by,
+            "created_at": item.created_at.isoformat(),
+            "import_job_id": item.import_job_id,
+            "source_row_number": item.source_row_number,
+            "submitted_at": item.submitted_at.isoformat() if item.submitted_at else None,
+            "reviewed_by": item.reviewed_by,
+            "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None,
+        }
 
     @staticmethod
     def procurement_mapping() -> list[dict]:

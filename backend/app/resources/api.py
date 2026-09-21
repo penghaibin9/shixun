@@ -1,23 +1,56 @@
 from io import BytesIO
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.context import CurrentUser
+from app.common.errors import ApiError
 from app.database import get_session
 
 from .catalog import COURSE_ID
-from .models import Question, QuestionBank, QuestionExplanation, QuestionLessonMap
-from .schemas import AuditRequest, FreezeRequest, PptQualityCheckInput, QuestionCreate, QuestionPatch, ResourceCreate, ReviewDecision, VersionCreate
+from .question_xlsx import MAX_XLSX_UPLOAD_BYTES
+from .schemas import (
+    AuditRequest,
+    FreezeRequest,
+    PptQualityCheckInput,
+    QuestionCoverageResponse,
+    QuestionCreate,
+    QuestionImportJobResponse,
+    QuestionListResponse,
+    QuestionPatch,
+    QuestionResponse,
+    QuestionReviewDecision,
+    QuestionReviewQueueResponse,
+    QuestionStatusResponse,
+    ResourceCreate,
+    ReviewDecision,
+    VersionCreate,
+)
 from .service import ResourceService
 
 router = APIRouter(prefix="/api/v1", tags=["课程资源"])
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+XLSX_RESPONSE = {
+    200: {
+        "description": "XLSX（电子表格）文件",
+        "content": {XLSX_MEDIA_TYPE: {"schema": {"type": "string", "format": "binary"}}},
+    }
+}
 
 
 def service(session: Session, user) -> ResourceService:
     return ResourceService(session, user)
+
+
+async def read_question_upload(file: UploadFile) -> bytes:
+    content = bytearray()
+    while chunk := await file.read(1024 * 1024):
+        content.extend(chunk)
+        if len(content) > MAX_XLSX_UPLOAD_BYTES:
+            raise ApiError("QUESTION_IMPORT.FILE_TOO_LARGE", "题库导入文件不能超过 10 MB", 413)
+    return bytes(content)
 
 
 @router.get("/resources")
@@ -124,33 +157,74 @@ def publish(resource_id: str, user: CurrentUser, session: Session = Depends(get_
     return service(session, user).transition(resource_id, "publish")
 
 
-@router.get("/questions")
+@router.get("/questions", response_model=QuestionListResponse, response_model_exclude_none=True)
 def list_questions(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
-    svc = service(session, user); svc._course(course_id)
-    rows = session.execute(select(Question, QuestionLessonMap.lesson_id, QuestionExplanation.explanation).join(QuestionBank, QuestionBank.question_bank_id == Question.question_bank_id).join(QuestionLessonMap, QuestionLessonMap.question_id == Question.question_id).join(QuestionExplanation, QuestionExplanation.question_id == Question.question_id).where(QuestionBank.course_id == course_id)).all()
-    items = [svc.question_dict(q, lesson_id, explanation) for q, lesson_id, explanation in rows if user.role != "student" or q.status == "PUBLISHED"]
-    if user.role == "student":
-        for item in items:
-            item.pop("answer", None)
-            item.pop("explanation", None)
-    return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
+    return service(session, user).list_questions(course_id)
 
 
-@router.post("/questions", status_code=201)
+@router.post("/questions", status_code=201, response_model=QuestionResponse)
 def create_question(data: QuestionCreate, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).create_question(data)
 
 
-@router.patch("/questions/{question_id}")
+@router.get("/questions/import-template.xlsx", response_class=StreamingResponse, responses=XLSX_RESPONSE)
+def question_import_template(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
+    content = service(session, user).question_template(course_id)
+    return StreamingResponse(
+        BytesIO(content),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": "attachment; filename=question-import-template.xlsx"},
+    )
+
+
+@router.post("/questions/import", status_code=201, response_model=QuestionImportJobResponse)
+async def import_questions(
+    user: CurrentUser,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)],
+    course_id: str = Form(...),
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    content = await read_question_upload(file)
+    return service(session, user).import_questions(course_id, content, file.filename or "questions.xlsx", idempotency_key)
+
+
+@router.get("/questions/import-jobs/{job_id}", response_model=QuestionImportJobResponse)
+def get_question_import_job(job_id: str, user: CurrentUser, session: Session = Depends(get_session)):
+    return service(session, user).get_question_import_job(job_id)
+
+
+@router.get("/questions/import-jobs/{job_id}/error-rows.xlsx", response_class=StreamingResponse, responses=XLSX_RESPONSE)
+def question_import_error_rows(job_id: str, user: CurrentUser, session: Session = Depends(get_session)):
+    content = service(session, user).question_import_errors_xlsx(job_id)
+    return StreamingResponse(
+        BytesIO(content),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f"attachment; filename=question-import-errors-{job_id}.xlsx"},
+    )
+
+
+@router.get("/questions/review-queue", response_model=QuestionReviewQueueResponse)
+def question_review_queue(
+    user: CurrentUser,
+    session: Session = Depends(get_session),
+    course_id: str = COURSE_ID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+):
+    return service(session, user).review_queue(course_id, page, page_size)
+
+
+@router.get("/questions/coverage", response_model=QuestionCoverageResponse)
+def question_coverage(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
+    return service(session, user).coverage(course_id)
+
+
+@router.patch("/questions/{question_id}", response_model=QuestionStatusResponse)
 def patch_question(question_id: str, data: QuestionPatch, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).patch_question(question_id, data)
 
 
-@router.post("/questions/{question_id}/review")
-def review_question(question_id: str, user: CurrentUser, session: Session = Depends(get_session)):
-    return service(session, user).review_question(question_id)
-
-
-@router.get("/questions/coverage")
-def question_coverage(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
-    return service(session, user).coverage(course_id)
+@router.post("/questions/{question_id}/review", response_model=QuestionStatusResponse)
+def review_question(question_id: str, user: CurrentUser, data: QuestionReviewDecision | None = None, session: Session = Depends(get_session)):
+    return service(session, user).review_question(question_id, data)

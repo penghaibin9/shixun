@@ -947,6 +947,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/questions/import-template.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Question Import Template */
+        get: operations["question_import_template_api_v1_questions_import_template_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/questions/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Questions */
+        post: operations["import_questions_api_v1_questions_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/questions/import-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Question Import Job */
+        get: operations["get_question_import_job_api_v1_questions_import_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/questions/import-jobs/{job_id}/error-rows.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Question Import Error Rows */
+        get: operations["question_import_error_rows_api_v1_questions_import_jobs__job_id__error_rows_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/questions/review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Question Review Queue */
+        get: operations["question_review_queue_api_v1_questions_review_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/questions/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Question Coverage */
+        get: operations["question_coverage_api_v1_questions_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/questions/{question_id}": {
         parameters: {
             query?: never;
@@ -975,23 +1077,6 @@ export interface paths {
         put?: never;
         /** Review Question */
         post: operations["review_question_api_v1_questions__question_id__review_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/questions/coverage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Question Coverage */
-        get: operations["question_coverage_api_v1_questions_coverage_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2760,6 +2845,13 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_import_questions_api_v1_questions_import_post */
+        Body_import_questions_api_v1_questions_import_post: {
+            /** Course Id */
+            course_id: string;
+            /** File */
+            file: string;
+        };
         /** Body_upload_resource_file_api_v1_resources_files_post */
         Body_upload_resource_file_api_v1_resources_files_post: {
             /** Course Id */
@@ -3106,6 +3198,28 @@ export interface components {
             /** Copyright Noted */
             copyright_noted: boolean;
         };
+        /** QuestionCoverageItem */
+        QuestionCoverageItem: {
+            /** Lesson Id */
+            lesson_id: string;
+            /** Lesson Code */
+            lesson_code: string;
+            /** Types */
+            types: string[];
+            /** Question Count */
+            question_count: number;
+            /** Passed */
+            passed: boolean;
+        };
+        /** QuestionCoverageResponse */
+        QuestionCoverageResponse: {
+            /** Items */
+            items: components["schemas"]["QuestionCoverageItem"][];
+            /** Total */
+            total: number;
+            /** Passed */
+            passed: number;
+        };
         /** QuestionCreate */
         QuestionCreate: {
             /** Course Id */
@@ -3121,9 +3235,113 @@ export interface components {
             /** Explanation */
             explanation: string;
             /** Options */
-            options?: {
+            options?: components["schemas"]["QuestionOptionInput"][];
+        };
+        /** QuestionImportErrorResponse */
+        QuestionImportErrorResponse: {
+            /** Row Number */
+            row_number?: number | null;
+            /** Field */
+            field: string;
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /** QuestionImportJobResponse */
+        QuestionImportJobResponse: {
+            /** Import Job Id */
+            import_job_id: string;
+            /** Job Id */
+            job_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Status */
+            status: string;
+            /** Total Rows */
+            total_rows: number;
+            /** Total Count */
+            total_count: number;
+            /** Success Count */
+            success_count: number;
+            /** Imported Count */
+            imported_count: number;
+            /** Failure Count */
+            failure_count: number;
+            /** Error Count */
+            error_count: number;
+            /** Review Queue Count */
+            review_queue_count: number;
+            /** Original Filename */
+            original_filename: string;
+            /** Request Sha256 */
+            request_sha256: string;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Rows */
+            rows: components["schemas"]["QuestionImportRowResponse"][];
+            /** Error Rows */
+            error_rows: components["schemas"]["QuestionImportErrorResponse"][];
+        };
+        /** QuestionImportRowResponse */
+        QuestionImportRowResponse: {
+            /** Row Number */
+            row_number: number;
+            /** Status */
+            status: string;
+            /** Question Id */
+            question_id?: string | null;
+            /** Raw Data */
+            raw_data: {
+                [key: string]: unknown;
+            };
+            /** Normalized Data */
+            normalized_data?: {
+                [key: string]: unknown;
+            } | null;
+            /** Errors */
+            errors?: {
                 [key: string]: unknown;
             }[];
+        };
+        /** QuestionListResponse */
+        QuestionListResponse: {
+            /** Items */
+            items: components["schemas"]["QuestionResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** QuestionOptionInput */
+        QuestionOptionInput: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+            /**
+             * Is Correct
+             * @default false
+             */
+            is_correct: boolean;
+        };
+        /** QuestionOptionResponse */
+        QuestionOptionResponse: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+            /** Is Correct */
+            is_correct?: boolean | null;
         };
         /** QuestionPatch */
         QuestionPatch: {
@@ -3146,6 +3364,119 @@ export interface components {
             };
             /** Max Score */
             max_score: number;
+        };
+        /** QuestionResponse */
+        QuestionResponse: {
+            /** Question Id */
+            question_id: string;
+            /** Question Type */
+            question_type: string;
+            /** Stem */
+            stem: string;
+            /** Answer */
+            answer?: string[] | null;
+            /** Status */
+            status: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Explanation */
+            explanation?: string | null;
+            /** Options */
+            options?: components["schemas"]["QuestionOptionResponse"][];
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Import Job Id */
+            import_job_id?: string | null;
+            /** Source Row Number */
+            source_row_number?: number | null;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Reviewed By */
+            reviewed_by?: string | null;
+            /** Reviewed At */
+            reviewed_at?: string | null;
+        };
+        /** QuestionReviewDecision */
+        QuestionReviewDecision: {
+            /**
+             * Decision
+             * @default APPROVED
+             * @enum {string}
+             */
+            decision: "APPROVED" | "REJECTED";
+            /** Comment */
+            comment?: string | null;
+        };
+        /** QuestionReviewQueueItem */
+        QuestionReviewQueueItem: {
+            /** Question Id */
+            question_id: string;
+            /** Question Type */
+            question_type: string;
+            /** Stem */
+            stem: string;
+            /** Answer */
+            answer?: string[] | null;
+            /** Status */
+            status: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Explanation */
+            explanation?: string | null;
+            /** Options */
+            options?: components["schemas"]["QuestionOptionResponse"][];
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Import Job Id */
+            import_job_id?: string | null;
+            /** Source Row Number */
+            source_row_number?: number | null;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Reviewed By */
+            reviewed_by?: string | null;
+            /** Reviewed At */
+            reviewed_at?: string | null;
+            /** Course Id */
+            course_id: string;
+            /** Lesson Code */
+            lesson_code: string;
+            /** Lesson Title */
+            lesson_title: string;
+            /** Can Review */
+            can_review: boolean;
+        };
+        /** QuestionReviewQueueResponse */
+        QuestionReviewQueueResponse: {
+            /** Items */
+            items: components["schemas"]["QuestionReviewQueueItem"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** QuestionStatusResponse */
+        QuestionStatusResponse: {
+            /** Question Id */
+            question_id: string;
+            /** Status */
+            status: string;
+            /** Reviewed By */
+            reviewed_by?: string | null;
+            /** Reviewed At */
+            reviewed_at?: string | null;
         };
         /** QuizCreate */
         QuizCreate: {
@@ -7067,7 +7398,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuestionListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7126,7 +7457,354 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuestionResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    question_import_template_api_v1_questions_import_template_xlsx_get: {
+        parameters: {
+            query?: {
+                course_id?: string;
+            };
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description XLSX（电子表格）文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    import_questions_api_v1_questions_import_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_questions_api_v1_questions_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionImportJobResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_question_import_job_api_v1_questions_import_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionImportJobResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    question_import_error_rows_api_v1_questions_import_jobs__job_id__error_rows_xlsx_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description XLSX（电子表格）文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    question_review_queue_api_v1_questions_review_queue_get: {
+        parameters: {
+            query?: {
+                course_id?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionReviewQueueResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    question_coverage_api_v1_questions_coverage_get: {
+        parameters: {
+            query?: {
+                course_id?: string;
+            };
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionCoverageResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7187,7 +7865,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuestionStatusResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7236,7 +7914,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["QuestionReviewDecision"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -7244,64 +7926,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description 标准错误信封 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 标准错误信封 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 标准错误信封 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    question_coverage_api_v1_questions_coverage_get: {
-        parameters: {
-            query?: {
-                course_id?: string;
-            };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuestionStatusResponse"];
                 };
             };
             /** @description 标准错误信封 */

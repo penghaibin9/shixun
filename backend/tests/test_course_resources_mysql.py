@@ -1,18 +1,25 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from io import BytesIO
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
 from app.common.models import DomainEventOutbox, FileObject
 from app.common.context import UserContext
+from app.common.errors import ApiError
 from app.main import app
-from app.resources.catalog import COURSE_ID
-from app.resources.models import PptAsset, Question, QuestionBank, QuestionExplanation, QuestionLessonMap, QuestionOption, Resource, ResourceDeliveryManifest, ResourceVersion, VideoAsset
+from app.resources.catalog import COURSE_ID, lesson_rows
+from app.resources.models import LessonResource, PptAsset, Question, QuestionBank, QuestionExplanation, QuestionImportJob, QuestionImportRow, QuestionLessonMap, QuestionOption, QuestionReview, Resource, ResourceDeliveryManifest, ResourceVersion, VideoAsset
+from app.resources.repository import ResourceRepository
 from app.resources.service import ResourceService
+from app.resources.schemas import QuestionReviewDecision
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要专属 MySQL 集成库")
 
@@ -29,6 +36,31 @@ REVIEW_HEADERS = {**HEADERS, "X-User-Id": "reviewer_b", "X-Teacher-Id": "reviewe
 @pytest.fixture()
 def client():
     return TestClient(app)
+
+
+def complete_question_template(content: bytes) -> bytes:
+    workbook = load_workbook(BytesIO(content))
+    sheet = workbook["题目导入"]
+    for row_number in range(2, 198):
+        question_type = sheet.cell(row_number, 3).value
+        sheet.cell(row_number, 4).value = f"MySQL 导入验证题 {row_number - 1}"
+        sheet.cell(row_number, 10).value = "MySQL 真实链路解析"
+        if question_type == "填空":
+            sheet.cell(row_number, 9).value = "参考答案"
+        elif question_type == "单选":
+            sheet.cell(row_number, 5).value = "正确选项"
+            sheet.cell(row_number, 6).value = "干扰选项"
+            sheet.cell(row_number, 9).value = "A"
+        elif question_type == "多选":
+            sheet.cell(row_number, 5).value = "正确选项一"
+            sheet.cell(row_number, 6).value = "正确选项二"
+            sheet.cell(row_number, 7).value = "干扰选项"
+            sheet.cell(row_number, 9).value = "A,B"
+        else:
+            sheet.cell(row_number, 9).value = "A"
+    stream = BytesIO()
+    workbook.save(stream)
+    return stream.getvalue()
 
 
 def test_mysql_catalog_audit_manifest_and_freeze_blocker(client):
@@ -183,12 +215,285 @@ def test_question_coverage_requires_four_published_types(client):
         assert all("answer" not in row and "explanation" not in row for row in own_questions)
     finally:
         with Session(engine) as session:
+            session.execute(delete(QuestionReview).where(QuestionReview.question_id.in_(question_ids)))
             session.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(question_ids)))
             session.execute(delete(QuestionExplanation).where(QuestionExplanation.question_id.in_(question_ids)))
             session.execute(delete(QuestionLessonMap).where(QuestionLessonMap.question_id.in_(question_ids)))
             session.execute(delete(Question).where(Question.question_id.in_(question_ids)))
             remaining = session.scalar(select(Question).where(Question.question_bank_id == f"qb_{COURSE_ID}").limit(1))
             if not remaining: session.execute(delete(QuestionBank).where(QuestionBank.question_bank_id == f"qb_{COURSE_ID}"))
+            session.commit()
+
+
+def test_question_xlsx_import_idempotency_error_rows_and_independent_review(client):
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    suffix = uuid4().hex[:8]
+    course_id = f"course_import_{suffix}"
+    author_headers = {**HEADERS, "X-Course-Ids": course_id}
+    reviewer_headers = {**REVIEW_HEADERS, "X-Course-Ids": course_id}
+    bank_id = None
+    job_ids: list[str] = []
+    question_ids: list[str] = []
+
+    with Session(engine) as session:
+        for source in lesson_rows():
+            values = dict(source)
+            values["lesson_resource_id"] = str(uuid4())
+            values["course_id"] = course_id
+            session.add(LessonResource(**values))
+        session.commit()
+
+    try:
+        template = client.get("/api/v1/questions/import-template.xlsx", headers=author_headers, params={"course_id": course_id})
+        assert template.status_code == 200
+        workbook = load_workbook(BytesIO(template.content))
+        assert workbook["题目导入"].max_row == 197
+        valid_content = complete_question_template(template.content)
+
+        invalid_workbook = load_workbook(BytesIO(valid_content))
+        invalid_workbook["题目导入"]["D2"] = ""
+        invalid_stream = BytesIO()
+        invalid_workbook.save(invalid_stream)
+        invalid_content = invalid_stream.getvalue()
+        invalid_key = f"invalid-{suffix}"
+        invalid = client.post(
+            "/api/v1/questions/import",
+            headers={**author_headers, "Idempotency-Key": invalid_key},
+            data={"course_id": course_id},
+            files={"file": ("questions-invalid.xlsx", invalid_content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert invalid.status_code == 201
+        invalid_job = invalid.json()
+        job_ids.append(invalid_job["job_id"])
+        assert invalid_job["status"] == "VALIDATION_FAILED"
+        assert invalid_job["imported_count"] == 0
+        assert invalid_job["error_count"] == 1
+        assert {error["code"] for error in invalid_job["error_rows"]} == {"QUESTION_IMPORT.STEM_REQUIRED"}
+
+        errors = client.get(f"/api/v1/questions/import-jobs/{invalid_job['job_id']}/error-rows.xlsx", headers=author_headers)
+        assert errors.status_code == 200 and errors.content.startswith(b"PK")
+        error_sheet = load_workbook(BytesIO(errors.content))["错误行"]
+        assert error_sheet.cell(2, 1).value == 2
+        assert "QUESTION_IMPORT.STEM_REQUIRED" in error_sheet.cell(2, 13).value
+
+        with Session(engine) as session:
+            bank = session.scalar(select(QuestionBank).where(QuestionBank.course_id == course_id))
+            bank_id = bank.question_bank_id
+            assert session.scalar(select(Question).where(Question.question_bank_id == bank_id).limit(1)) is None
+
+        valid_key = f"valid-{suffix}"
+        valid = client.post(
+            "/api/v1/questions/import",
+            headers={**author_headers, "Idempotency-Key": valid_key},
+            data={"course_id": course_id},
+            files={"file": ("questions.xlsx", valid_content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert valid.status_code == 201
+        completed_job = valid.json()
+        job_ids.append(completed_job["job_id"])
+        assert completed_job["status"] == "COMPLETED"
+        assert completed_job["total_count"] == completed_job["imported_count"] == completed_job["review_queue_count"] == 196
+        assert completed_job["error_count"] == 0
+
+        replay = client.post(
+            "/api/v1/questions/import",
+            headers={**author_headers, "Idempotency-Key": valid_key},
+            data={"course_id": course_id},
+            files={"file": ("questions.xlsx", valid_content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert replay.status_code == 201 and replay.json()["job_id"] == completed_job["job_id"]
+
+        changed_workbook = load_workbook(BytesIO(valid_content))
+        changed_workbook["题目导入"]["J2"] = "另一份解析"
+        changed_stream = BytesIO()
+        changed_workbook.save(changed_stream)
+        conflict = client.post(
+            "/api/v1/questions/import",
+            headers={**author_headers, "Idempotency-Key": valid_key},
+            data={"course_id": course_id},
+            files={"file": ("questions.xlsx", changed_stream.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert conflict.status_code == 409 and conflict.json()["code"] == "REQUEST.IDEMPOTENCY_CONFLICT"
+
+        fetched = client.get(f"/api/v1/questions/import-jobs/{completed_job['job_id']}", headers=author_headers)
+        assert fetched.status_code == 200 and fetched.json()["imported_count"] == 196
+        queue = client.get("/api/v1/questions/review-queue", headers=reviewer_headers, params={"course_id": course_id, "page_size": 200})
+        assert queue.status_code == 200 and queue.json()["total"] == 196
+        first = queue.json()["items"][0]
+        assert first["can_review"] is True
+        assert first["stem"] and first["answer"] and first["explanation"]
+        assert first["lesson_id"] and first["lesson_code"] and first["source_row_number"]
+
+        self_review = client.post(f"/api/v1/questions/{first['question_id']}/review", headers=author_headers)
+        assert self_review.status_code == 409 and self_review.json()["code"] == "QUESTION.REVIEWER_MUST_BE_INDEPENDENT"
+        approved = client.post(f"/api/v1/questions/{first['question_id']}/review", headers=reviewer_headers)
+        assert approved.status_code == 200 and approved.json()["status"] == "PUBLISHED"
+
+        second = queue.json()["items"][1]
+        missing_reason = client.post(f"/api/v1/questions/{second['question_id']}/review", headers=reviewer_headers, json={"decision": "REJECTED"})
+        assert missing_reason.status_code == 422 and missing_reason.json()["code"] == "QUESTION.REJECTION_COMMENT_REQUIRED"
+        rejected = client.post(
+            f"/api/v1/questions/{second['question_id']}/review",
+            headers=reviewer_headers,
+            json={"decision": "REJECTED", "comment": "题干需要补充限定条件"},
+        )
+        assert rejected.status_code == 200 and rejected.json()["status"] == "REJECTED"
+
+        queue_after = client.get("/api/v1/questions/review-queue", headers=reviewer_headers, params={"course_id": course_id, "page_size": 200})
+        assert queue_after.status_code == 200 and queue_after.json()["total"] == 194
+
+        with Session(engine) as session:
+            question_ids = list(session.scalars(select(Question.question_id).where(Question.question_bank_id == bank_id)))
+            assert len(question_ids) == 196
+            assert session.scalar(select(QuestionReview).where(QuestionReview.question_id == first["question_id"])) is not None
+            assert session.scalar(select(DomainEventOutbox).where(DomainEventOutbox.aggregate_id == completed_job["job_id"])) is not None
+    finally:
+        with Session(engine) as session:
+            if bank_id:
+                question_ids = list(session.scalars(select(Question.question_id).where(Question.question_bank_id == bank_id)))
+            if job_ids:
+                session.execute(delete(QuestionImportRow).where(QuestionImportRow.import_job_id.in_(job_ids)))
+            if question_ids:
+                session.execute(delete(QuestionReview).where(QuestionReview.question_id.in_(question_ids)))
+                session.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(question_ids)))
+                session.execute(delete(QuestionExplanation).where(QuestionExplanation.question_id.in_(question_ids)))
+                session.execute(delete(QuestionLessonMap).where(QuestionLessonMap.question_id.in_(question_ids)))
+                session.execute(delete(Question).where(Question.question_id.in_(question_ids)))
+                session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id.in_(question_ids)))
+            if job_ids:
+                session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id.in_(job_ids)))
+                session.execute(delete(QuestionImportJob).where(QuestionImportJob.import_job_id.in_(job_ids)))
+            if bank_id:
+                session.execute(delete(QuestionBank).where(QuestionBank.question_bank_id == bank_id))
+            session.execute(delete(LessonResource).where(LessonResource.course_id == course_id))
+            session.commit()
+
+
+def test_question_import_and_review_are_serialized_under_concurrency(client, monkeypatch):
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    suffix = uuid4().hex[:8]
+    replay_course = f"course_replay_{suffix}"
+    competing_course = f"course_competing_{suffix}"
+    courses = [replay_course, competing_course]
+
+    def context(user_id: str, course_id: str) -> UserContext:
+        return UserContext(
+            user_id,
+            "teacher",
+            user_id,
+            None,
+            frozenset({"resources:read", "resources:write", "resources:review"}),
+            frozenset({course_id}),
+            frozenset(),
+        )
+
+    def run_import(course_id: str, key: str, gate: Barrier, content: bytes) -> dict:
+        with Session(engine) as session:
+            gate.wait(timeout=30)
+            return ResourceService(session, context("concurrent_author", course_id)).import_questions(
+                course_id, content, "questions.xlsx", key
+            )
+
+    with Session(engine) as session:
+        for course_id in courses:
+            for source in lesson_rows():
+                values = dict(source)
+                values["lesson_resource_id"] = str(uuid4())
+                values["course_id"] = course_id
+                session.add(LessonResource(**values))
+        session.commit()
+
+    try:
+        template = client.get(
+            "/api/v1/questions/import-template.xlsx",
+            headers={**HEADERS, "X-Course-Ids": replay_course},
+            params={"course_id": replay_course},
+        )
+        assert template.status_code == 200
+        content = complete_question_template(template.content)
+
+        replay_gate = Barrier(2)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            replay_results = list(
+                executor.map(
+                    lambda _: run_import(replay_course, f"same-{suffix}", replay_gate, content),
+                    range(2),
+                )
+            )
+        assert len({item["job_id"] for item in replay_results}) == 1
+
+        competing_gate = Barrier(2)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(run_import, competing_course, f"key-{index}-{suffix}", competing_gate, content)
+                for index in range(2)
+            ]
+            competing_results = [future.result(timeout=60) for future in futures]
+        assert sorted(item["status"] for item in competing_results) == ["COMPLETED", "VALIDATION_FAILED"]
+
+        with Session(engine) as session:
+            replay_bank = session.scalar(select(QuestionBank).where(QuestionBank.course_id == replay_course))
+            competing_bank = session.scalar(select(QuestionBank).where(QuestionBank.course_id == competing_course))
+            assert len(list(session.scalars(select(Question).where(Question.question_bank_id == replay_bank.question_bank_id)))) == 196
+            assert len(list(session.scalars(select(Question).where(Question.question_bank_id == competing_bank.question_bank_id)))) == 196
+            question_id = session.scalar(
+                select(Question.question_id).where(Question.question_bank_id == replay_bank.question_bank_id).limit(1)
+            )
+
+        review_gate = Barrier(2)
+        lock_gate = Barrier(2)
+        original_lock_question = ResourceRepository.lock_question
+
+        def synchronized_lock_question(repository: ResourceRepository, target_question_id: str):
+            lock_gate.wait(timeout=30)
+            return original_lock_question(repository, target_question_id)
+
+        monkeypatch.setattr(ResourceRepository, "lock_question", synchronized_lock_question)
+
+        def review(user_id: str, decision: str):
+            with Session(engine) as session:
+                review_gate.wait(timeout=30)
+                try:
+                    result = ResourceService(session, context(user_id, replay_course)).review_question(
+                        question_id,
+                        QuestionReviewDecision(decision=decision, comment="并发审核验证"),
+                    )
+                    return "ok", result["status"]
+                except ApiError as exc:
+                    return "error", exc.code
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            review_results = [
+                executor.submit(review, "concurrent_reviewer_a", "APPROVED"),
+                executor.submit(review, "concurrent_reviewer_b", "REJECTED"),
+            ]
+            review_results = [future.result(timeout=60) for future in review_results]
+        assert sorted(item[0] for item in review_results) == ["error", "ok"]
+        assert next(item[1] for item in review_results if item[0] == "error") == "QUESTION.INVALID_REVIEW_STATE"
+        with Session(engine) as session:
+            reviews = list(session.scalars(select(QuestionReview).where(QuestionReview.question_id == question_id)))
+            assert len(reviews) == 1
+    finally:
+        with Session(engine) as session:
+            for course_id in courses:
+                bank_ids = list(session.scalars(select(QuestionBank.question_bank_id).where(QuestionBank.course_id == course_id)))
+                question_ids = list(session.scalars(select(Question.question_id).where(Question.question_bank_id.in_(bank_ids)))) if bank_ids else []
+                job_ids = list(session.scalars(select(QuestionImportJob.import_job_id).where(QuestionImportJob.course_id == course_id)))
+                if job_ids:
+                    session.execute(delete(QuestionImportRow).where(QuestionImportRow.import_job_id.in_(job_ids)))
+                if question_ids:
+                    session.execute(delete(QuestionReview).where(QuestionReview.question_id.in_(question_ids)))
+                    session.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(question_ids)))
+                    session.execute(delete(QuestionExplanation).where(QuestionExplanation.question_id.in_(question_ids)))
+                    session.execute(delete(QuestionLessonMap).where(QuestionLessonMap.question_id.in_(question_ids)))
+                    session.execute(delete(Question).where(Question.question_id.in_(question_ids)))
+                    session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id.in_(question_ids)))
+                if job_ids:
+                    session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.aggregate_id.in_(job_ids)))
+                    session.execute(delete(QuestionImportJob).where(QuestionImportJob.import_job_id.in_(job_ids)))
+                if bank_ids:
+                    session.execute(delete(QuestionBank).where(QuestionBank.question_bank_id.in_(bank_ids)))
+                session.execute(delete(LessonResource).where(LessonResource.course_id == course_id))
             session.commit()
 
 

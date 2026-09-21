@@ -3,7 +3,24 @@ from sqlalchemy.orm import Session
 
 from app.common.models import FileObject
 
-from .models import LabFilePack, LessonResource, PptAsset, Question, QuestionBank, QuestionExplanation, QuestionLessonMap, Resource, ResourceDeliveryManifest, ResourceQualityCheck, ResourceReview, ResourceVersion, VideoAsset
+from .models import (
+    LabFilePack,
+    LessonResource,
+    PptAsset,
+    Question,
+    QuestionBank,
+    QuestionExplanation,
+    QuestionImportJob,
+    QuestionImportRow,
+    QuestionLessonMap,
+    QuestionOption,
+    Resource,
+    ResourceDeliveryManifest,
+    ResourceQualityCheck,
+    ResourceReview,
+    ResourceVersion,
+    VideoAsset,
+)
 
 
 class ResourceRepository:
@@ -35,6 +52,87 @@ class ResourceRepository:
         if kind:
             query = query.where(LessonResource.lesson_kind == kind)
         return list(self.session.scalars(query.order_by(LessonResource.lesson_kind, LessonResource.chapter_no, LessonResource.lesson_code)))
+
+    def question_bank(self, course_id: str) -> QuestionBank | None:
+        return self.session.scalar(select(QuestionBank).where(QuestionBank.course_id == course_id).limit(1))
+
+    def lock_question_bank(self, course_id: str) -> QuestionBank | None:
+        return self.session.scalar(
+            select(QuestionBank)
+            .where(QuestionBank.course_id == course_id)
+            .limit(1)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def lock_question(self, question_id: str) -> Question | None:
+        return self.session.scalar(
+            select(Question)
+            .where(Question.question_id == question_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def list_questions(self, course_id: str, *, published_only: bool = False):
+        query = (
+            select(Question, QuestionLessonMap.lesson_id, QuestionExplanation.explanation)
+            .join(QuestionBank, QuestionBank.question_bank_id == Question.question_bank_id)
+            .join(QuestionLessonMap, QuestionLessonMap.question_id == Question.question_id)
+            .join(QuestionExplanation, QuestionExplanation.question_id == Question.question_id)
+            .where(QuestionBank.course_id == course_id)
+        )
+        if published_only:
+            query = query.where(Question.status == "PUBLISHED")
+        return self.session.execute(query.order_by(Question.created_at, Question.question_id)).all()
+
+    def question_options(self, question_id: str) -> list[QuestionOption]:
+        return list(self.session.scalars(select(QuestionOption).where(QuestionOption.question_id == question_id).order_by(QuestionOption.option_key)))
+
+    def existing_question_slots(self, course_id: str, *, lock: bool = False) -> set[tuple[str, str]]:
+        query = (
+            select(QuestionLessonMap.lesson_id, Question.question_type)
+            .join(Question, Question.question_id == QuestionLessonMap.question_id)
+            .join(QuestionBank, QuestionBank.question_bank_id == Question.question_bank_id)
+            .where(QuestionBank.course_id == course_id)
+        )
+        if lock:
+            query = query.with_for_update()
+        rows = self.session.execute(query).all()
+        return {(lesson_id, question_type) for lesson_id, question_type in rows}
+
+    def question_import_job(self, course_id: str, idempotency_key: str, *, lock: bool = False) -> QuestionImportJob | None:
+        query = select(QuestionImportJob).where(
+            QuestionImportJob.course_id == course_id,
+            QuestionImportJob.idempotency_key == idempotency_key,
+        )
+        if lock:
+            query = query.with_for_update()
+        return self.session.scalar(query)
+
+    def get_question_import_job(self, import_job_id: str) -> QuestionImportJob | None:
+        return self.session.get(QuestionImportJob, import_job_id)
+
+    def question_import_rows(self, import_job_id: str, status: str | None = None) -> list[QuestionImportRow]:
+        query = select(QuestionImportRow).where(QuestionImportRow.import_job_id == import_job_id)
+        if status:
+            query = query.where(QuestionImportRow.status == status)
+        return list(self.session.scalars(query.order_by(QuestionImportRow.row_number)))
+
+    def review_queue(self, course_id: str, *, offset: int, limit: int):
+        base = (
+            select(Question, QuestionLessonMap.lesson_id, QuestionExplanation.explanation, LessonResource.lesson_code, LessonResource.title)
+            .join(QuestionBank, QuestionBank.question_bank_id == Question.question_bank_id)
+            .join(QuestionLessonMap, QuestionLessonMap.question_id == Question.question_id)
+            .join(QuestionExplanation, QuestionExplanation.question_id == Question.question_id)
+            .join(
+                LessonResource,
+                and_(LessonResource.course_id == QuestionBank.course_id, LessonResource.lesson_id == QuestionLessonMap.lesson_id),
+            )
+            .where(QuestionBank.course_id == course_id, Question.status == "PENDING_REVIEW")
+        )
+        total = self.session.scalar(select(func.count()).select_from(base.order_by(None).subquery())) or 0
+        rows = self.session.execute(base.order_by(Question.created_at, Question.source_row_number, Question.question_id).offset(offset).limit(limit)).all()
+        return rows, total
 
     def question_coverage(self, course_id: str) -> dict[str, set[str]]:
         return {lesson_id: {item["question_type"] for item in items} for lesson_id, items in self.question_evidence(course_id).items()}

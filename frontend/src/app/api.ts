@@ -57,8 +57,16 @@ export type Resource = { resource_id: string; course_id: string; lesson_id: stri
 export type Audit = { course_id: string; total: number; pass: number; warning: number; blocking: number; blocking_items: string[]; procurement_mapping: { requirement: string; owner: string; evidence: string }[] }
 export type ResourceReadiness = { course_id: string; theory_lessons: number; lab_lessons: number; ppt: { ready: number; required: number }; theory_video: { ready: number; required: number }; lab_file: { ready: number; required: number }; lab_video: { ready: number; required: number }; question_lessons: { ready: number; required: number }; published_questions: { ready: number; required: number }; blocking: number }
 export type ResourceFile = { file_id: string; original_name: string; mime_type: string; size_bytes: number; sha256: string }
+export type QuestionRowError = components['schemas']['QuestionImportErrorResponse'] & { row_number: number | null }
+export type QuestionImportJob = components['schemas']['QuestionImportJobResponse'] & { error_rows: QuestionRowError[] }
+export type QuestionOption = components['schemas']['QuestionOptionResponse']
+export type QuestionReviewItem = components['schemas']['QuestionReviewQueueItem'] & {
+  answer: string[]; explanation: string; options: QuestionOption[]
+}
+export type QuestionReviewQueue = components['schemas']['QuestionReviewQueueResponse'] & { items: QuestionReviewItem[] }
 
-const identityHeaders = { 'X-User-Id': 'teacher_b', 'X-Role': 'teacher', 'X-Teacher-Id': 'teacher_b', 'X-Course-Ids': 'course_data_security', 'X-Permissions': 'resources:read,resources:write,resources:review,resources:freeze' }
+const identityHeaders: Record<string, string> = import.meta.env.DEV ? { 'X-User-Id': 'teacher_b', 'X-Role': 'teacher', 'X-Teacher-Id': 'teacher_b', 'X-Course-Ids': 'course_data_security', 'X-Permissions': 'resources:read,resources:write,resources:review,resources:freeze' } : {}
+export const resourceUserId = identityHeaders['X-User-Id'] || ''
 async function resourceRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(identityHeaders)
   new Headers(init.headers).forEach((value, key) => headers.set(key, value))
@@ -67,6 +75,11 @@ async function resourceRequest<T>(path: string, init: RequestInit = {}): Promise
   if (!response.ok) throw await response.json() as ApiError
   return response.json() as Promise<T>
 }
+async function resourceDownload(path: string): Promise<Blob> {
+  const response = await fetch(path, { headers: identityHeaders })
+  if (!response.ok) throw await response.json() as ApiError
+  return response.blob()
+}
 export const resourceApi = {
   blueprint: () => resourceRequest<{ items: LessonResource[]; total: number; chapter_counts: Record<string, number> }>('/api/v1/resources/course-blueprint/course_data_security'),
   resources: () => resourceRequest<{ items: Resource[]; total: number }>('/api/v1/resources?course_id=course_data_security'),
@@ -74,8 +87,17 @@ export const resourceApi = {
   uploadFile: (file: File) => { const body = new FormData(); body.append('course_id', 'course_data_security'); body.append('file', file); return resourceRequest<ResourceFile>('/api/v1/resources/files', { method: 'POST', body }) },
   createResource: (data: { lesson_id: string; name: string; resource_type: string }) => resourceRequest<Resource>('/api/v1/resources', { method: 'POST', body: JSON.stringify({ course_id: 'course_data_security', ...data }) }),
   createVersion: (resourceId: string, data: { file_id: string; sha256: string; lab_file_count?: number }) => resourceRequest<ResourceVersion>(`/api/v1/resources/${resourceId}/versions`, { method: 'POST', body: JSON.stringify(data) }),
-  download: async (resourceId: string) => { const response = await fetch(`/api/v1/resources/${resourceId}/download`, { headers: identityHeaders }); if (!response.ok) throw await response.json() as ApiError; return response.blob() },
+  download: (resourceId: string) => resourceDownload(`/api/v1/resources/${resourceId}/download`),
   coverage: () => resourceRequest<{ items: { lesson_id: string; lesson_code: string; types: string[]; passed: boolean }[]; total: number; passed: number }>('/api/v1/questions/coverage'),
+  questionImportTemplate: () => resourceDownload('/api/v1/questions/import-template.xlsx?course_id=course_data_security'),
+  importQuestions: (file: File) => {
+    const body = new FormData(); body.append('course_id', 'course_data_security'); body.append('file', file)
+    return resourceRequest<QuestionImportJob>('/api/v1/questions/import', { method: 'POST', body, headers: { 'Idempotency-Key': `questions-${file.name}-${file.size}-${file.lastModified}` } })
+  },
+  questionImportJob: (jobId: string) => resourceRequest<QuestionImportJob>(`/api/v1/questions/import-jobs/${jobId}`),
+  questionImportErrors: (jobId: string) => resourceDownload(`/api/v1/questions/import-jobs/${jobId}/error-rows.xlsx`),
+  questionReviewQueue: () => resourceRequest<QuestionReviewQueue>('/api/v1/questions/review-queue?course_id=course_data_security&page_size=200'),
+  reviewQuestion: (questionId: string, decision: 'APPROVED' | 'REJECTED', comment?: string) => resourceRequest<{ question_id: string; status: string; reviewed_by?: string; reviewed_at?: string }>(`/api/v1/questions/${questionId}/review`, { method: 'POST', body: JSON.stringify({ decision, comment: comment?.trim() || null }) }),
   audit: () => resourceRequest<Audit>('/api/v1/resources/audit/run', { method: 'POST', body: JSON.stringify({ course_id: 'course_data_security' }) }),
   latestAudit: () => resourceRequest<Audit>('/api/v1/resources/audit/latest'),
   manifest: () => resourceRequest<{ status: string; version_no: number | null; theory_lessons: number; lab_lessons: number; audit: Audit; content_declaration: string }>('/api/v1/resources/delivery/manifest.json'),
