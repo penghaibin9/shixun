@@ -89,6 +89,9 @@ def test_g2_attendance_real_sign_duplicate_close_summary_and_scope(test_context)
     student = headers("teaching.attendance.sign", student_id=student_id, teacher_id="", course_id=course_id, class_id=class_id)
     signed = client.post(f"/api/v1/attendance/{task.json()['task_id']}/sign", headers=student, params={"token": published["sign_token"]})
     assert signed.status_code == 200
+    with sessions() as db:
+        event = db.scalar(select(DomainEventOutbox).where(DomainEventOutbox.event_type == "attendance.completed"))
+        assert event.payload_json["raw_score"] == event.payload_json["max_score"] == 1
     duplicate = client.post(f"/api/v1/attendance/{task.json()['task_id']}/sign", headers=student, params={"token": published["sign_token"]})
     assert duplicate.json()["record_id"] == signed.json()["record_id"]
     summary = client.get("/api/v1/attendance/section-summary", headers=teacher).json()["items"][0]
@@ -110,6 +113,9 @@ def test_poll_modes_are_server_aggregated(test_context, poll_type):
     client.post(f"/api/v1/polls/{poll['poll_id']}/publish", headers=teacher)
     student = headers("teaching.poll.answer", student_id=student_id, teacher_id="", course_id=course_id, class_id=class_id)
     assert client.post(f"/api/v1/polls/{poll['poll_id']}/answers", headers=student, json={"option_id": poll["options"][0]["option_id"]}).status_code == 201
+    with sessions() as db:
+        event = db.scalar(select(DomainEventOutbox).where(DomainEventOutbox.event_type == "poll.completed"))
+        assert event.payload_json["raw_score"] == event.payload_json["max_score"] == 1
     result = client.get(f"/api/v1/polls/{poll['poll_id']}/results", headers=teacher).json()
     assert result["poll_type"] == poll_type and result["items"][0]["count"] == 1
 

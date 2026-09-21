@@ -231,7 +231,7 @@ class TeachingService:
         midpoint = task.starts_at + (task.expires_at - task.starts_at) / 2
         result = "LATE" if current > midpoint else "ON_TIME"
         record = self.repo.add(m.AttendanceRecord(record_id=str(uuid4()), task_id=task_id, student_id=student_id, signed_at=current, result=result, source="WEB"))
-        enqueue_event(self.session, event_type="attendance.completed", aggregate_type="attendance_task", aggregate_id=task_id, actor_user_id=self.user.user_id, idempotency_key=f"{task_id}:{student_id}", payload={"course_id": task.course_id, "class_id": task.class_id, "lesson_id": task.lesson_id, "student_id": student_id, "source_id": record.record_id})
+        enqueue_event(self.session, event_type="attendance.completed", aggregate_type="attendance_task", aggregate_id=task_id, actor_user_id=self.user.user_id, idempotency_key=f"{task_id}:{student_id}", payload={"course_id": task.course_id, "class_id": task.class_id, "lesson_id": task.lesson_id, "student_id": student_id, "source_id": record.record_id, "raw_score": 1, "max_score": 1})
         self.audit("attendance.signed", "attendance_record", record.record_id, {"task_id": task_id, "student_id": student_id})
         self.session.commit(); return entity_dict(record)
 
@@ -274,7 +274,7 @@ class TeachingService:
         if not option or option.poll_id != poll_id: raise ApiError("POLL.INVALID_OPTION", "选项无效", 422)
         if self.repo.poll_answer(poll_id, student_id): raise ApiError("POLL.DUPLICATE_ANSWER", "不能重复投票", 409)
         answer = self.repo.add(m.PollAnswer(answer_id=str(uuid4()), poll_id=poll_id, option_id=option_id, student_id=student_id, answered_at=now()))
-        enqueue_event(self.session, event_type="poll.completed", aggregate_type="poll", aggregate_id=poll_id, actor_user_id=self.user.user_id, idempotency_key=f"{poll_id}:{student_id}", payload={"course_id": poll.course_id, "class_id": poll.class_id, "lesson_id": poll.lesson_id, "student_id": student_id, "source_id": answer.answer_id})
+        enqueue_event(self.session, event_type="poll.completed", aggregate_type="poll", aggregate_id=poll_id, actor_user_id=self.user.user_id, idempotency_key=f"{poll_id}:{student_id}", payload={"course_id": poll.course_id, "class_id": poll.class_id, "lesson_id": poll.lesson_id, "student_id": student_id, "source_id": answer.answer_id, "raw_score": 1, "max_score": 1})
         self.audit("poll.answered", "poll_answer", answer.answer_id, {"poll_id": poll_id, "student_id": student_id}); self.session.commit(); return entity_dict(answer)
 
     def poll_results(self, poll_id: str):

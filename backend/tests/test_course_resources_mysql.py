@@ -130,6 +130,8 @@ def test_freeze_pass_creates_manifest_when_dynamic_audit_has_no_blockers(monkeyp
         manifest = svc.freeze(COURSE_ID)
         assert manifest["status"] == "FROZEN"
         assert session.scalar(select(ResourceDeliveryManifest).where(ResourceDeliveryManifest.course_id == COURSE_ID)) is not None
+        event = session.scalar(select(DomainEventOutbox).where(DomainEventOutbox.event_type == "resource.delivery.frozen", DomainEventOutbox.aggregate_id == COURSE_ID))
+        assert event.payload_json["course_id"] == COURSE_ID
         session.execute(delete(ResourceDeliveryManifest).where(ResourceDeliveryManifest.course_id == COURSE_ID))
         session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.event_type == "resource.delivery.frozen", DomainEventOutbox.aggregate_id == COURSE_ID))
         session.commit()

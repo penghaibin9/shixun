@@ -254,7 +254,7 @@ class ResourceService:
         for resource in self.repo.list_resources(course_id=course_id, status="PUBLISHED", name=None, resource_type=None):
             resource.status = "FROZEN"
             for version in self.session.scalars(select(ResourceVersion).where(ResourceVersion.resource_id == resource.resource_id, ResourceVersion.status == "PUBLISHED")): version.status = "FROZEN"
-        enqueue_event(self.session, event_type="resource.delivery.frozen", aggregate_type="course_resource", aggregate_id=course_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-delivery:{course_id}:{row.version_no}", payload={"manifest_id": row.resource_delivery_manifest_id, "version_no": row.version_no})
+        enqueue_event(self.session, event_type="resource.delivery.frozen", aggregate_type="course_resource", aggregate_id=course_id, actor_user_id=self.user.user_id, idempotency_key=f"resource-delivery:{course_id}:{row.version_no}", payload={"course_id": course_id, "manifest_id": row.resource_delivery_manifest_id, "version_no": row.version_no})
         self.session.commit()
         return manifest
 
