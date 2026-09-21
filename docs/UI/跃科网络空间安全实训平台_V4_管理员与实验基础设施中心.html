@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跃科网络空间安全实训平台 V4 - 管理员与实验基础设施中心</title>
+<style>
+:root{
+  --bg:#f4f7fb;--panel:#fff;--text:#162033;--muted:#667085;--line:#e5eaf1;
+  --primary:#2457f5;--primary2:#1945c9;--success:#159a66;--warning:#d9921c;--danger:#d94d63;
+  --nav:#0f1f3c;--soft:#edf3ff;--shadow:0 8px 28px rgba(24,42,86,.08);--r:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+.sidebar{background:var(--nav);color:#dce6fb;padding:18px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;gap:10px;align-items:center;padding:8px 8px 20px;font-weight:800;font-size:17px}
+.logo{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#4e7cff,#7ca2ff);display:grid;place-items:center;color:#fff}
+.nav-title{font-size:11px;color:#7588ae;padding:13px 10px 5px;text-transform:uppercase}
+.nav{padding:10px 11px;margin:3px 0;border-radius:10px;font-size:14px;cursor:pointer}
+.nav.active,.nav:hover{background:#1d3969;color:#fff}
+.side-state{margin-top:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07);border-radius:13px;padding:13px;font-size:12px;line-height:1.65;color:#bbc8e1}
+.side-state strong{color:#fff}
+.main{min-width:0}
+.topbar{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:sticky;top:0;z-index:30}
+.top-left{display:flex;gap:10px;align-items:center}.crumb{font-size:13px;color:var(--muted)}
+.top-actions{display:flex;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:10px;padding:9px 13px;font-weight:700}
+.btn.sm{padding:6px 9px;font-size:12px}.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn.primary:hover{background:var(--primary2)}
+.btn.success{background:var(--success);border-color:var(--success);color:#fff}.btn.danger{background:#fff0f2;border-color:#ffd1d7;color:#b93249}
+.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:12px;background:#f0f3f8;color:#586273}
+.badge.green{background:#eaf9f2;color:#087d4e}.badge.blue{background:#edf2ff;color:#2c55c7}.badge.orange{background:#fff5e6;color:#a66400}.badge.red{background:#fff0f2;color:#b33146}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;margin-right:6px}.dot.orange{background:var(--warning)}.dot.red{background:var(--danger)}.dot.gray{background:#98a2b3}
+.content{max-width:1600px;margin:auto;padding:22px 26px 44px}
+.page{display:none}.page.active{display:block}
+.hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}.hero h1{margin:0;font-size:25px}.hero p{margin:7px 0 0;color:var(--muted);font-size:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}.pad{padding:17px}
+.grid{display:grid;gap:14px}.g5{grid-template-columns:repeat(5,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpi{padding:17px}.kpi .label{font-size:12px;color:var(--muted)}.kpi .value{font-size:27px;font-weight:800;margin-top:6px}.kpi .sub{font-size:12px;color:var(--muted);margin-top:5px}
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:15px 17px;border-bottom:1px solid var(--line)}.section-head h3{margin:0;font-size:15px}
+.row{display:flex;align-items:center;gap:8px}.between{justify-content:space-between}.muted{color:var(--muted)}
+.progress{height:8px;background:#edf0f5;border-radius:999px;overflow:hidden}.progress i{display:block;height:100%;background:linear-gradient(90deg,#2e5eed,#7597ff);border-radius:999px}.progress.warn i{background:linear-gradient(90deg,#d98f19,#f0ba61)}.progress.danger i{background:linear-gradient(90deg,#d94d63,#ee8291)}
+.metric{display:grid;grid-template-columns:95px 1fr 48px;gap:8px;align-items:center;font-size:12px;margin:10px 0}
+table{width:100%;border-collapse:collapse}th,td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:12px;text-align:left;white-space:nowrap}th{background:#fafbfc;color:#667085;font-weight:700}
+.table-wrap{overflow:auto}
+.node-card{padding:16px}.node-card h3{margin:0 0 4px;font-size:15px}.node-meta{font-size:12px;color:var(--muted)}.node-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{border:1px solid var(--line);border-radius:12px;background:#fafbff;padding:12px}.mini b{display:block;font-size:18px;margin-bottom:4px}.mini span{font-size:12px;color:var(--muted)}
+.health-list .item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.health-list .item:last-child{border-bottom:0}
+.icon-ok,.icon-warn,.icon-err{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;font-weight:800}.icon-ok{background:#e8f8f1;color:var(--success)}.icon-warn{background:#fff5e6;color:var(--warning)}.icon-err{background:#fff0f2;color:var(--danger)}
+.topology{min-height:470px;border:1px solid var(--line);border-radius:14px;background:
+radial-gradient(circle at 1px 1px,#d9dfea 1px,transparent 1.2px) 0 0/20px 20px,#fbfcff;position:relative;overflow:auto}
+.zone{position:absolute;border:1px dashed #9eb3df;border-radius:18px;padding:16px;background:rgba(238,243,255,.55)}
+.zone h4{margin:0 0 10px;font-size:12px;color:#3154b8}
+.box{display:inline-flex;flex-direction:column;gap:4px;min-width:120px;background:#fff;border:1px solid #d2dbea;border-radius:12px;padding:11px;margin:6px;box-shadow:0 5px 14px rgba(24,42,86,.06);font-size:12px}
+.box strong{font-size:12px}.box span{color:var(--muted);font-size:11px}
+.connector{position:absolute;height:2px;background:#9cafda;transform-origin:left center}
+.queue{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--line)}.queue:last-child{border-bottom:0}.qnum{width:30px;height:30px;border-radius:9px;background:#eef3ff;color:#3155c1;display:grid;place-items:center;font-size:12px;font-weight:800}
+.timeline{position:relative;padding-left:18px}.timeline:before{content:"";position:absolute;left:4px;top:7px;bottom:7px;width:2px;background:#dfe5ef}.titem{position:relative;padding:0 0 15px 14px;font-size:12px}.titem:before{content:"";position:absolute;left:-18px;top:4px;width:10px;height:10px;border-radius:50%;background:#7594ed;border:2px solid #fff;box-shadow:0 0 0 2px #dce4f7}.titem b{display:block;margin-bottom:3px}.titem span{color:var(--muted)}
+.input{width:100%;border:1px solid #dce2ec;border-radius:10px;padding:9px 10px;background:#fff;outline:none}.input:focus{border-color:#7a99fd;box-shadow:0 0 0 3px rgba(53,90,240,.08)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;padding:14px 17px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;background:#f0f2f6;padding:4px;border-radius:11px;gap:4px}.tab{border:0;background:transparent;padding:7px 10px;border-radius:8px;font-size:12px;color:#667085}.tab.active{background:#fff;color:#1b2740;box-shadow:0 2px 7px rgba(20,30,60,.08)}
+.code{background:#0d1524;color:#d7e3f6;border-radius:12px;padding:13px;font:12px/1.6 Consolas,monospace;white-space:pre-wrap;overflow:auto;min-height:240px}
+.alert{border:1px solid #ffe1ab;background:#fff9ee;border-radius:12px;padding:12px;font-size:12px;color:#8a5907;line-height:1.5}
+.policy{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line)}.policy:last-child{border-bottom:0}.policy input{width:16px;height:16px;margin-top:2px}
+.logstream{height:420px;overflow:auto;background:#0d1524;color:#d6e2f7;border-radius:12px;padding:13px;font:12px/1.58 Consolas,monospace}.logstream .warn{color:#ffd887}.logstream .err{color:#ff9dad}.logstream .ok{color:#90f0be}
+.recovery-card{border:1px solid var(--line);border-radius:13px;padding:13px;background:#fff}.recovery-card h4{margin:0 0 6px;font-size:13px}.recovery-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.switch{position:relative;width:40px;height:23px;background:#c9d1dd;border-radius:999px;display:inline-block;cursor:pointer}.switch:after{content:"";position:absolute;width:17px;height:17px;border-radius:50%;background:#fff;left:3px;top:3px;transition:.2s}.switch.on{background:var(--primary)}.switch.on:after{left:20px}
+.drawer{position:fixed;right:-460px;top:0;bottom:0;width:440px;background:#fff;box-shadow:-20px 0 50px rgba(16,24,40,.18);z-index:200;transition:.28s;display:flex;flex-direction:column}.drawer.open{right:0}.drawer-head{padding:18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.drawer-body{padding:18px;overflow:auto}.drawer-foot{margin-top:auto;padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.toast{position:fixed;right:24px;bottom:24px;background:#15213b;color:#fff;border-radius:11px;padding:12px 15px;display:none;z-index:300;font-size:13px;box-shadow:0 15px 40px rgba(0,0,0,.2)}
+@media(max-width:1250px){.g5{grid-template-columns:repeat(3,1fr)}.node-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.app{grid-template-columns:82px 1fr}.brand span,.nav span,.nav-title,.side-state{display:none}.brand{justify-content:center}.nav{text-align:center}.g5,.g4,.g3,.g2,.node-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.content{padding:16px 12px 36px}.topbar{padding:0 12px}.hero{flex-direction:column}.g5,.g4,.g3,.g2,.node-grid{grid-template-columns:1fr}.drawer{width:100%;right:-100%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">跃</div><span>网络空间安全实训平台</span></div>
+    <div class="nav-title">基础设施</div>
+    <div class="nav active" data-page="overview" onclick="go('overview',this)"><span>运行总览</span></div>
+    <div class="nav" data-page="nodes" onclick="go('nodes',this)"><span>服务器节点</span></div>
+    <div class="nav" data-page="images" onclick="go('images',this)"><span>镜像仓库</span></div>
+    <div class="nav" data-page="scheduler" onclick="go('scheduler',this)"><span>调度与队列</span></div>
+    <div class="nav" data-page="network" onclick="go('network',this)"><span>网络隔离</span></div>
+    <div class="nav-title">运行保障</div>
+    <div class="nav" data-page="instances" onclick="go('instances',this)"><span>实例运维</span></div>
+    <div class="nav" data-page="alerts" onclick="go('alerts',this)"><span>告警中心</span></div>
+    <div class="nav" data-page="audit" onclick="go('audit',this)"><span>审计日志</span></div>
+    <div class="nav" data-page="recovery" onclick="go('recovery',this)"><span>异常恢复</span></div>
+    <div class="side-state">
+      <strong>基础设施状态</strong><br>
+      3 个计算节点在线<br>
+      72 个容器运行中<br>
+      3 个实例组排队<br>
+      0 个 P0 故障
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="top-left"><strong id="topTitle">运行总览</strong><span class="crumb">/ 实验基础设施控制台</span></div>
+      <div class="top-actions">
+        <span class="badge green"><span class="dot"></span>平台运行正常</span>
+        <span>自动刷新</span><span class="switch on" id="autoSwitch" onclick="toggleAuto()"></span>
+        <button class="btn sm" onclick="showToast('运行快照已生成')">导出运行快照</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- OVERVIEW -->
+      <section class="page active" id="page-overview">
+        <div class="hero">
+          <div><h1>实验基础设施运行总览</h1><p>管理员只需要先看容量、异常和队列；底层节点、镜像与网络需要时再下钻。</p></div>
+          <div class="row"><button class="btn" onclick="goByName('alerts')">查看告警</button><button class="btn primary" onclick="goByName('scheduler')">查看调度队列</button></div>
+        </div>
+        <div class="grid g5">
+          <div class="card kpi"><div class="label">计算节点</div><div class="value">3 / 3</div><div class="sub">全部在线</div></div>
+          <div class="card kpi"><div class="label">运行容器</div><div class="value">72</div><div class="sub">36 组学生实验</div></div>
+          <div class="card kpi"><div class="label">排队实例组</div><div class="value">3</div><div class="sub">预计等待 &lt; 10 秒</div></div>
+          <div class="card kpi"><div class="label">当前 CPU</div><div class="value">56%</div><div class="sub">128 Core 总量</div></div>
+          <div class="card kpi"><div class="label">异常实例</div><div class="value">2</div><div class="sub">均为可恢复故障</div></div>
+        </div>
+
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card pad">
+            <div class="row between"><strong>资源容量</strong><span class="badge green">容量健康</span></div>
+            <div class="metric"><span>CPU</span><div class="progress"><i style="width:56%"></i></div><b>56%</b></div>
+            <div class="metric"><span>内存</span><div class="progress"><i style="width:61%"></i></div><b>61%</b></div>
+            <div class="metric"><span>本地 SSD</span><div class="progress"><i style="width:48%"></i></div><b>48%</b></div>
+            <div class="metric"><span>镜像缓存</span><div class="progress warn"><i style="width:72%"></i></div><b>72%</b></div>
+            <div class="metric"><span>网络带宽</span><div class="progress"><i style="width:35%"></i></div><b>35%</b></div>
+          </div>
+          <div class="card">
+            <div class="section-head"><h3>当前需要关注</h3><span class="badge orange">3 项</span></div>
+            <div class="pad health-list">
+              <div class="item"><div class="icon-warn">!</div><div><b>compute-02 镜像缓存达到 82%</b><div class="muted" style="font-size:12px;margin-top:4px">建议清理 14 天未使用镜像层；不影响当前课堂。</div></div></div>
+              <div class="item"><div class="icon-err">!</div><div><b>student-rsa-2301009 CPU 持续高占用</b><div class="muted" style="font-size:12px;margin-top:4px">已由 cgroup 限制到 2 Core；可进入实例运维查看。</div></div></div>
+              <div class="item"><div class="icon-warn">!</div><div><b>3 个实例组正在排队</b><div class="muted" style="font-size:12px;margin-top:4px">当前资源足够，预计自动调度到 compute-03。</div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid g3" style="margin-top:14px">
+          <div class="card pad"><div class="row between"><strong>实例创建成功率</strong><span class="badge green">99.7%</span></div><p class="muted" style="font-size:12px">过去 24 小时共创建 1,286 个容器实例。</p></div>
+          <div class="card pad"><div class="row between"><strong>自动回收成功率</strong><span class="badge green">100%</span></div><p class="muted" style="font-size:12px">超时、提交完成和手工销毁均已正确释放资源。</p></div>
+          <div class="card pad"><div class="row between"><strong>判分服务</strong><span class="badge green">正常</span></div><p class="muted" style="font-size:12px">P95 判分响应 420ms，暂无积压。</p></div>
+        </div>
+      </section>
+
+      <!-- NODES -->
+      <section class="page" id="page-nodes">
+        <div class="hero">
+          <div><h1>服务器节点</h1><p>查看计算节点健康、资源分配和实验负载；节点异常时支持摘除与恢复。</p></div>
+          <button class="btn primary" onclick="openDrawer('node')">＋ 接入计算节点</button>
+        </div>
+        <div class="node-grid">
+          <div class="card node-card">
+            <div class="row between"><div><h3><span class="dot"></span>compute-01</h3><div class="node-meta">10.10.10.21 · Ubuntu 24.04</div></div><span class="badge green">可调度</span></div>
+            <div class="metric"><span>CPU</span><div class="progress"><i style="width:51%"></i></div><b>51%</b></div>
+            <div class="metric"><span>内存</span><div class="progress"><i style="width:58%"></i></div><b>58%</b></div>
+            <div class="metric"><span>磁盘</span><div class="progress"><i style="width:44%"></i></div><b>44%</b></div>
+            <div class="grid g3" style="margin-top:12px"><div class="mini"><b>24</b><span>运行容器</span></div><div class="mini"><b>0</b><span>异常</span></div><div class="mini"><b>18d</b><span>连续运行</span></div></div>
+            <div class="row" style="margin-top:12px"><button class="btn sm" onclick="nodeAction('compute-01','诊断')">诊断</button><button class="btn sm" onclick="nodeAction('compute-01','暂停调度')">暂停调度</button></div>
+          </div>
+          <div class="card node-card">
+            <div class="row between"><div><h3><span class="dot orange"></span>compute-02</h3><div class="node-meta">10.10.10.22 · Ubuntu 24.04</div></div><span class="badge orange">缓存偏高</span></div>
+            <div class="metric"><span>CPU</span><div class="progress"><i style="width:63%"></i></div><b>63%</b></div>
+            <div class="metric"><span>内存</span><div class="progress"><i style="width:66%"></i></div><b>66%</b></div>
+            <div class="metric"><span>镜像缓存</span><div class="progress warn"><i style="width:82%"></i></div><b>82%</b></div>
+            <div class="grid g3" style="margin-top:12px"><div class="mini"><b>28</b><span>运行容器</span></div><div class="mini"><b>1</b><span>异常</span></div><div class="mini"><b>18d</b><span>连续运行</span></div></div>
+            <div class="row" style="margin-top:12px"><button class="btn sm" onclick="nodeAction('compute-02','清理镜像缓存')">清理缓存</button><button class="btn sm" onclick="nodeAction('compute-02','迁移新任务')">减少新任务</button></div>
+          </div>
+          <div class="card node-card">
+            <div class="row between"><div><h3><span class="dot"></span>compute-03</h3><div class="node-meta">10.10.10.23 · Ubuntu 24.04</div></div><span class="badge green">可调度</span></div>
+            <div class="metric"><span>CPU</span><div class="progress"><i style="width:46%"></i></div><b>46%</b></div>
+            <div class="metric"><span>内存</span><div class="progress"><i style="width:53%"></i></div><b>53%</b></div>
+            <div class="metric"><span>磁盘</span><div class="progress"><i style="width:39%"></i></div><b>39%</b></div>
+            <div class="grid g3" style="margin-top:12px"><div class="mini"><b>20</b><span>运行容器</span></div><div class="mini"><b>1</b><span>异常</span></div><div class="mini"><b>17d</b><span>连续运行</span></div></div>
+            <div class="row" style="margin-top:12px"><button class="btn sm" onclick="nodeAction('compute-03','诊断')">诊断</button><button class="btn sm" onclick="nodeAction('compute-03','设为优先节点')">设为优先</button></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="section-head"><h3>节点运行明细</h3><button class="btn sm" onclick="showToast('节点健康检查已重新执行')">重新健康检查</button></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>节点</th><th>状态</th><th>CPU</th><th>内存</th><th>SSD</th><th>Docker</th><th>网络</th><th>最后心跳</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td><strong>compute-01</strong></td><td><span class="badge green">Ready</span></td><td>51%</td><td>58%</td><td>44%</td><td>27.3.1</td><td>10GbE</td><td>3 秒前</td><td><button class="btn sm">详情</button></td></tr>
+                <tr><td><strong>compute-02</strong></td><td><span class="badge orange">Ready / Cache</span></td><td>63%</td><td>66%</td><td>82%</td><td>27.3.1</td><td>10GbE</td><td>2 秒前</td><td><button class="btn sm">详情</button></td></tr>
+                <tr><td><strong>compute-03</strong></td><td><span class="badge green">Ready</span></td><td>46%</td><td>53%</td><td>39%</td><td>27.3.1</td><td>10GbE</td><td>4 秒前</td><td><button class="btn sm">详情</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- IMAGES -->
+      <section class="page" id="page-images">
+        <div class="hero">
+          <div><h1>实验镜像仓库</h1><p>所有教学实验镜像必须经过构建、漏洞扫描、启动自检和教学验证后才能发布。</p></div>
+          <div class="row"><button class="btn" onclick="showToast('镜像同步任务已启动')">同步仓库</button><button class="btn primary" onclick="openDrawer('image')">＋ 新建镜像</button></div>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">可用镜像</div><div class="value">18</div><div class="sub">全部已签名</div></div>
+          <div class="card kpi"><div class="label">最近构建</div><div class="value">3</div><div class="sub">过去 24 小时</div></div>
+          <div class="card kpi"><div class="label">待复核</div><div class="value">2</div><div class="sub">未进入教学发布</div></div>
+          <div class="card kpi"><div class="label">缓存占用</div><div class="value">72%</div><div class="sub">compute-02 偏高</div></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="filters">
+            <div class="tabs"><button class="tab active">全部镜像</button><button class="tab">教学可用</button><button class="tab">待复核</button><button class="tab">已停用</button></div>
+            <input class="input" style="max-width:250px" placeholder="搜索镜像 / 工具">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>镜像</th><th>版本</th><th>大小</th><th>用途</th><th>安全扫描</th><th>启动自检</th><th>教学验证</th><th>最近使用</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td><strong>yueke/lab-ubuntu-security</strong></td><td>22.04-r6</td><td>1.18 GB</td><td>RSA / AES / Hash</td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td>今天</td><td><button class="btn sm" onclick="showToast('已打开镜像详情')">详情</button></td></tr>
+                <tr><td><strong>yueke/lab-kali-basic</strong></td><td>2026.3-r2</td><td>2.31 GB</td><td>网络安全工具</td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td>今天</td><td><button class="btn sm">详情</button></td></tr>
+                <tr><td><strong>yueke/lab-mysql-access</strong></td><td>8.4-r3</td><td>694 MB</td><td>数据库权限</td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td>昨天</td><td><button class="btn sm">详情</button></td></tr>
+                <tr><td><strong>yueke/lab-nginx-audit</strong></td><td>1.28-r1</td><td>421 MB</td><td>日志审计</td><td><span class="badge orange">待复核</span></td><td><span class="badge green">通过</span></td><td><span class="badge orange">未完成</span></td><td>—</td><td><button class="btn sm">继续验证</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCHEDULER -->
+      <section class="page" id="page-scheduler">
+        <div class="hero">
+          <div><h1>调度与实例队列</h1><p>调度器根据节点资源、镜像缓存、课堂优先级和隔离约束选择最合适的计算节点。</p></div>
+          <div class="row"><span class="badge green">scheduler-01 正常</span><button class="btn" onclick="showToast('已重新计算调度容量')">重新计算容量</button></div>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">正在创建</div><div class="value">4</div><div class="sub">平均 4.8 秒</div></div>
+          <div class="card kpi"><div class="label">队列等待</div><div class="value">3</div><div class="sub">最长 7 秒</div></div>
+          <div class="card kpi"><div class="label">过去 1 小时创建</div><div class="value">218</div><div class="sub">成功率 99.7%</div></div>
+          <div class="card kpi"><div class="label">调度失败</div><div class="value">1</div><div class="sub">已自动重试成功</div></div>
+        </div>
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card">
+            <div class="section-head"><h3>当前排队</h3><span class="badge orange">3 组</span></div>
+            <div class="pad">
+              <div class="queue"><div class="qnum">1</div><div style="flex:1"><b>刘宇 · RSA 实验</b><div class="muted" style="font-size:12px">需要 Ubuntu×2 · 4 Core · 4 GB</div></div><span class="badge blue">7s</span></div>
+              <div class="queue"><div class="qnum">2</div><div style="flex:1"><b>杨帆 · RSA 实验</b><div class="muted" style="font-size:12px">需要 Ubuntu×2 · 4 Core · 4 GB</div></div><span class="badge blue">5s</span></div>
+              <div class="queue"><div class="qnum">3</div><div style="flex:1"><b>谢伟 · RSA 实验</b><div class="muted" style="font-size:12px">需要 Ubuntu×2 · 4 Core · 4 GB</div></div><span class="badge blue">2s</span></div>
+            </div>
+          </div>
+          <div class="card pad">
+            <div class="row between"><strong>调度策略</strong><button class="btn sm" onclick="showToast('调度策略已保存')">保存</button></div>
+            <div class="policy"><input type="checkbox" checked><div><b>课堂优先</b><div class="muted" style="font-size:12px">当前正在上课的实验优先于预习/补做实验。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>优先命中本地镜像缓存</b><div class="muted" style="font-size:12px">减少镜像拉取时间，提高实例启动速度。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>节点均衡</b><div class="muted" style="font-size:12px">避免单节点持续高负载。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>异常节点自动摘除</b><div class="muted" style="font-size:12px">健康检查连续失败时停止向节点派发新实例。</div></div></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="section-head"><h3>最近调度决策</h3><span class="muted" style="font-size:12px">可用于排查“为什么实例被放到这台服务器”</span></div>
+          <div class="pad timeline">
+            <div class="titem"><b>14:25:18 · rsa-2301032 → compute-03</b><span>compute-03 资源最低，且已缓存 ubuntu-security:22.04-r6。</span></div>
+            <div class="titem"><b>14:25:11 · rsa-2301031 → compute-01</b><span>compute-02 镜像缓存高于阈值，降低调度权重。</span></div>
+            <div class="titem"><b>14:24:55 · rsa-2301030 第一次调度失败</b><span>compute-02 临时 I/O 超时；自动重试到 compute-03 成功。</span></div>
+            <div class="titem"><b>14:24:37 · rsa-2301029 → compute-01</b><span>课堂优先级 P1，立即创建，无需排队。</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NETWORK -->
+      <section class="page" id="page-network">
+        <div class="hero">
+          <div><h1>实验网络隔离</h1><p>学生实验网络、平台业务网络和基础设施管理网络分离，避免实验行为影响业务系统。</p></div>
+          <button class="btn primary" onclick="showToast('隔离策略检查通过')">重新验证隔离策略</button>
+        </div>
+        <div class="card pad">
+          <div class="topology">
+            <div class="zone" style="left:40px;top:45px;width:240px;height:345px">
+              <h4>管理网络 10.10.10.0/24</h4>
+              <div class="box"><strong>admin-console</strong><span>管理员入口</span></div>
+              <div class="box"><strong>scheduler-01</strong><span>调度服务</span></div>
+              <div class="box"><strong>registry-01</strong><span>镜像仓库</span></div>
+            </div>
+            <div class="zone" style="left:330px;top:45px;width:300px;height:345px">
+              <h4>业务网络 10.30.0.0/16</h4>
+              <div class="box"><strong>api</strong><span>FastAPI</span></div>
+              <div class="box"><strong>mysql</strong><span>业务数据库</span></div>
+              <div class="box"><strong>redis</strong><span>缓存 / 队列</span></div>
+              <div class="box"><strong>minio</strong><span>文件资源</span></div>
+            </div>
+            <div class="zone" style="left:680px;top:45px;width:390px;height:345px;border-color:#e5ae51;background:rgba(255,247,232,.65)">
+              <h4 style="color:#9c6200">实验网络 10.20.0.0/16</h4>
+              <div class="box"><strong>student-rsa-01</strong><span>学生独立网络</span></div>
+              <div class="box"><strong>target-rsa-01</strong><span>目标机</span></div>
+              <div class="box"><strong>student-rsa-02</strong><span>另一学生网络</span></div>
+              <div class="box"><strong>grader-proxy</strong><span>只允许判分接口</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card pad">
+            <strong>默认隔离策略</strong>
+            <div class="policy"><input type="checkbox" checked><div><b>学生实例禁止访问业务 MySQL</b><div class="muted" style="font-size:12px">实验网到数据库网段默认 DROP。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>学生之间默认不可互通</b><div class="muted" style="font-size:12px">仅同一实验实例组内节点按拓扑放行。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>禁止访问宿主机管理端口</b><div class="muted" style="font-size:12px">阻断 Docker Socket、SSH 管理端口和节点 Agent。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>外网访问按实验白名单放行</b><div class="muted" style="font-size:12px">未声明的实验默认无外网访问权限。</div></div></div>
+          </div>
+          <div class="card pad">
+            <strong>最近隔离验证</strong>
+            <div class="health-list">
+              <div class="item"><div class="icon-ok">✓</div><div><b>实验实例 → 业务数据库</b><div class="muted" style="font-size:12px">连接被阻断，符合策略。</div></div></div>
+              <div class="item"><div class="icon-ok">✓</div><div><b>学生 A → 学生 B 实例</b><div class="muted" style="font-size:12px">跨实例组访问被阻断。</div></div></div>
+              <div class="item"><div class="icon-ok">✓</div><div><b>实验实例 → grader-proxy</b><div class="muted" style="font-size:12px">仅 8080 判分接口可达。</div></div></div>
+              <div class="item"><div class="icon-ok">✓</div><div><b>实验实例 → 管理网络</b><div class="muted" style="font-size:12px">全部阻断。</div></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INSTANCES -->
+      <section class="page" id="page-instances">
+        <div class="hero">
+          <div><h1>实例运维</h1><p>查看、重建、迁移和销毁学生实验实例；所有高风险操作均需审计。</p></div>
+          <div class="row"><button class="btn" onclick="showToast('实例清理任务已执行')">清理僵尸实例</button><button class="btn danger" onclick="showToast('仅会销毁已选实例，原型未实际执行')">批量销毁</button></div>
+        </div>
+        <div class="card">
+          <div class="filters">
+            <div class="tabs"><button class="tab active">全部 72</button><button class="tab">运行中 68</button><button class="tab">异常 2</button><button class="tab">正在销毁 2</button></div>
+            <input class="input" style="max-width:260px" placeholder="实例 / 学生 / 节点">
+            <select class="input" style="max-width:180px"><option>全部节点</option><option>compute-01</option><option>compute-02</option><option>compute-03</option></select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>实例</th><th>学生</th><th>实验</th><th>节点</th><th>CPU</th><th>内存</th><th>运行时长</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td><strong>student-rsa-2301001</strong></td><td>张三</td><td>RSA</td><td>compute-01</td><td>34%</td><td>51%</td><td>18m</td><td><span class="badge green">Running</span></td><td><button class="btn sm" onclick="instanceAction('张三','查看')">查看</button> <button class="btn sm" onclick="instanceAction('张三','重建')">重建</button></td></tr>
+                <tr><td><strong>student-rsa-2301009</strong></td><td>王五</td><td>RSA</td><td>compute-02</td><td>95%</td><td>87%</td><td>26m</td><td><span class="badge red">High CPU</span></td><td><button class="btn sm" onclick="instanceAction('王五','诊断')">诊断</button> <button class="btn sm danger" onclick="instanceAction('王五','重建')">重建</button></td></tr>
+                <tr><td><strong>target-rsa-2301027</strong></td><td>宋佳</td><td>RSA</td><td>compute-03</td><td>18%</td><td>32%</td><td>14m</td><td><span class="badge green">Running</span></td><td><button class="btn sm">查看</button></td></tr>
+                <tr><td><strong>student-rsa-2301030</strong></td><td>范磊</td><td>RSA</td><td>compute-03</td><td>21%</td><td>39%</td><td>8m</td><td><span class="badge orange">Recovered</span></td><td><button class="btn sm">查看恢复记录</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ALERTS -->
+      <section class="page" id="page-alerts">
+        <div class="hero">
+          <div><h1>告警中心</h1><p>把节点、实例、镜像、队列和判分服务的异常集中到一个地方。</p></div>
+          <button class="btn" onclick="showToast('所有告警规则已重新评估')">重新评估</button>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">P0</div><div class="value">0</div><div class="sub">系统不可用</div></div>
+          <div class="card kpi"><div class="label">P1</div><div class="value">1</div><div class="sub">需要尽快处理</div></div>
+          <div class="card kpi"><div class="label">P2</div><div class="value">2</div><div class="sub">容量/性能类</div></div>
+          <div class="card kpi"><div class="label">今日已恢复</div><div class="value">7</div><div class="sub">全部有恢复记录</div></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>级别</th><th>来源</th><th>告警</th><th>开始时间</th><th>自动动作</th><th>当前状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td><span class="badge red">P1</span></td><td>实例</td><td>student-rsa-2301009 CPU &gt; 90% 持续 3 分钟</td><td>14:22</td><td>限制到 2 Core</td><td><span class="badge orange">处理中</span></td><td><button class="btn sm" onclick="showToast('已打开实例诊断')">诊断</button></td></tr>
+                <tr><td><span class="badge orange">P2</span></td><td>节点</td><td>compute-02 镜像缓存 &gt; 80%</td><td>14:10</td><td>降低调度权重</td><td><span class="badge orange">待处理</span></td><td><button class="btn sm" onclick="showToast('缓存清理任务已启动')">清理</button></td></tr>
+                <tr><td><span class="badge orange">P2</span></td><td>队列</td><td>实例等待队列达到 3 组</td><td>14:25</td><td>优先调度 compute-03</td><td><span class="badge blue">观察中</span></td><td><button class="btn sm">查看队列</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- AUDIT -->
+      <section class="page" id="page-audit">
+        <div class="hero">
+          <div><h1>基础设施审计日志</h1><p>管理员、教师、调度器和自动恢复动作全部留痕，便于验收、追责和故障复盘。</p></div>
+          <button class="btn" onclick="showToast('审计日志 CSV 已导出')">导出日志</button>
+        </div>
+        <div class="grid g2">
+          <div class="card">
+            <div class="section-head"><h3>实时审计流</h3><span class="badge green">Live</span></div>
+            <div class="pad">
+              <div class="logstream" id="auditStream">
+<span class="ok">14:25:18 scheduler</span> ASSIGN instance=rsa-2301032 node=compute-03 reason=capacity+cache
+<span class="warn">14:24:55 scheduler</span> RETRY instance=rsa-2301030 from=compute-02 to=compute-03 reason=io_timeout
+<span class="ok">14:24:56 recovery</span> INSTANCE_START instance=rsa-2301030 node=compute-03 result=success
+<span class="warn">14:22:31 monitor</span> CPU_LIMIT instance=student-rsa-2301009 limit=2core
+14:20:05 teacher wang REBUILD_REQUEST instance=student-rsa-2301018
+<span class="ok">14:20:12 recovery</span> REBUILD_SUCCESS instance=student-rsa-2301018 preserve_score=true
+14:18:04 system DESTROY timeout instance=student-rsa-2300992
+14:17:33 grader SCORE student=2301001 checkpoint=RSA_KEYPAIR score=20
+              </div>
+            </div>
+          </div>
+          <div class="card pad">
+            <strong>审计范围</strong>
+            <div class="policy"><input type="checkbox" checked><div><b>实例生命周期</b><div class="muted" style="font-size:12px">创建、启动、暂停、重建、销毁、回收。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>管理员操作</b><div class="muted" style="font-size:12px">节点摘除、镜像发布、策略修改、告警处置。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>教师协助操作</b><div class="muted" style="font-size:12px">查看终端、进入协助模式、重建学生实例。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>自动判分</b><div class="muted" style="font-size:12px">得分点、判定结果、重试和异常。</div></div></div>
+            <div class="policy"><input type="checkbox" checked><div><b>网络访问事件</b><div class="muted" style="font-size:12px">隔离策略命中、拒绝连接、实验白名单。</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RECOVERY -->
+      <section class="page" id="page-recovery">
+        <div class="hero">
+          <div><h1>异常恢复</h1><p>实例或节点失败时，优先保留学生成绩、实验记录和审计证据，再重新创建运行环境。</p></div>
+          <button class="btn primary" onclick="runDrill()">执行恢复演练</button>
+        </div>
+        <div class="grid g3">
+          <div class="recovery-card">
+            <h4>实例启动失败</h4>
+            <p>自动在同节点重试 1 次；仍失败则换节点重新创建。保留原 instance request 与失败日志。</p>
+          </div>
+          <div class="recovery-card">
+            <h4>节点离线</h4>
+            <p>节点自动摘除，不再接新任务；未完成学生实例进入恢复队列，在其他节点重建。</p>
+          </div>
+          <div class="recovery-card">
+            <h4>高 CPU / 高内存</h4>
+            <p>先按资源限额限制，若持续异常则冻结必要日志并允许教师或管理员重建实例。</p>
+          </div>
+          <div class="recovery-card">
+            <h4>判分服务异常</h4>
+            <p>学生操作结果先入队，恢复后补判；不因评分服务短暂不可用丢失实验进度。</p>
+          </div>
+          <div class="recovery-card">
+            <h4>镜像拉取失败</h4>
+            <p>优先调度到已有镜像缓存节点；必要时重新拉取并校验摘要。</p>
+          </div>
+          <div class="recovery-card">
+            <h4>实验超时</h4>
+            <p>先保存得分、日志和提交状态，再销毁容器与网络，避免资源长期泄漏。</p>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card">
+            <div class="section-head"><h3>最近恢复记录</h3><span class="badge green">成功 7</span></div>
+            <div class="pad timeline" id="recoveryTimeline">
+              <div class="titem"><b>14:24 · rsa-2301030 自动迁移成功</b><span>compute-02 I/O 超时 → compute-03；学生得分与记录保留。</span></div>
+              <div class="titem"><b>14:20 · student-rsa-2301018 重建成功</b><span>教师发起重建；保留 70 分与前三个得分点。</span></div>
+              <div class="titem"><b>13:52 · target-aes-2302007 自动恢复</b><span>容器异常退出；同节点重新创建成功。</span></div>
+            </div>
+          </div>
+          <div class="card pad">
+            <strong>恢复演练门禁</strong>
+            <div class="health-list" id="drillList">
+              <div class="item"><div class="icon-ok">✓</div><div><b>实例重建</b><div class="muted" style="font-size:12px">通过</div></div></div>
+              <div class="item"><div class="icon-ok">✓</div><div><b>跨节点重建</b><div class="muted" style="font-size:12px">通过</div></div></div>
+              <div class="item"><div class="icon-ok">✓</div><div><b>成绩与审计记录保留</b><div class="muted" style="font-size:12px">通过</div></div></div>
+              <div class="item"><div class="icon-ok">✓</div><div><b>实验网络自动回收</b><div class="muted" style="font-size:12px">通过</div></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-head"><strong id="drawerTitle">详情</strong><button class="btn sm" onclick="closeDrawer()">关闭</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot"><button class="btn" onclick="closeDrawer()">取消</button><button class="btn primary" onclick="saveDrawer()">保存</button></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const titleMap={
+  overview:'运行总览',nodes:'服务器节点',images:'镜像仓库',scheduler:'调度与队列',
+  network:'网络隔离',instances:'实例运维',alerts:'告警中心',audit:'审计日志',recovery:'异常恢复'
+};
+function go(name,nav){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
+  if(nav)nav.classList.add('active');
+  else{
+    const n=document.querySelector(`.nav[data-page="${name}"]`);if(n)n.classList.add('active');
+  }
+  document.getElementById('topTitle').textContent=titleMap[name];
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goByName(name){go(name,null)}
+function toggleAuto(){
+  const s=document.getElementById('autoSwitch');s.classList.toggle('on');
+  showToast(s.classList.contains('on')?'自动刷新已开启':'自动刷新已关闭');
+}
+function nodeAction(node,act){showToast(`${node}：${act} 已执行`)}
+function instanceAction(name,act){showToast(`${name} 的实例：${act}`)}
+function openDrawer(type){
+  const d=document.getElementById('drawer'),title=document.getElementById('drawerTitle'),body=document.getElementById('drawerBody');
+  if(type==='node'){
+    title.textContent='接入新的计算节点';
+    body.innerHTML=`
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">节点名称</label><input class="input" value="compute-04"></div>
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">管理 IP</label><input class="input" placeholder="10.10.10.24"></div>
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">Agent 端口</label><input class="input" value="9443"></div>
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">节点标签</label><input class="input" value="zone=a,ssd=true"></div>
+      <div class="alert">正式接入时应先完成节点 Agent 身份校验、Docker 版本检查、磁盘/网络自检，再允许进入调度池。</div>`;
+  }else{
+    title.textContent='创建新的实验镜像';
+    body.innerHTML=`
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">镜像名称</label><input class="input" value="yueke/lab-new"></div>
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">基础镜像</label><select class="input"><option>ubuntu:22.04</option><option>ubuntu:24.04</option><option>kalilinux/kali-rolling</option></select></div>
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">版本</label><input class="input" value="v1"></div>
+      <div style="margin-bottom:12px"><label class="muted" style="font-size:12px">用途说明</label><textarea class="input" rows="4">新实验镜像</textarea></div>
+      <div class="alert">新镜像不会直接进入教学可用状态。需要依次通过构建、漏洞扫描、启动自检和教学验证。</div>`;
+  }
+  d.classList.add('open');
+}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open')}
+function saveDrawer(){closeDrawer();showToast('配置已保存，进入验证流程')}
+function runDrill(){
+  showToast('恢复演练完成：实例重建、跨节点恢复、记录保留均通过');
+  const t=document.getElementById('recoveryTimeline');
+  const div=document.createElement('div');div.className='titem';div.innerHTML='<b>刚刚 · 手工恢复演练通过</b><span>测试实例在 compute-01 创建 → 模拟节点失败 → compute-03 重建成功。</span>';
+  t.prepend(div);
+}
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.style.display='none',2200);
+}
+// simple live audit simulation
+setInterval(()=>{
+  const stream=document.getElementById('auditStream');
+  if(!stream || !document.getElementById('page-audit').classList.contains('active')) return;
+  const now=new Date().toTimeString().slice(0,8);
+  stream.textContent += `\n${now} monitor HEARTBEAT nodes=3 running=72 queue=3 status=ok`;
+  stream.scrollTop=stream.scrollHeight;
+},8000);
+</script>
+</body>
+</html>

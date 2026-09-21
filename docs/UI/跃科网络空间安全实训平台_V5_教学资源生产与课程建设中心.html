@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跃科网络空间安全实训平台 V5 - 教学资源生产与课程建设中心</title>
+<style>
+:root{
+  --bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#667085;--line:#e5eaf1;
+  --primary:#2457f5;--primary2:#1746ce;--soft:#edf3ff;--success:#159a66;
+  --warning:#dc941d;--danger:#d94d63;--nav:#10213f;--shadow:0 8px 28px rgba(25,42,89,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+.app{display:grid;grid-template-columns:242px minmax(0,1fr);min-height:100vh}
+.sidebar{background:var(--nav);color:#dce6fb;padding:18px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;gap:10px;align-items:center;padding:8px 8px 20px;font-weight:800;font-size:17px}
+.logo{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#4e7cff,#7aa1ff);display:grid;place-items:center;color:#fff}
+.nav-title{font-size:11px;color:#7588ae;padding:13px 10px 5px;text-transform:uppercase}
+.nav{padding:10px 11px;margin:3px 0;border-radius:10px;font-size:14px;cursor:pointer}
+.nav.active,.nav:hover{background:#1c396b;color:#fff}
+.side-state{margin-top:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.06);border-radius:13px;padding:13px;font-size:12px;line-height:1.65;color:#bdcae2}
+.side-state strong{color:#fff}
+.main{min-width:0}
+.topbar{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:sticky;top:0;z-index:30}
+.top-left{display:flex;gap:10px;align-items:center}.crumb{font-size:13px;color:var(--muted)}
+.top-actions{display:flex;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:10px;padding:9px 13px;font-weight:700}
+.btn.sm{padding:6px 9px;font-size:12px}.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn.primary:hover{background:var(--primary2)}
+.btn.success{background:var(--success);border-color:var(--success);color:#fff}.btn.danger{background:#fff0f2;border-color:#ffd1d7;color:#b93249}
+.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:12px;background:#f0f3f8;color:#586273}
+.badge.green{background:#eaf9f2;color:#087d4e}.badge.blue{background:#edf2ff;color:#2d55c8}.badge.orange{background:#fff5e6;color:#a66400}.badge.red{background:#fff0f2;color:#b33146}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--success);margin-right:6px}.dot.orange{background:var(--warning)}.dot.red{background:var(--danger)}
+.content{max-width:1600px;margin:auto;padding:22px 26px 46px}
+.page{display:none}.page.active{display:block}
+.hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}.hero h1{margin:0;font-size:25px}.hero p{margin:7px 0 0;color:var(--muted);font-size:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.pad{padding:17px}
+.grid{display:grid;gap:14px}.g5{grid-template-columns:repeat(5,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpi{padding:17px}.kpi .label{font-size:12px;color:var(--muted)}.kpi .value{font-size:27px;font-weight:800;margin-top:6px}.kpi .sub{font-size:12px;color:var(--muted);margin-top:5px}
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:15px 17px;border-bottom:1px solid var(--line)}.section-head h3{margin:0;font-size:15px}
+.row{display:flex;align-items:center;gap:8px}.between{justify-content:space-between}.muted{color:var(--muted)}
+.progress{height:8px;background:#edf0f5;border-radius:999px;overflow:hidden}.progress i{display:block;height:100%;background:linear-gradient(90deg,#2e5eed,#7899ff);border-radius:999px}.progress.warn i{background:linear-gradient(90deg,#d9911a,#edb65b)}.progress.danger i{background:linear-gradient(90deg,#d94d63,#ee8191)}
+.metric{display:grid;grid-template-columns:115px 1fr 50px;gap:8px;align-items:center;font-size:12px;margin:10px 0}
+table{width:100%;border-collapse:collapse}th,td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:12px;text-align:left;white-space:nowrap}th{background:#fafbfc;color:#667085;font-weight:700;position:sticky;top:0}
+.table-wrap{overflow:auto}
+.course-map{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.chapter{padding:15px;border:1px solid var(--line);border-radius:13px;background:#fff;cursor:pointer}.chapter:hover{border-color:#b8c6ef}.chapter h4{margin:8px 0 6px;font-size:14px}.chapter p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.chapter .count{font-size:23px;font-weight:800}
+.lesson-card{border:1px solid var(--line);border-radius:13px;background:#fff;padding:14px}.lesson-card h4{margin:0 0 6px;font-size:13px}.lesson-card .meta{font-size:12px;color:var(--muted)}
+.resource-icons{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.ri{border:1px solid var(--line);border-radius:8px;padding:6px 7px;font-size:11px;background:#fafbff}.ri.ok{background:#f0fbf6;border-color:#caeddc;color:#087d4e}.ri.miss{background:#fff5f6;border-color:#ffd2d8;color:#b33146}
+.filters{display:flex;gap:8px;flex-wrap:wrap;padding:14px 17px;border-bottom:1px solid var(--line)}
+.input{width:100%;border:1px solid #dce2ec;border-radius:10px;padding:9px 10px;background:#fff;outline:none}.input:focus{border-color:#7b99fd;box-shadow:0 0 0 3px rgba(53,90,240,.08)}
+.tabs{display:flex;background:#f0f2f6;padding:4px;border-radius:11px;gap:4px}.tab{border:0;background:transparent;padding:7px 10px;border-radius:8px;font-size:12px;color:#667085}.tab.active{background:#fff;color:#1c2740;box-shadow:0 2px 7px rgba(20,30,60,.08)}
+.checklist .item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.checklist .item:last-child{border-bottom:0}
+.check,.warn,.err{width:23px;height:23px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;font-weight:900}.check{background:#e8f8f1;color:var(--success)}.warn{background:#fff5e6;color:var(--warning)}.err{background:#fff0f2;color:var(--danger)}
+.production-flow{display:flex;gap:8px;align-items:stretch;overflow:auto}.flow{min-width:140px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbff}.flow b{display:block;font-size:12px;margin-bottom:5px}.flow span{font-size:11px;color:var(--muted)}.arrow{display:grid;place-items:center;color:#a0aec0;font-weight:900}
+.video-card{border:1px solid var(--line);border-radius:13px;padding:13px;background:#fff}.video-card .thumb{height:105px;border-radius:10px;background:linear-gradient(135deg,#203b73,#5277cf);display:grid;place-items:center;color:#fff;font-weight:800;margin-bottom:10px}.video-card h4{margin:0 0 5px;font-size:13px}
+.question{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px}.question .qtop{display:flex;justify-content:space-between;gap:8px}.question p{margin:8px 0 0;font-size:12px;line-height:1.55;color:#475467}
+.audit-row{display:grid;grid-template-columns:170px 1fr 120px 120px;gap:10px;align-items:center;padding:11px 0;border-bottom:1px dashed var(--line);font-size:12px}.audit-row:last-child{border-bottom:0}
+.delivery{border:1px solid var(--line);border-radius:13px;padding:14px;background:#fff}.delivery h4{margin:0 0 8px;font-size:13px}.delivery p{font-size:12px;color:var(--muted);line-height:1.5;margin:0}
+.drawer{position:fixed;right:-470px;top:0;bottom:0;width:450px;background:#fff;box-shadow:-20px 0 50px rgba(16,24,40,.18);z-index:200;transition:.28s;display:flex;flex-direction:column}.drawer.open{right:0}.drawer-head{padding:18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.drawer-body{padding:18px;overflow:auto}.drawer-foot{margin-top:auto;padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.toast{position:fixed;right:24px;bottom:24px;background:#15213b;color:white;border-radius:11px;padding:12px 15px;display:none;z-index:300;font-size:13px;box-shadow:0 15px 40px rgba(0,0,0,.2)}
+@media(max-width:1250px){.g5{grid-template-columns:repeat(3,1fr)}.course-map{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.app{grid-template-columns:82px 1fr}.brand span,.nav span,.nav-title,.side-state{display:none}.brand{justify-content:center}.nav{text-align:center}.g5,.g4,.g3,.g2,.course-map{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.content{padding:16px 12px 36px}.topbar{padding:0 12px}.hero{flex-direction:column}.g5,.g4,.g3,.g2,.course-map{grid-template-columns:1fr}.drawer{width:100%;right:-100%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">跃</div><span>网络空间安全实训平台</span></div>
+    <div class="nav-title">课程建设</div>
+    <div class="nav active" data-page="overview" onclick="go('overview',this)"><span>资源总览</span></div>
+    <div class="nav" data-page="blueprint" onclick="go('blueprint',this)"><span>课程蓝图</span></div>
+    <div class="nav" data-page="theory" onclick="go('theory',this)"><span>理论课时</span></div>
+    <div class="nav" data-page="labs" onclick="go('labs',this)"><span>实验课时</span></div>
+    <div class="nav-title">资源生产</div>
+    <div class="nav" data-page="ppt" onclick="go('ppt',this)"><span>PPT / 讲义</span></div>
+    <div class="nav" data-page="video" onclick="go('video',this)"><span>视频中心</span></div>
+    <div class="nav" data-page="questions" onclick="go('questions',this)"><span>题库中心</span></div>
+    <div class="nav-title">交付验收</div>
+    <div class="nav" data-page="audit" onclick="go('audit',this)"><span>完整性审计</span></div>
+    <div class="nav" data-page="delivery" onclick="go('delivery',this)"><span>发布与交付</span></div>
+    <div class="side-state">
+      <strong>采购资源门槛</strong><br>
+      理论课程 ≥ 36 课时<br>
+      实验课程 ≥ 12 课时<br>
+      理论：讲义 + 视频 + 练习<br>
+      实验：介绍 + 文件 + 视频 + 练习
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="top-left"><strong id="topTitle">资源总览</strong><span class="crumb">/ 数据安全技术基础 / 课程建设 V5</span></div>
+      <div class="top-actions">
+        <span class="badge green"><span class="dot"></span>资源库可用</span>
+        <button class="btn sm" onclick="saveSnapshot()">保存版本快照</button>
+        <button class="btn sm" onclick="exportManifest()">导出交付清单</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- OVERVIEW -->
+      <section class="page active" id="page-overview">
+        <div class="hero">
+          <div><h1>教学资源生产与课程建设中心</h1><p>不是简单“上传文件”，而是把每个课时应该有什么、缺什么、谁审核、能不能交付全部管起来。</p></div>
+          <div class="row"><button class="btn" onclick="goByName('audit')">检查缺项</button><button class="btn primary" onclick="goByName('blueprint')">进入课程蓝图</button></div>
+        </div>
+
+        <div class="grid g5">
+          <div class="card kpi"><div class="label">理论课时</div><div class="value">36 / 36</div><div class="sub">数量达到要求</div></div>
+          <div class="card kpi"><div class="label">实验课时</div><div class="value">12 / 12</div><div class="sub">数量达到要求</div></div>
+          <div class="card kpi"><div class="label">理论视频</div><div class="value" id="videoKpi">35 / 36</div><div class="sub">1 个待补齐</div></div>
+          <div class="card kpi"><div class="label">理论练习</div><div class="value">144</div><div class="sub">平均每课时 4 题</div></div>
+          <div class="card kpi"><div class="label">资源交付完整度</div><div class="value" id="completeKpi">97%</div><div class="sub">3 项待处理</div></div>
+        </div>
+
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card pad">
+            <div class="row between"><strong>采购资源门槛完成情况</strong><span class="badge orange">还有 3 项</span></div>
+            <div class="metric"><span>理论课时</span><div class="progress"><i style="width:100%"></i></div><b>36/36</b></div>
+            <div class="metric"><span>理论讲义</span><div class="progress"><i style="width:100%"></i></div><b>36/36</b></div>
+            <div class="metric"><span>理论视频</span><div class="progress warn"><i id="videoBar" style="width:97%"></i></div><b id="videoBarText">35/36</b></div>
+            <div class="metric"><span>课后练习</span><div class="progress"><i style="width:100%"></i></div><b>36/36</b></div>
+            <div class="metric"><span>实验课时</span><div class="progress"><i style="width:100%"></i></div><b>12/12</b></div>
+            <div class="metric"><span>实验文件包</span><div class="progress warn"><i style="width:92%"></i></div><b>11/12</b></div>
+            <div class="metric"><span>实验讲解视频</span><div class="progress warn"><i style="width:92%"></i></div><b>11/12</b></div>
+          </div>
+          <div class="card">
+            <div class="section-head"><h3>当前必须补齐</h3><span class="badge red">3 项</span></div>
+            <div class="pad checklist" id="missingList">
+              <div class="item" data-missing="video"><div class="err">!</div><div><b>理论 4.7《数据库访问控制实例与越权访问防范》讲解视频缺失</b><div class="muted" style="font-size:12px;margin-top:4px">采购要求理论每课时对应 1 个讲解视频。</div><div style="margin-top:7px"><button class="btn sm primary" onclick="fixItem(this,'video')">进入补齐</button></div></div></div>
+              <div class="item" data-missing="labfile"><div class="warn">!</div><div><b>实验 11《日志审计与溯源》附件包未冻结版本</b><div class="muted" style="font-size:12px;margin-top:4px">需要固定实验步骤文档、附件和工具。</div><div style="margin-top:7px"><button class="btn sm" onclick="fixItem(this,'labfile')">完成冻结</button></div></div></div>
+              <div class="item" data-missing="labvideo"><div class="warn">!</div><div><b>实验 12《综合数据安全治理》讲解视频待终审</b><div class="muted" style="font-size:12px;margin-top:4px">视频已上传，但尚未通过最终审核。</div><div style="margin-top:7px"><button class="btn sm" onclick="fixItem(this,'labvideo')">通过终审</button></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="section-head"><h3>资源生产流水线</h3><span class="muted" style="font-size:12px">每个课时必须走完才能进入正式发布</span></div>
+          <div class="pad production-flow">
+            <div class="flow"><b>1. 课时大纲</b><span>知识点、目标、重难点</span></div><div class="arrow">→</div>
+            <div class="flow"><b>2. 讲义 / PPT</b><span>教师上课使用</span></div><div class="arrow">→</div>
+            <div class="flow"><b>3. 视频讲稿</b><span>逐页讲解脚本</span></div><div class="arrow">→</div>
+            <div class="flow"><b>4. 讲解视频</b><span>理论约 40 分钟</span></div><div class="arrow">→</div>
+            <div class="flow"><b>5. 课后练习</b><span>填空 / 单选 / 多选 / 判断</span></div><div class="arrow">→</div>
+            <div class="flow"><b>6. 内容审核</b><span>准确性、版权、格式</span></div><div class="arrow">→</div>
+            <div class="flow"><b>7. 发布归档</b><span>版本冻结，可交付</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BLUEPRINT -->
+      <section class="page" id="page-blueprint">
+        <div class="hero">
+          <div><h1>课程蓝图</h1><p>按采购文件中的知识点结构组织理论课程；下方 36 课时按列出的 36 个理论知识点一一展开。</p></div>
+          <button class="btn primary" onclick="openDrawer('blueprint')">编辑课程说明</button>
+        </div>
+        <div class="course-map">
+          <div class="chapter"><span class="badge blue">第 1 章</span><div class="count">5</div><h4>数据安全基础</h4><p>数据定义与生命周期、处理场景、安全概念、威胁、法规合规。</p></div>
+          <div class="chapter"><span class="badge blue">第 2 章</span><div class="count">3</div><h4>数据资产分类分级</h4><p>数据分类、数据分级、分类分级实践案例。</p></div>
+          <div class="chapter"><span class="badge blue">第 3 章</span><div class="count">6</div><h4>数据加密与完整性保护</h4><p>AES/DES、RSA、哈希、国密、Base64、存储与传输加密。</p></div>
+          <div class="chapter"><span class="badge blue">第 4 章</span><div class="count">7</div><h4>数据脱敏与访问管控</h4><p>敏感数据、脱敏、匿名化、动态/静态脱敏、认证、RBAC、数据库访问控制。</p></div>
+          <div class="chapter"><span class="badge blue">第 5 章</span><div class="count">7</div><h4>数据溯源与隐私保护</h4><p>数字水印、隐私计算、MPC、同态加密、联邦学习、审计体系与溯源。</p></div>
+          <div class="chapter"><span class="badge blue">第 6 章</span><div class="count">5</div><h4>数据灾备与安全销毁</h4><p>RPO/RTO、灾备架构、销毁分类、网络数据销毁、全量/增量备份。</p></div>
+          <div class="chapter"><span class="badge blue">第 7 章</span><div class="count">3</div><h4>数据安全治理实践</h4><p>治理体系、治理流程、行业实践与产品选型。</p></div>
+          <div class="chapter" style="background:#f7f9ff"><span class="badge green">合计</span><div class="count">36</div><h4>理论课时</h4><p>已形成可直接落实到资源生产的课程骨架。</p></div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="section-head"><h3>理论课时映射</h3><button class="btn sm" onclick="showToast('课程蓝图已生成版本 V5.1')">冻结蓝图版本</button></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>课时</th><th>章节</th><th>知识点</th><th>PPT</th><th>视频</th><th>练习</th><th>审核</th></tr></thead>
+              <tbody id="blueprintTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- THEORY -->
+      <section class="page" id="page-theory">
+        <div class="hero">
+          <div><h1>理论课时资源</h1><p>每个课时以“讲义 + 讲解视频 + 3～4 道练习”作为最小完整单元。</p></div>
+          <div class="row"><button class="btn" onclick="showToast('已生成理论资源缺项清单')">检查缺项</button><button class="btn primary" onclick="openDrawer('lesson')">＋ 新增/补充课时</button></div>
+        </div>
+        <div class="filters">
+          <div class="tabs"><button class="tab active">全部 36</button><button class="tab">完整 35</button><button class="tab">缺项 1</button></div>
+          <input class="input" id="lessonSearch" style="max-width:280px" placeholder="搜索课时 / 知识点" oninput="renderTheory()">
+          <select class="input" id="chapterFilter" style="max-width:190px" onchange="renderTheory()">
+            <option value="all">全部章节</option><option value="1">第1章</option><option value="2">第2章</option><option value="3">第3章</option><option value="4">第4章</option><option value="5">第5章</option><option value="6">第6章</option><option value="7">第7章</option>
+          </select>
+        </div>
+        <div class="grid g3 pad" id="theoryGrid"></div>
+      </section>
+
+      <!-- LABS -->
+      <section class="page" id="page-labs">
+        <div class="hero">
+          <div><h1>实验课程资源</h1><p>采购文件列出 8 类核心实验。V5 采用“8 类核心实验 → 12 个教学课时”的拆分方式，用于满足不少于 12 实验课时的交付要求。</p></div>
+          <button class="btn primary" onclick="openDrawer('lab')">＋ 新建实验课时</button>
+        </div>
+        <div class="card">
+          <div class="section-head"><h3>12 个实验课时设计</h3><span class="badge blue">8 类核心实验全部覆盖</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>课时</th><th>对应核心实验</th><th>课时主题</th><th>介绍</th><th>实验文件</th><th>讲解视频</th><th>课后练习</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td>实验 01</td><td>AES/DES</td><td>AES/DES 基础加解密</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 02</td><td>AES/DES</td><td>ECB/CBC 模式对比</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 03</td><td>RSA</td><td>RSA 密钥生成与加解密</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 04</td><td>RSA</td><td>数字签名生成与验证</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 05</td><td>MD5/SHA</td><td>文件哈希与完整性校验</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 06</td><td>Base64/隐写</td><td>Base64 与文本编码</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 07</td><td>Base64/隐写</td><td>LSB 图片隐写与提取</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 08</td><td>数据库权限</td><td>用户、角色与权限配置</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 09</td><td>数据脱敏</td><td>手机号/身份证脱敏规则</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr><td>实验 10</td><td>备份恢复</td><td>全量/增量备份与恢复</td><td>✓</td><td>✓</td><td>✓</td><td>4题</td><td><span class="badge green">完整</span></td></tr>
+                <tr id="lab11"><td>实验 11</td><td>日志审计</td><td>日志抓取、解析与异常识别</td><td>✓</td><td id="lab11file"><span class="badge orange">待冻结</span></td><td>✓</td><td>4题</td><td><span class="badge orange">缺项</span></td></tr>
+                <tr id="lab12"><td>实验 12</td><td>综合实践</td><td>数据安全治理综合实践</td><td>✓</td><td>✓</td><td id="lab12video"><span class="badge orange">待终审</span></td><td>4题</td><td><span class="badge orange">待终审</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- PPT -->
+      <section class="page" id="page-ppt">
+        <div class="hero">
+          <div><h1>PPT / 课时讲义</h1><p>每个理论课时都要有以知识点为主的讲义，发布前检查版式、动画遮挡、内容准确性与版权来源。</p></div>
+          <div class="row"><button class="btn" onclick="showToast('已批量检查 36 份 PPT')">批量检查</button><button class="btn primary" onclick="openDrawer('ppt')">上传 PPT</button></div>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">PPT 总数</div><div class="value">36</div><div class="sub">对应 36 个理论课时</div></div>
+          <div class="card kpi"><div class="label">版式检查</div><div class="value">36/36</div><div class="sub">无溢出</div></div>
+          <div class="card kpi"><div class="label">动画遮挡检查</div><div class="value">36/36</div><div class="sub">通过</div></div>
+          <div class="card kpi"><div class="label">终审通过</div><div class="value">36/36</div><div class="sub">已冻结</div></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="section-head"><h3>讲义抽检</h3><span class="muted" style="font-size:12px">原型展示 6 个代表课时</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>课时</th><th>文件</th><th>页数</th><th>知识点完整</th><th>动画遮挡</th><th>版权标注</th><th>版本</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td>1.1 数据定义、特征、分类与生命周期</td><td>01-01-数据基础.pptx</td><td>38</td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td>v1.2</td><td><button class="btn sm">预览</button></td></tr>
+                <tr><td>3.2 RSA 密钥、加解密与数字签名</td><td>03-02-RSA.pptx</td><td>42</td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td>v1.4</td><td><button class="btn sm">预览</button></td></tr>
+                <tr><td>4.6 RBAC 访问控制模型</td><td>04-06-RBAC.pptx</td><td>35</td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td><span class="badge green">通过</span></td><td>v1.1</td><td><button class="btn sm">预览</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIDEO -->
+      <section class="page" id="page-video">
+        <div class="hero">
+          <div><h1>视频中心</h1><p>理论课时按采购要求规划为每课时 1 个约 40 分钟讲解视频；实验视频以能完整讲清实验为目标。</p></div>
+          <div class="row"><button class="btn" onclick="showToast('转码队列正常')">转码队列</button><button class="btn primary" onclick="openDrawer('video')">上传视频</button></div>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">理论视频</div><div class="value" id="videoPageKpi">35/36</div><div class="sub">目标每课时 1 个</div></div>
+          <div class="card kpi"><div class="label">实验视频</div><div class="value">12/12</div><div class="sub">1 个待终审</div></div>
+          <div class="card kpi"><div class="label">已转码</div><div class="value">47</div><div class="sub">1080P / 720P</div></div>
+          <div class="card kpi"><div class="label">字幕/讲稿</div><div class="value">48/48</div><div class="sub">均已关联</div></div>
+        </div>
+        <div class="grid g3" style="margin-top:14px">
+          <div class="video-card"><div class="thumb">40:16 ▶</div><h4>3.2 RSA 密钥、加解密与数字签名</h4><div class="muted" style="font-size:12px">1080P · 已终审 · v1.3</div></div>
+          <div class="video-card"><div class="thumb">41:02 ▶</div><h4>4.6 RBAC 访问控制模型</h4><div class="muted" style="font-size:12px">1080P · 已终审 · v1.1</div></div>
+          <div class="video-card" id="missingVideoCard"><div class="thumb" style="background:linear-gradient(135deg,#7b4950,#bf6a77)">缺失</div><h4>4.7 数据库访问控制实例与越权访问防范</h4><div class="muted" style="font-size:12px">尚未上传讲解视频</div><button class="btn sm primary" style="margin-top:9px" onclick="completeTheoryVideo()">补齐视频</button></div>
+        </div>
+      </section>
+
+      <!-- QUESTIONS -->
+      <section class="page" id="page-questions">
+        <div class="hero">
+          <div><h1>题库中心</h1><p>理论和实验课后练习统一管理，保证每课时 3～4 道，并覆盖填空、单选、多选、判断四种题型。</p></div>
+          <div class="row"><button class="btn" onclick="showToast('已检查题型覆盖，无缺项')">题型覆盖检查</button><button class="btn primary" onclick="openDrawer('question')">＋ 新建题目</button></div>
+        </div>
+        <div class="grid g5">
+          <div class="card kpi"><div class="label">理论练习</div><div class="value">144</div><div class="sub">36课时 × 4题</div></div>
+          <div class="card kpi"><div class="label">实验练习</div><div class="value">48</div><div class="sub">12课时 × 4题</div></div>
+          <div class="card kpi"><div class="label">单选</div><div class="value">48</div><div class="sub">25%</div></div>
+          <div class="card kpi"><div class="label">多选 / 判断</div><div class="value">96</div><div class="sub">各 48</div></div>
+          <div class="card kpi"><div class="label">填空</div><div class="value">48</div><div class="sub">25%</div></div>
+        </div>
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card pad">
+            <strong>3.2 RSA 课后练习</strong>
+            <div class="question"><div class="qtop"><b>单选题</b><span class="badge green">已审核</span></div><p>RSA 算法中用于公开给通信对方的是哪一类密钥？</p></div>
+            <div class="question"><div class="qtop"><b>多选题</b><span class="badge green">已审核</span></div><p>下列哪些属于数字签名的典型用途？</p></div>
+            <div class="question"><div class="qtop"><b>判断题</b><span class="badge green">已审核</span></div><p>使用私钥签名后，可使用对应公钥验证签名。</p></div>
+            <div class="question"><div class="qtop"><b>填空题</b><span class="badge green">已审核</span></div><p>RSA 属于 ______ 加密算法。</p></div>
+          </div>
+          <div class="card pad">
+            <strong>题库质量门禁</strong>
+            <div class="checklist">
+              <div class="item"><div class="check">✓</div><div><b>每课时 3～4 题</b><div class="muted" style="font-size:12px">当前所有课时均为 4 题。</div></div></div>
+              <div class="item"><div class="check">✓</div><div><b>四种题型均有覆盖</b><div class="muted" style="font-size:12px">填空、单选、多选、判断均已覆盖。</div></div></div>
+              <div class="item"><div class="check">✓</div><div><b>答案与解析已填写</b><div class="muted" style="font-size:12px">正式发布前禁止空答案或空解析。</div></div></div>
+              <div class="item"><div class="check">✓</div><div><b>题目关联具体课时</b><div class="muted" style="font-size:12px">便于按章节/课时抽取练习。</div></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AUDIT -->
+      <section class="page" id="page-audit">
+        <div class="hero">
+          <div><h1>资源完整性审计</h1><p>直接按采购文件的资源要求做门禁；缺一个视频、一个实验文件包，都不允许标记为“可交付”。</p></div>
+          <button class="btn primary" onclick="runAudit()">重新执行全量审计</button>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">检查项</div><div class="value">192</div><div class="sub">课时 × 必备资源</div></div>
+          <div class="card kpi"><div class="label">通过</div><div class="value" id="auditPass">189</div><div class="sub">当前通过</div></div>
+          <div class="card kpi"><div class="label">缺项</div><div class="value" id="auditMiss">3</div><div class="sub">发布阻断</div></div>
+          <div class="card kpi"><div class="label">可交付状态</div><div class="value" style="font-size:22px" id="deliverState">未通过</div><div class="sub">需清零阻断项</div></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="section-head"><h3>采购条款映射检查</h3><span class="badge orange" id="auditBadge">3 项阻断</span></div>
+          <div class="pad">
+            <div class="audit-row"><strong>理论课程数量</strong><span>不少于 36 课时</span><span>36 课时</span><span class="badge green">通过</span></div>
+            <div class="audit-row"><strong>理论课时讲义</strong><span>每课时 PPT 讲义</span><span>36 / 36</span><span class="badge green">通过</span></div>
+            <div class="audit-row"><strong>理论讲解视频</strong><span>每课时对应 1 个视频，约 40 分钟</span><span id="auditVideoText">35 / 36</span><span id="auditVideoBadge" class="badge red">阻断</span></div>
+            <div class="audit-row"><strong>理论课后练习</strong><span>每课时 3～4 题，覆盖 4 种题型</span><span>36 / 36</span><span class="badge green">通过</span></div>
+            <div class="audit-row"><strong>实验课程数量</strong><span>不少于 12 课时</span><span>12 课时</span><span class="badge green">通过</span></div>
+            <div class="audit-row"><strong>实验课时介绍</strong><span>目的、环境、原理</span><span>12 / 12</span><span class="badge green">通过</span></div>
+            <div class="audit-row"><strong>实验文件</strong><span>步骤文档、附件、工具</span><span id="auditLabFileText">11 / 12</span><span id="auditLabFileBadge" class="badge red">阻断</span></div>
+            <div class="audit-row"><strong>实验讲解视频</strong><span>每实验课时 1 个，讲清实验内容</span><span id="auditLabVideoText">11 / 12 终审</span><span id="auditLabVideoBadge" class="badge red">阻断</span></div>
+            <div class="audit-row"><strong>实验课后练习</strong><span>每课时 3～4 题，覆盖 4 种题型</span><span>12 / 12</span><span class="badge green">通过</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DELIVERY -->
+      <section class="page" id="page-delivery">
+        <div class="hero">
+          <div><h1>发布与最终交付</h1><p>课程资源最终按“系统可用 + 内容可查 + 文件可导出 + 版本可追溯”进行封版。</p></div>
+          <div class="row"><button class="btn" onclick="exportManifest()">导出 Manifest</button><button class="btn success" id="freezeBtn" onclick="freezeDelivery()">冻结交付版本</button></div>
+        </div>
+        <div class="grid g3">
+          <div class="delivery"><h4>01 理论课程包</h4><p>36 课时课程结构、36 份 PPT、36 个讲解视频、144 道理论练习及答案解析。</p></div>
+          <div class="delivery"><h4>02 实验课程包</h4><p>12 个实验课时介绍、步骤文档、实验附件/工具、讲解视频、48 道实验练习。</p></div>
+          <div class="delivery"><h4>03 平台内置资源</h4><p>所有资源在课程中心可检索、预览、发布，并与章节、课时、实验任务关联。</p></div>
+          <div class="delivery"><h4>04 内容版本记录</h4><p>每个资源记录版本、审核状态、修改时间、发布人和归档状态。</p></div>
+          <div class="delivery"><h4>05 验收清单</h4><p>自动生成每个课时的资源明细，用于采购人逐项抽检。</p></div>
+          <div class="delivery"><h4>06 培训与操作文档</h4><p>管理员、教师使用说明及资源更新流程统一纳入交付包。</p></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="section-head"><h3>交付版本 V1.0</h3><span class="badge orange" id="deliveryBadge">等待 3 项补齐</span></div>
+          <div class="pad checklist" id="deliveryChecks">
+            <div class="item"><div class="check">✓</div><div><b>36 理论课时已建立</b><div class="muted" style="font-size:12px">全部绑定章节、讲义和练习。</div></div></div>
+            <div class="item"><div class="check">✓</div><div><b>12 实验课时已建立</b><div class="muted" style="font-size:12px">覆盖采购文件列出的 8 类核心实验。</div></div></div>
+            <div class="item" id="deliveryBlock"><div class="warn">!</div><div><b>还有 3 个资源阻断项</b><div class="muted" style="font-size:12px">处理完完整性审计中的缺项后即可冻结。</div></div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-head"><strong id="drawerTitle">编辑</strong><button class="btn sm" onclick="closeDrawer()">关闭</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot"><button class="btn" onclick="closeDrawer()">取消</button><button class="btn primary" onclick="saveDrawer()">保存</button></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const titleMap={overview:'资源总览',blueprint:'课程蓝图',theory:'理论课时',labs:'实验课时',ppt:'PPT / 讲义',video:'视频中心',questions:'题库中心',audit:'完整性审计',delivery:'发布与交付'};
+function go(name,nav){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
+  if(nav)nav.classList.add('active'); else {const n=document.querySelector(`.nav[data-page="${name}"]`);if(n)n.classList.add('active')}
+  document.getElementById('topTitle').textContent=titleMap[name];
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goByName(name){go(name,null)}
+
+const lessons = [
+[1,'1.1','数据基础：定义、特征、分类与全生命周期'],
+[1,'1.2','典型数据处理场景：开发利用、共享交易、跨境流动'],
+[1,'1.3','数据安全概念与三要素'],
+[1,'1.4','数据安全威胁分析：黑客攻击、恶意软件、社工攻击、物联网安全'],
+[1,'1.5','数据安全法律法规与合规要求'],
+[2,'2.1','数据分类的概念、目的、原则、方法与流程'],
+[2,'2.2','数据分级的概念、目的、标准与实施流程'],
+[2,'2.3','数据分类分级实践案例'],
+[3,'3.1','对称加密算法：AES、DES 原理与加密模式'],
+[3,'3.2','非对称加密算法：RSA 密钥生成、加解密与数字签名'],
+[3,'3.3','哈希算法与完整性校验：MD5、SHA 系列'],
+[3,'3.4','国密算法体系：SM2、SM3、SM4'],
+[3,'3.5','数据编码：Base64 等编码方法'],
+[3,'3.6','数据存储加密与传输加密'],
+[4,'4.1','敏感数据定义与自动识别方法'],
+[4,'4.2','经典脱敏算法：替换、仿真、加密、遮掩、混淆、偏移、取整'],
+[4,'4.3','数据匿名化算法：K 匿名、T 相近'],
+[4,'4.4','静态脱敏与动态脱敏的对比与应用'],
+[4,'4.5','身份标识与认证机制'],
+[4,'4.6','权限管理方法与 RBAC 访问控制模型'],
+[4,'4.7','数据库访问控制实例与越权访问防范'],
+[5,'5.1','数字水印基本原理与工作流程'],
+[5,'5.2','水印嵌入算法与提取算法：盲水印 / 非盲水印'],
+[5,'5.3','水印应用场景：版权保护、身份验证、内容追踪、隐私保护'],
+[5,'5.4','隐私计算导论：差分隐私、安全多方计算'],
+[5,'5.5','同态加密与联邦学习'],
+[5,'5.6','数据审计体系：数据库、应用、主机、网络审计'],
+[5,'5.7','审计日志管理与异常访问行为溯源分析'],
+[6,'6.1','数据容灾备份概念与核心指标：RPO / RTO'],
+[6,'6.2','灾备级别与灾备方案设计：双活、灾备、两地三中心'],
+[6,'6.3','数据销毁分类：物理销毁法与逻辑销毁法'],
+[6,'6.4','网络数据销毁技术：密钥销毁 / 时间过期自销毁'],
+[6,'6.5','全量备份与增量备份策略'],
+[7,'7.1','数据安全治理的概念、目标与体系框架'],
+[7,'7.2','数据安全治理流程与方法'],
+[7,'7.3','行业数据安全治理实践与典型产品选型']
+];
+
+let state={video:false,labfile:false,labvideo:false};
+function renderBlueprint(){
+  const tb=document.getElementById('blueprintTable');tb.innerHTML='';
+  lessons.forEach((l,i)=>{
+    const miss=l[1]==='4.7'&&!state.video;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${String(i+1).padStart(2,'0')}</td><td>第${l[0]}章</td><td><strong>${l[1]} ${l[2]}</strong></td><td>✓</td><td>${miss?'<span class="badge red">缺失</span>':'✓'}</td><td>4题</td><td>${miss?'<span class="badge orange">待补齐</span>':'<span class="badge green">通过</span>'}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function renderTheory(){
+  const grid=document.getElementById('theoryGrid');grid.innerHTML='';
+  const q=(document.getElementById('lessonSearch')?.value||'').trim().toLowerCase();
+  const ch=document.getElementById('chapterFilter')?.value||'all';
+  lessons.filter(l=>(ch==='all'||String(l[0])===ch)&&(!q||(l[1]+' '+l[2]).toLowerCase().includes(q))).forEach((l,i)=>{
+    const miss=l[1]==='4.7'&&!state.video;
+    const div=document.createElement('div');div.className='lesson-card';
+    div.innerHTML=`<div class="row between"><span class="badge blue">第 ${l[0]} 章</span><span class="badge ${miss?'red':'green'}">${miss?'缺 1 项':'完整'}</span></div>
+    <h4 style="margin-top:10px">${l[1]} ${l[2]}</h4>
+    <div class="meta">理论课时 · 建议视频约 40 分钟 · 4 道练习</div>
+    <div class="resource-icons"><span class="ri ok">PPT ✓</span><span class="ri ${miss?'miss':'ok'}">视频 ${miss?'缺':'✓'}</span><span class="ri ok">题库 4</span><span class="ri ok">讲稿 ✓</span></div>`;
+    grid.appendChild(div);
+  });
+}
+function refreshState(){
+  const missing=[!state.video,!state.labfile,!state.labvideo].filter(Boolean).length;
+  const complete=Math.round((192-missing)/192*100);
+  document.getElementById('completeKpi').textContent=complete+'%';
+  document.getElementById('videoKpi').textContent=(state.video?'36 / 36':'35 / 36');
+  document.getElementById('videoPageKpi').textContent=(state.video?'36/36':'35/36');
+  document.getElementById('videoBarText').textContent=(state.video?'36/36':'35/36');
+  document.getElementById('videoBar').style.width=(state.video?'100%':'97%');
+
+  document.getElementById('auditPass').textContent=192-missing;
+  document.getElementById('auditMiss').textContent=missing;
+  document.getElementById('deliverState').textContent=missing===0?'可交付':'未通过';
+  document.getElementById('auditBadge').textContent=missing===0?'全部通过':missing+' 项阻断';
+  document.getElementById('auditBadge').className='badge '+(missing===0?'green':'orange');
+  document.getElementById('auditVideoText').textContent=state.video?'36 / 36':'35 / 36';
+  document.getElementById('auditVideoBadge').textContent=state.video?'通过':'阻断';
+  document.getElementById('auditVideoBadge').className='badge '+(state.video?'green':'red');
+  document.getElementById('auditLabFileText').textContent=state.labfile?'12 / 12':'11 / 12';
+  document.getElementById('auditLabFileBadge').textContent=state.labfile?'通过':'阻断';
+  document.getElementById('auditLabFileBadge').className='badge '+(state.labfile?'green':'red');
+  document.getElementById('auditLabVideoText').textContent=state.labvideo?'12 / 12 终审':'11 / 12 终审';
+  document.getElementById('auditLabVideoBadge').textContent=state.labvideo?'通过':'阻断';
+  document.getElementById('auditLabVideoBadge').className='badge '+(state.labvideo?'green':'red');
+
+  document.getElementById('deliveryBadge').textContent=missing===0?'可冻结交付版本':`等待 ${missing} 项补齐`;
+  document.getElementById('deliveryBadge').className='badge '+(missing===0?'green':'orange');
+  const block=document.getElementById('deliveryBlock');
+  block.innerHTML=missing===0?'<div class="check">✓</div><div><b>所有资源门禁通过</b><div class="muted" style="font-size:12px">当前课程资源可以进入正式交付冻结。</div></div>':`<div class="warn">!</div><div><b>还有 ${missing} 个资源阻断项</b><div class="muted" style="font-size:12px">处理完完整性审计中的缺项后即可冻结。</div></div>`;
+
+  if(state.video){
+    const c=document.getElementById('missingVideoCard');
+    if(c)c.innerHTML='<div class="thumb" style="background:linear-gradient(135deg,#1d6f57,#49a784)">40:08 ▶</div><h4>4.7 数据库访问控制实例与越权访问防范</h4><div class="muted" style="font-size:12px">1080P · 已终审 · v1.0</div>';
+  }
+  if(state.labfile){
+    document.getElementById('lab11file').innerHTML='✓';
+    document.querySelector('#lab11 td:last-child').innerHTML='<span class="badge green">完整</span>';
+  }
+  if(state.labvideo){
+    document.getElementById('lab12video').innerHTML='✓';
+    document.querySelector('#lab12 td:last-child').innerHTML='<span class="badge green">完整</span>';
+  }
+  renderBlueprint();renderTheory();
+}
+function fixItem(btn,type){
+  state[type]=true;
+  btn.closest('.item').remove();
+  if(type==='video')completeTheoryVideo(false);
+  refreshState();
+  showToast(type==='video'?'理论视频已补齐并通过审核':type==='labfile'?'实验文件包已冻结版本':'实验视频已通过终审');
+}
+function completeTheoryVideo(show=true){
+  state.video=true;refreshState();
+  const item=document.querySelector('[data-missing="video"]');if(item)item.remove();
+  if(show)showToast('4.7 理论讲解视频已补齐并通过终审');
+}
+function runAudit(){refreshState();showToast('全量资源审计完成：'+document.getElementById('auditMiss').textContent+' 个阻断项')}
+function freezeDelivery(){
+  const missing=[!state.video,!state.labfile,!state.labvideo].filter(Boolean).length;
+  if(missing>0){showToast(`还有 ${missing} 个阻断项，不能冻结交付版本`);return}
+  showToast('课程资源交付版本 V1.0 已冻结');
+  document.getElementById('deliveryBadge').textContent='V1.0 已冻结';
+}
+function saveSnapshot(){localStorage.setItem('yueke_resource_v5',JSON.stringify({state,time:new Date().toISOString()}));showToast('资源库版本快照已保存')}
+function exportManifest(){
+  const data={
+    course:'数据安全技术基础',
+    theory_lessons:36,
+    lab_lessons:12,
+    theory_resources:{ppt:36,videos:state.video?36:35,questions:144},
+    lab_resources:{introductions:12,file_packs:state.labfile?12:11,videos_reviewed:state.labvideo?12:11,questions:48},
+    blocking_items:[...(!state.video?['理论 4.7 讲解视频']:[]),...(!state.labfile?['实验 11 文件包冻结']:[]),...(!state.labvideo?['实验 12 视频终审']:[])]
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Yueke_DataSecurity_Course_Delivery_Manifest_V5.json';a.click();URL.revokeObjectURL(a.href);showToast('交付清单已导出');
+}
+function openDrawer(type){
+  const d=document.getElementById('drawer'),title=document.getElementById('drawerTitle'),body=document.getElementById('drawerBody');
+  const forms={
+    blueprint:['编辑课程说明','<label class="muted" style="font-size:12px">课程名称</label><input class="input" value="数据安全技术基础"><br><br><label class="muted" style="font-size:12px">课程目标</label><textarea class="input" rows="7">围绕数据安全基础、分类分级、加密与完整性、脱敏与访问控制、溯源与隐私保护、灾备与安全销毁、数据安全治理开展理论与实验教学。</textarea>'],
+    lesson:['新增 / 补充理论课时','<label class="muted" style="font-size:12px">章节</label><select class="input"><option>第 4 章 数据脱敏与访问管控</option></select><br><br><label class="muted" style="font-size:12px">课时名称</label><input class="input" value="4.7 数据库访问控制实例与越权访问防范"><br><br><label class="muted" style="font-size:12px">知识点</label><textarea class="input" rows="5">数据库用户、角色、权限配置与越权访问防范。</textarea>'],
+    lab:['新建实验课时','<label class="muted" style="font-size:12px">对应核心实验</label><select class="input"><option>日志审计与溯源分析实验</option></select><br><br><label class="muted" style="font-size:12px">课时主题</label><input class="input" value="日志抓取、解析与异常访问识别"><br><br><label class="muted" style="font-size:12px">实验说明</label><textarea class="input" rows="5">说明实验目的、环境、原理、步骤和预期结果。</textarea>'],
+    ppt:['上传 PPT','<label class="muted" style="font-size:12px">关联课时</label><select class="input"><option>4.7 数据库访问控制实例与越权访问防范</option></select><br><br><label class="muted" style="font-size:12px">文件名</label><input class="input" value="04-07-数据库访问控制.pptx"><br><br><div class="badge green">上传后自动进入版式/动画/版权检查</div>'],
+    video:['上传视频','<label class="muted" style="font-size:12px">关联课时</label><select class="input"><option>4.7 数据库访问控制实例与越权访问防范</option></select><br><br><label class="muted" style="font-size:12px">视频文件</label><input class="input" value="04-07-数据库访问控制.mp4"><br><br><label class="muted" style="font-size:12px">预计时长</label><input class="input" value="40:00"><br><br><div class="badge blue">上传后自动转码，并进入内容终审</div>'],
+    question:['新建题目','<label class="muted" style="font-size:12px">题型</label><select class="input"><option>单选题</option><option>多选题</option><option>判断题</option><option>填空题</option></select><br><br><label class="muted" style="font-size:12px">题干</label><textarea class="input" rows="5">请输入题目内容</textarea><br><br><label class="muted" style="font-size:12px">答案与解析</label><textarea class="input" rows="5">请输入答案与解析</textarea>']
+  };
+  title.textContent=forms[type][0];body.innerHTML=forms[type][1];d.classList.add('open');
+}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open')}
+function saveDrawer(){closeDrawer();showToast('已保存并进入资源审核流程')}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window.__t);window.__t=setTimeout(()=>t.style.display='none',2200)}
+renderBlueprint();renderTheory();refreshState();
+</script>
+</body>
+</html>

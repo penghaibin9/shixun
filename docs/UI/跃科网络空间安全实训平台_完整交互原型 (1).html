@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>跃科网络空间安全实训平台 - 完整交互原型</title>
+<style>
+:root{
+  --bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#6b7280;--line:#e7eaf0;
+  --primary:#2457f5;--primary2:#1744d1;--soft:#eef3ff;--success:#16a36a;
+  --warning:#e89b17;--danger:#dc4c64;--dark:#0f172a;--shadow:0 8px 30px rgba(25,42,89,.08);
+  --radius:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,"PingFang SC","Microsoft YaHei",Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+.app{display:grid;grid-template-columns:238px 1fr;min-height:100vh}
+.sidebar{background:#0f1f3d;color:#dbe5ff;padding:18px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:10px 10px 20px;font-weight:800;font-size:18px}
+.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#4d7cff,#7aa2ff);display:grid;place-items:center;color:#fff;box-shadow:0 8px 18px rgba(77,124,255,.35)}
+.role-box{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08);padding:8px;border-radius:12px;margin:0 6px 16px}
+.role-box label{font-size:12px;color:#9fb0d4;padding:4px 6px;display:block}
+.role-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.role-btn{border:0;border-radius:9px;padding:8px;color:#cfd8ee;background:transparent}
+.role-btn.active{background:#315bd8;color:#fff}
+.nav-title{font-size:11px;color:#7182a8;text-transform:uppercase;padding:12px 12px 6px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;margin:3px 0;color:#d8e1f5;font-size:14px}
+.nav-item:hover,.nav-item.active{background:#1d3564;color:#fff}
+.nav-item span.ico{width:22px;text-align:center;opacity:.95}
+.main{min-width:0}
+.topbar{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:20}
+.top-left{display:flex;align-items:center;gap:12px}
+.crumb{font-size:14px;color:var(--muted)}
+.top-actions{display:flex;align-items:center;gap:10px}
+.pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-size:13px}
+.avatar{width:34px;height:34px;border-radius:50%;background:#dfe7ff;color:#1d46c7;display:grid;place-items:center;font-weight:700}
+.content{padding:24px 28px 40px;max-width:1560px;margin:auto}
+.page-title{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
+.page-title h1{margin:0;font-size:26px;letter-spacing:-.4px}
+.page-title p{margin:7px 0 0;color:var(--muted);font-size:14px}
+.btn{border:0;border-radius:10px;padding:10px 14px;background:#fff;border:1px solid var(--line);color:var(--text);font-weight:600}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary2)}
+.btn.success{background:var(--success);border-color:var(--success);color:#fff}
+.btn.danger{background:#fff0f2;border-color:#ffd0d6;color:#c5354b}
+.btn.sm{padding:7px 10px;font-size:12px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card.pad{padding:18px}
+.kpi{padding:18px}
+.kpi .label{font-size:13px;color:var(--muted)}
+.kpi .value{font-size:28px;font-weight:800;margin-top:7px}
+.kpi .sub{font-size:12px;color:var(--muted);margin-top:6px}
+.kpi .trend{color:var(--success);font-weight:700}
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:17px 18px;border-bottom:1px solid var(--line)}
+.section-head h3{margin:0;font-size:16px}
+.section-head .hint{font-size:12px;color:var(--muted)}
+.todo{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px dashed var(--line)}
+.todo:last-child{border-bottom:0}
+.num{width:28px;height:28px;border-radius:9px;background:var(--soft);color:var(--primary);display:grid;place-items:center;font-weight:800;font-size:13px;flex:0 0 auto}
+.todo strong{display:block;margin-bottom:4px}
+.todo small{color:var(--muted)}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:12px;background:#f0f3f8;color:#546071}
+.tag.green{background:#eaf9f2;color:#087d4e}
+.tag.blue{background:#edf2ff;color:#2c55c7}
+.tag.orange{background:#fff6e8;color:#a86600}
+.tag.red{background:#fff0f2;color:#b33146}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap}
+th{font-size:12px;color:#667085;background:#fafbfc;font-weight:700}
+td strong{font-size:13px}
+.progress{height:8px;background:#edf0f5;border-radius:999px;overflow:hidden}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,#2d5dfa,#6d8ef8);border-radius:999px}
+.course-card{padding:18px;position:relative}
+.course-card .cover{height:118px;border-radius:13px;background:linear-gradient(135deg,#173f9f,#4977ec);padding:18px;color:white;margin-bottom:14px;position:relative;overflow:hidden}
+.course-card .cover:after{content:"";position:absolute;width:140px;height:140px;border-radius:50%;right:-45px;top:-60px;background:rgba(255,255,255,.12)}
+.course-card h3{margin:0 0 8px}
+.muted{color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center}
+.between{justify-content:space-between}
+.input{width:100%;border:1px solid #dfe3eb;border-radius:10px;padding:10px 12px;background:#fff;outline:none}
+.input:focus{border-color:#7192ff;box-shadow:0 0 0 3px rgba(60,100,255,.10)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.tabs{display:flex;gap:4px;background:#f0f2f6;padding:4px;border-radius:12px;width:max-content}
+.tab{padding:8px 12px;border-radius:9px;font-size:13px;border:0;background:transparent;color:#667085}
+.tab.active{background:white;color:#1b2440;box-shadow:0 2px 8px rgba(20,30,60,.08)}
+.lab-layout{display:grid;grid-template-columns:300px 1fr 330px;gap:16px}
+.panel-title{font-size:14px;font-weight:800;margin-bottom:12px}
+.form-group{margin-bottom:13px}
+.form-group label{font-size:12px;color:#667085;display:block;margin-bottom:6px}
+.node-palette{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.palette{border:1px dashed #cfd6e5;border-radius:10px;padding:10px;background:#fafbff;font-size:12px;text-align:center}
+.dag-canvas{min-height:560px;background:
+radial-gradient(circle at 1px 1px,#d8deea 1px,transparent 1.2px) 0 0/18px 18px,
+#fbfcff;border-radius:14px;border:1px solid var(--line);position:relative;overflow:auto;padding:28px}
+.dag-line{height:32px;width:2px;background:#b6c2da;margin:0 auto}
+.dag-node{width:260px;margin:auto;border:1px solid #dfe5ef;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 14px rgba(20,35,80,.08)}
+.dag-node .node-top{display:flex;justify-content:space-between;gap:10px}
+.dag-node strong{font-size:13px}
+.dag-node small{display:block;color:var(--muted);margin-top:5px}
+.score{font-weight:800;color:var(--primary)}
+.topology{border:1px solid var(--line);border-radius:12px;background:#f8faff;padding:14px}
+.topo-box{display:flex;justify-content:center;align-items:center;gap:24px;padding:18px 0}
+.machine{background:white;border:1px solid #cfd7e6;border-radius:12px;padding:12px 16px;min-width:110px;text-align:center;font-size:12px;box-shadow:0 4px 12px rgba(20,40,80,.06)}
+.machine b{display:block;margin-bottom:5px}
+.arrow{height:2px;background:#8ea6d8;width:50px;position:relative}
+.arrow:after{content:"";position:absolute;right:-1px;top:-4px;border-left:8px solid #8ea6d8;border-top:5px solid transparent;border-bottom:5px solid transparent}
+.instance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.instance{padding:16px}
+.instance .status-dot{width:9px;height:9px;border-radius:50%;background:var(--success);display:inline-block;margin-right:6px}
+.instance .status-dot.orange{background:var(--warning)}
+.metric-line{display:grid;grid-template-columns:70px 1fr 42px;gap:8px;align-items:center;font-size:12px;margin:10px 0}
+.terminal{background:#0b1220;color:#cbe2ff;border-radius:14px;min-height:360px;padding:16px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;line-height:1.65;overflow:auto}
+.term-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;color:#8fa9c9}
+.term-dots{display:flex;gap:6px}.term-dots i{width:9px;height:9px;border-radius:50%;background:#42607b}
+.student-lab{display:grid;grid-template-columns:340px 1fr;gap:16px}
+.step{padding:13px;border:1px solid var(--line);border-radius:12px;margin-bottom:9px;background:white}
+.step.done{border-color:#bfead8;background:#f5fffa}
+.step .step-head{display:flex;justify-content:space-between;gap:10px}
+.step p{font-size:12px;color:var(--muted);margin:6px 0 0}
+.callout{background:#eef4ff;border:1px solid #dce7ff;border-radius:12px;padding:14px;font-size:13px}
+.log-viewer{background:#0e1728;color:#cfdbef;padding:14px;border-radius:12px;font-family:ui-monospace,Consolas,monospace;font-size:12px;height:380px;overflow:auto}
+.chart-row{display:grid;grid-template-columns:140px 1fr 44px;gap:10px;align-items:center;margin:13px 0;font-size:13px}
+.chart-bar{height:10px;background:#edf0f4;border-radius:999px;overflow:hidden}
+.chart-bar i{display:block;height:100%;background:linear-gradient(90deg,#2b59e8,#7698ff)}
+.stat-box{padding:16px;border-radius:12px;background:#f8faff;border:1px solid #edf0f6}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.modal-mask{position:fixed;inset:0;background:rgba(10,18,36,.45);display:none;place-items:center;z-index:100}
+.modal{width:min(620px,92vw);background:white;border-radius:18px;box-shadow:0 30px 80px rgba(20,30,60,.25)}
+.modal .mh{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.modal .mb{padding:20px}.modal .mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.toast{position:fixed;right:24px;bottom:24px;background:#16223a;color:white;padding:12px 16px;border-radius:12px;box-shadow:0 15px 40px rgba(0,0,0,.2);display:none;z-index:200;font-size:13px}
+.hero{background:linear-gradient(135deg,#132f78,#3668ea);color:white;padding:22px;border-radius:18px;box-shadow:0 12px 34px rgba(32,76,181,.22)}
+.hero h2{margin:0 0 6px}.hero p{margin:0;color:#d9e4ff}
+.resource-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.resource-strip .rs{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);padding:12px;border-radius:12px}
+.resource-strip b{display:block;font-size:19px}
+.resource-strip span{font-size:12px;color:#dbe6ff}
+.attend-code{font-size:38px;letter-spacing:7px;font-weight:900;text-align:center;color:#234ec8;padding:18px}
+@media(max-width:1100px){
+ .app{grid-template-columns:84px 1fr}.brand span,.nav-item span.label,.nav-title,.role-box label{display:none}
+ .role-btns{grid-template-columns:1fr}.sidebar{padding:14px 8px}.brand{justify-content:center}.nav-item{justify-content:center}
+ .lab-layout{grid-template-columns:1fr}.student-lab{grid-template-columns:1fr}.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:720px){
+ .content{padding:18px 14px}.topbar{padding:0 14px}.g2,.g3,.g4,.instance-grid{grid-template-columns:1fr}
+ .page-title{align-items:flex-start;gap:12px;flex-direction:column}.resource-strip{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">跃</div><span>网络空间安全实训平台</span></div>
+    <div class="role-box">
+      <label>快速切换视角</label>
+      <div class="role-btns">
+        <button class="role-btn active" id="teacherRole" onclick="switchRole('teacher')">教师</button>
+        <button class="role-btn" id="studentRole" onclick="switchRole('student')">学生</button>
+      </div>
+    </div>
+    <div id="teacherNav">
+      <div class="nav-title">教学工作</div>
+      <div class="nav-item active" data-page="dashboard"><span class="ico">⌂</span><span class="label">教学工作台</span></div>
+      <div class="nav-item" data-page="courses"><span class="ico">▤</span><span class="label">课程中心</span></div>
+      <div class="nav-item" data-page="attendance"><span class="ico">✓</span><span class="label">签到管理</span></div>
+      <div class="nav-title">实验教学</div>
+      <div class="nav-item" data-page="labs"><span class="ico">◈</span><span class="label">实验中心</span></div>
+      <div class="nav-item" data-page="builder"><span class="ico">⌘</span><span class="label">实验编排器</span></div>
+      <div class="nav-item" data-page="instances"><span class="ico">▣</span><span class="label">实例管理</span></div>
+      <div class="nav-item" data-page="logs"><span class="ico">≋</span><span class="label">日志中心</span></div>
+      <div class="nav-title">教学分析</div>
+      <div class="nav-item" data-page="analytics"><span class="ico">▥</span><span class="label">学情分析</span></div>
+      <div class="nav-item" data-page="resources"><span class="ico">◫</span><span class="label">课程资源</span></div>
+    </div>
+    <div id="studentNav" class="hidden">
+      <div class="nav-title">我的学习</div>
+      <div class="nav-item active" data-page="student-home"><span class="ico">⌂</span><span class="label">学习首页</span></div>
+      <div class="nav-item" data-page="student-course"><span class="ico">▤</span><span class="label">我的课程</span></div>
+      <div class="nav-item" data-page="student-lab"><span class="ico">◈</span><span class="label">我的实验</span></div>
+      <div class="nav-item" data-page="student-log"><span class="ico">≋</span><span class="label">日志任务</span></div>
+      <div class="nav-item" data-page="student-score"><span class="ico">★</span><span class="label">我的成绩</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="top-left">
+        <strong id="topTitle">教学工作台</strong>
+        <span class="crumb">/ 2026 秋季 · 数据安全技术基础</span>
+      </div>
+      <div class="top-actions">
+        <span class="pill">运行正常 · 12 个实验实例</span>
+        <div class="avatar">王</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- DASHBOARD -->
+      <section class="page" id="page-dashboard">
+        <div class="page-title">
+          <div><h1>下午好，王老师</h1><p>今天 14:00 有《数据安全技术基础》，还有 7 名学生的 RSA 实验未完成。</p></div>
+          <button class="btn primary" onclick="go('labs')">进入实验中心</button>
+        </div>
+        <div class="hero">
+          <h2>今天的教学主线</h2>
+          <p>网络安全 2301 班 · 第 12 课时《RSA 数字签名》</p>
+          <div class="resource-strip">
+            <div class="rs"><b>43</b><span>班级学生</span></div>
+            <div class="rs"><b>38</b><span>已签到</span></div>
+            <div class="rs"><b>36</b><span>实验已完成</span></div>
+            <div class="rs"><b>86.7</b><span>实验平均分</span></div>
+          </div>
+        </div>
+        <div class="grid g4" style="margin-top:16px">
+          <div class="card kpi"><div class="label">平均到课率</div><div class="value">95.3%</div><div class="sub"><span class="trend">↑ 2.1%</span> 较上周</div></div>
+          <div class="card kpi"><div class="label">作业平均分</div><div class="value">84.6</div><div class="sub">本周 2 次作业</div></div>
+          <div class="card kpi"><div class="label">实验平均分</div><div class="value">86.7</div><div class="sub">8 个实验已发布</div></div>
+          <div class="card kpi"><div class="label">异常学生</div><div class="value">5</div><div class="sub">需重点关注</div></div>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card">
+            <div class="section-head"><h3>今天要做</h3><span class="hint">按顺序完成即可</span></div>
+            <div style="padding:6px 18px 16px">
+              <div class="todo"><div class="num">1</div><div><strong>14:00 发布课堂签到</strong><small>网络安全 2301 班 · 有效期 10 分钟</small></div></div>
+              <div class="todo"><div class="num">2</div><div><strong>讲授 RSA 数字签名</strong><small>PPT、讲解视频、练习题均已就绪</small></div></div>
+              <div class="todo"><div class="num">3</div><div><strong>发布 RSA 非对称加密实验</strong><small>实验镜像已检查，可直接启动</small></div></div>
+              <div class="todo"><div class="num">4</div><div><strong>查看实验完成与异常</strong><small>7 人未完成，2 个实例曾异常退出</small></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head"><h3>需要关注</h3><span class="hint">系统自动聚合</span></div>
+            <div style="padding:6px 18px 16px">
+              <div class="todo"><span class="tag red">实验</span><div><strong>张三连续 3 次实验未完成</strong><small>建议查看实例日志或联系学生</small></div></div>
+              <div class="todo"><span class="tag orange">实例</span><div><strong>2 个实验实例异常退出</strong><small>均已自动回收资源，可查看日志</small></div></div>
+              <div class="todo"><span class="tag blue">资源</span><div><strong>第 13 课时视频尚未上传</strong><small>其他讲义与练习题已完成</small></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COURSES -->
+      <section class="page hidden" id="page-courses">
+        <div class="page-title">
+          <div><h1>课程中心</h1><p>课程、章节、课时、教学资源和关联实验在一个地方维护。</p></div>
+          <button class="btn primary" onclick="openModal('新建课程')">＋ 新建课程</button>
+        </div>
+        <div class="grid g3">
+          <div class="card course-card">
+            <div class="cover"><small>2026 秋季</small><h2>数据安全技术基础</h2><span>网络安全专业</span></div>
+            <div class="row between"><h3>7 章 · 36 课时</h3><span class="tag green">已发布</span></div>
+            <div class="muted" style="font-size:13px">关联 12 个实验 · 3 个班级 · 126 名学生</div>
+            <div class="progress" style="margin:14px 0 8px"><i style="width:72%"></i></div>
+            <div class="row between"><small class="muted">本学期进度 72%</small><button class="btn sm" onclick="showToast('已进入课程详情')">管理课程</button></div>
+          </div>
+          <div class="card course-card">
+            <div class="cover" style="background:linear-gradient(135deg,#0d6e62,#28a88d)"><small>2026 秋季</small><h2>网络安全基础</h2><span>计算机类专业</span></div>
+            <div class="row between"><h3>6 章 · 28 课时</h3><span class="tag blue">编辑中</span></div>
+            <div class="muted" style="font-size:13px">关联 8 个实验 · 2 个班级 · 82 名学生</div>
+            <div class="progress" style="margin:14px 0 8px"><i style="width:48%"></i></div>
+            <div class="row between"><small class="muted">资源完成 48%</small><button class="btn sm">管理课程</button></div>
+          </div>
+          <div class="card course-card">
+            <div class="cover" style="background:linear-gradient(135deg,#7334b2,#a96fea)"><small>课程模板</small><h2>密码学基础</h2><span>公共资源库</span></div>
+            <div class="row between"><h3>5 章 · 20 课时</h3><span class="tag">未发布</span></div>
+            <div class="muted" style="font-size:13px">关联 6 个实验 · 尚未分配班级</div>
+            <div class="progress" style="margin:14px 0 8px"><i style="width:90%"></i></div>
+            <div class="row between"><small class="muted">资源完成 90%</small><button class="btn sm">继续编辑</button></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="section-head"><h3>《数据安全技术基础》章节结构</h3><span class="hint">点击课时后管理 PPT / 视频 / 练习 / 实验</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>章节</th><th>课时</th><th>讲义</th><th>视频</th><th>练习</th><th>关联实验</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td><strong>1 数据安全基础</strong></td><td>5</td><td>5/5</td><td>5/5</td><td>20 题</td><td>1</td><td><span class="tag green">完整</span></td><td><button class="btn sm">进入</button></td></tr>
+                <tr><td><strong>2 数据资产分类分级</strong></td><td>4</td><td>4/4</td><td>4/4</td><td>16 题</td><td>1</td><td><span class="tag green">完整</span></td><td><button class="btn sm">进入</button></td></tr>
+                <tr><td><strong>3 数据加密与完整性保护</strong></td><td>7</td><td>7/7</td><td>7/7</td><td>28 题</td><td>4</td><td><span class="tag green">完整</span></td><td><button class="btn sm">进入</button></td></tr>
+                <tr><td><strong>4 数据脱敏与访问管控</strong></td><td>7</td><td>7/7</td><td>6/7</td><td>28 题</td><td>2</td><td><span class="tag orange">缺 1 视频</span></td><td><button class="btn sm">补齐</button></td></tr>
+                <tr><td><strong>5 数据溯源与隐私保护</strong></td><td>6</td><td>6/6</td><td>6/6</td><td>24 题</td><td>2</td><td><span class="tag green">完整</span></td><td><button class="btn sm">进入</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ATTENDANCE -->
+      <section class="page hidden" id="page-attendance">
+        <div class="page-title">
+          <div><h1>签到管理</h1><p>支持课堂、作业与考试场景；可设置有效时间并查看实时结果。</p></div>
+          <button class="btn primary" onclick="openModal('发布签到')">＋ 发布签到</button>
+        </div>
+        <div class="grid g2">
+          <div class="card pad">
+            <div class="row between"><div><span class="tag green">进行中</span><h2 style="margin:10px 0 4px">RSA 数字签名课堂签到</h2><div class="muted">网络安全 2301 班 · 14:00—14:10</div></div><div class="attend-code">861 204</div></div>
+            <div class="grid g4" style="margin-top:18px">
+              <div class="stat-box"><strong>43</strong><div class="muted">应到</div></div>
+              <div class="stat-box"><strong>38</strong><div class="muted">已到</div></div>
+              <div class="stat-box"><strong>2</strong><div class="muted">迟到</div></div>
+              <div class="stat-box"><strong>3</strong><div class="muted">未到</div></div>
+            </div>
+            <div class="row" style="margin-top:16px"><button class="btn primary" onclick="showToast('签到链接已复制')">复制签到链接</button><button class="btn">查看名单</button><button class="btn danger" onclick="showToast('签到已结束')">结束签到</button></div>
+          </div>
+          <div class="card">
+            <div class="section-head"><h3>最近签到</h3></div>
+            <table>
+              <tbody>
+                <tr><td><strong>AES 加密实验</strong><div class="muted">实验签到</div></td><td>42/43</td><td><span class="tag green">97.7%</span></td></tr>
+                <tr><td><strong>数据分类分级测验</strong><div class="muted">考试签到</div></td><td>43/43</td><td><span class="tag green">100%</span></td></tr>
+                <tr><td><strong>哈希完整性课堂</strong><div class="muted">课堂签到</div></td><td>40/43</td><td><span class="tag orange">93.0%</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- LAB CENTER -->
+      <section class="page hidden" id="page-labs">
+        <div class="page-title">
+          <div><h1>实验中心</h1><p>从实验模板、实验场景、自动判分到学生发布，统一管理。</p></div>
+          <button class="btn primary" onclick="go('builder')">＋ 新建实验</button>
+        </div>
+        <div class="toolbar">
+          <div class="tabs"><button class="tab active">全部实验</button><button class="tab">已发布</button><button class="tab">草稿</button></div>
+          <div class="row"><input class="input" style="width:240px" placeholder="搜索实验名称"><button class="btn">筛选</button></div>
+        </div>
+        <div class="grid g3">
+          <div class="card pad">
+            <div class="row between"><span class="tag green">已发布</span><span class="muted">EXP-003</span></div>
+            <h3>RSA 非对称加密算法实验</h3><p class="muted">密钥生成、加解密、数字签名与验签</p>
+            <div class="topology"><div class="topo-box"><div class="machine"><b>Student</b>Ubuntu 22.04</div><div class="arrow"></div><div class="machine"><b>Target</b>Ubuntu 22.04</div></div></div>
+            <div class="row between" style="margin-top:14px"><div><strong>100 分</strong><div class="muted">6 个步骤 · 4 个得分点</div></div><button class="btn sm primary" onclick="go('builder')">编辑实验</button></div>
+          </div>
+          <div class="card pad">
+            <div class="row between"><span class="tag green">已发布</span><span class="muted">EXP-002</span></div>
+            <h3>AES / DES 对称加密实验</h3><p class="muted">加密模式对比、文件加密与解密</p>
+            <div class="topology"><div class="topo-box"><div class="machine"><b>Student</b>Python 3.12</div><div class="arrow"></div><div class="machine"><b>Files</b>实验数据集</div></div></div>
+            <div class="row between" style="margin-top:14px"><div><strong>100 分</strong><div class="muted">5 个步骤 · 4 个得分点</div></div><button class="btn sm">编辑实验</button></div>
+          </div>
+          <div class="card pad">
+            <div class="row between"><span class="tag orange">草稿</span><span class="muted">EXP-008</span></div>
+            <h3>日志审计与溯源分析</h3><p class="muted">日志抓取、解析、异常访问识别与溯源</p>
+            <div class="topology"><div class="topo-box"><div class="machine"><b>Web</b>Nginx</div><div class="arrow"></div><div class="machine"><b>Audit</b>日志节点</div></div></div>
+            <div class="row between" style="margin-top:14px"><div><strong>80 分</strong><div class="muted">4 个步骤 · 3 个得分点</div></div><button class="btn sm">继续设计</button></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="section-head"><h3>采购要求实验覆盖情况</h3><span class="hint">8 类核心实验</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>实验</th><th>场景</th><th>DAG</th><th>自动判分</th><th>资源</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td>AES/DES 对称加密</td><td>✓</td><td>✓</td><td>✓</td><td>完整</td><td><span class="tag green">可发布</span></td></tr>
+                <tr><td>RSA 非对称加密</td><td>✓</td><td>✓</td><td>✓</td><td>完整</td><td><span class="tag green">可发布</span></td></tr>
+                <tr><td>MD5/SHA 完整性校验</td><td>✓</td><td>✓</td><td>✓</td><td>完整</td><td><span class="tag green">可发布</span></td></tr>
+                <tr><td>Base64 / LSB 隐写</td><td>✓</td><td>✓</td><td>✓</td><td>待复核</td><td><span class="tag blue">建设中</span></td></tr>
+                <tr><td>数据库权限分级</td><td>✓</td><td>✓</td><td>✓</td><td>完整</td><td><span class="tag green">可发布</span></td></tr>
+                <tr><td>数据脱敏</td><td>✓</td><td>✓</td><td>✓</td><td>完整</td><td><span class="tag green">可发布</span></td></tr>
+                <tr><td>备份与灾难恢复</td><td>✓</td><td>✓</td><td>部分</td><td>待补充</td><td><span class="tag orange">需完善</span></td></tr>
+                <tr><td>日志审计与溯源</td><td>✓</td><td>草稿</td><td>部分</td><td>完整</td><td><span class="tag orange">草稿</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- BUILDER -->
+      <section class="page hidden" id="page-builder">
+        <div class="page-title">
+          <div><h1>实验编排器</h1><p>RSA 非对称加密算法实验 · 拖拽式步骤 + 判定规则 + 自动评分</p></div>
+          <div class="row"><button class="btn" onclick="showToast('已保存草稿')">保存草稿</button><button class="btn primary" onclick="showToast('实验已发布到网络安全2301班')">发布实验</button></div>
+        </div>
+        <div class="lab-layout">
+          <div class="card pad">
+            <div class="panel-title">实验基本信息</div>
+            <div class="form-group"><label>实验名称</label><input class="input" value="RSA 非对称加密算法实验"></div>
+            <div class="form-group"><label>实验分类</label><select class="input"><option>密码学</option><option>数据安全</option></select></div>
+            <div class="form-group"><label>实验时长</label><input class="input" value="45 分钟"></div>
+            <div class="form-group"><label>总分</label><input class="input" value="100"></div>
+            <div class="panel-title" style="margin-top:20px">场景拓扑</div>
+            <div class="topology">
+              <div class="topo-box" style="flex-direction:column;gap:10px">
+                <div class="machine"><b>student-rsa</b>Ubuntu 22.04</div>
+                <div style="height:28px;width:2px;background:#95a9cf"></div>
+                <div class="machine"><b>target-rsa</b>Ubuntu 22.04</div>
+              </div>
+            </div>
+            <button class="btn" style="width:100%;margin-top:10px">编辑场景网络</button>
+            <div class="panel-title" style="margin-top:20px">添加节点</div>
+            <div class="node-palette">
+              <button class="palette" onclick="addNode('实验步骤')">＋ 实验步骤</button>
+              <button class="palette" onclick="addNode('命令检查')">＋ 命令检查</button>
+              <button class="palette" onclick="addNode('文件检查')">＋ 文件检查</button>
+              <button class="palette" onclick="addNode('结果判断')">＋ 结果判断</button>
+            </div>
+          </div>
+          <div class="card pad">
+            <div class="row between" style="margin-bottom:12px"><div class="panel-title" style="margin:0">实验 DAG</div><span class="tag blue">总分 100</span></div>
+            <div class="dag-canvas" id="dagCanvas">
+              <div class="dag-node"><div class="node-top"><strong>① 启动实验环境</strong><span class="tag">0 分</span></div><small>自动创建 Student / Target 两个实例</small></div>
+              <div class="dag-line"></div>
+              <div class="dag-node"><div class="node-top"><strong>② 生成 RSA 密钥对</strong><span class="tag blue">20 分</span></div><small>检查 private.pem 与 public.pem 是否存在</small></div>
+              <div class="dag-line"></div>
+              <div class="dag-node"><div class="node-top"><strong>③ 使用公钥加密</strong><span class="tag blue">20 分</span></div><small>检查 cipher.bin 与算法参数</small></div>
+              <div class="dag-line"></div>
+              <div class="dag-node"><div class="node-top"><strong>④ 使用私钥解密</strong><span class="tag blue">30 分</span></div><small>校验解密文本与原文 SHA256</small></div>
+              <div class="dag-line"></div>
+              <div class="dag-node"><div class="node-top"><strong>⑤ 数字签名与验签</strong><span class="tag blue">20 分</span></div><small>验证 signature.bin 与公钥验签结果</small></div>
+              <div class="dag-line"></div>
+              <div class="dag-node"><div class="node-top"><strong>⑥ 提交实验报告</strong><span class="tag blue">10 分</span></div><small>检查报告文件与必要截图</small></div>
+            </div>
+          </div>
+          <div class="card pad">
+            <div class="panel-title">节点配置</div>
+            <div class="callout">当前节点：④ 使用私钥解密</div>
+            <div class="form-group" style="margin-top:14px"><label>步骤说明</label><textarea class="input" rows="3">使用私钥对 cipher.bin 解密，并保存为 plain.out。</textarea></div>
+            <div class="form-group"><label>执行环境</label><select class="input"><option>student-rsa</option><option>target-rsa</option></select></div>
+            <div class="form-group"><label>判定类型</label><select class="input"><option>命令输出 + 文件哈希</option><option>文件存在</option><option>端口状态</option></select></div>
+            <div class="form-group"><label>判定命令</label><textarea class="input" rows="3">sha256sum plain.out | cut -d' ' -f1</textarea></div>
+            <div class="form-group"><label>期望结果</label><input class="input" value="与 source.txt SHA256 一致"></div>
+            <div class="form-group"><label>得分</label><input class="input" value="30"></div>
+            <div class="form-group"><label>错误提示</label><textarea class="input" rows="3">请检查是否使用了正确私钥，以及 openssl pkeyutl 参数。</textarea></div>
+            <button class="btn primary" style="width:100%" onclick="showToast('节点配置已保存')">保存节点</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- INSTANCES -->
+      <section class="page hidden" id="page-instances">
+        <div class="page-title">
+          <div><h1>实例管理</h1><p>实时查看学生实验实例、资源占用、运行时长和异常情况。</p></div>
+          <div class="row"><button class="btn">批量回收</button><button class="btn primary">资源监控</button></div>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">运行中实例</div><div class="value">12</div><div class="sub">CPU 平均 31%</div></div>
+          <div class="card kpi"><div class="label">等待启动</div><div class="value">3</div><div class="sub">平均等待 4 秒</div></div>
+          <div class="card kpi"><div class="label">今日已销毁</div><div class="value">67</div><div class="sub">均正常回收</div></div>
+          <div class="card kpi"><div class="label">异常实例</div><div class="value">2</div><div class="sub">已自动隔离</div></div>
+        </div>
+        <div class="instance-grid" style="margin-top:16px">
+          <div class="card instance">
+            <div class="row between"><strong><span class="status-dot"></span>张三 / RSA</strong><span class="tag green">运行中</span></div>
+            <p class="muted">student-rsa-2301001 · 18 分钟</p>
+            <div class="metric-line"><span>CPU</span><div class="progress"><i style="width:43%"></i></div><b>43%</b></div>
+            <div class="metric-line"><span>内存</span><div class="progress"><i style="width:58%"></i></div><b>58%</b></div>
+            <div class="row" style="margin-top:12px"><button class="btn sm">进入终端</button><button class="btn sm">日志</button><button class="btn sm danger" onclick="destroy(this)">销毁</button></div>
+          </div>
+          <div class="card instance">
+            <div class="row between"><strong><span class="status-dot"></span>李四 / RSA</strong><span class="tag green">运行中</span></div>
+            <p class="muted">student-rsa-2301002 · 11 分钟</p>
+            <div class="metric-line"><span>CPU</span><div class="progress"><i style="width:21%"></i></div><b>21%</b></div>
+            <div class="metric-line"><span>内存</span><div class="progress"><i style="width:36%"></i></div><b>36%</b></div>
+            <div class="row" style="margin-top:12px"><button class="btn sm">进入终端</button><button class="btn sm">日志</button><button class="btn sm danger" onclick="destroy(this)">销毁</button></div>
+          </div>
+          <div class="card instance">
+            <div class="row between"><strong><span class="status-dot orange"></span>王五 / AES</strong><span class="tag orange">异常</span></div>
+            <p class="muted">student-aes-2301009 · 已运行 26 分钟</p>
+            <div class="metric-line"><span>CPU</span><div class="progress"><i style="width:91%"></i></div><b>91%</b></div>
+            <div class="metric-line"><span>内存</span><div class="progress"><i style="width:87%"></i></div><b>87%</b></div>
+            <div class="row" style="margin-top:12px"><button class="btn sm">诊断</button><button class="btn sm">日志</button><button class="btn sm danger" onclick="destroy(this)">销毁</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOGS -->
+      <section class="page hidden" id="page-logs">
+        <div class="page-title">
+          <div><h1>日志中心</h1><p>审计日志、流量日志与教学分发统一管理。</p></div>
+          <button class="btn primary" onclick="showToast('已将所选日志分发给 43 名学生')">分发给学生</button>
+        </div>
+        <div class="grid g2">
+          <div class="card">
+            <div class="section-head"><h3>RSA 实验审计日志</h3><span class="tag blue">1,824 条</span></div>
+            <div class="log-viewer">
+[14:02:11] user=2301001 instance=rsa-a01 ACTION=LOGIN source=web-terminal<br>
+[14:03:02] user=2301001 cmd="openssl genpkey -algorithm RSA ..." exit=0<br>
+[14:03:04] file_created=/home/lab/private.pem sha256=49bf...ca21<br>
+[14:03:08] file_created=/home/lab/public.pem sha256=7d24...91ab<br>
+[14:05:41] checkpoint=CP_RSA_KEYPAIR result=PASS score=20<br>
+[14:08:14] cmd="openssl pkeyutl -encrypt ..." exit=0<br>
+[14:08:17] checkpoint=CP_RSA_ENCRYPT result=PASS score=20<br>
+[14:12:29] cmd="openssl pkeyutl -decrypt ..." exit=0<br>
+[14:12:31] checkpoint=CP_RSA_DECRYPT result=PASS score=30<br>
+[14:17:03] cmd="openssl dgst -sha256 -sign ..." exit=0<br>
+[14:18:02] checkpoint=CP_RSA_SIGN result=PASS score=20<br>
+[14:18:09] submit score=90 status=COMPLETED
+            </div>
+          </div>
+          <div class="card pad">
+            <div class="panel-title">日志教学任务</div>
+            <div class="callout">老师可以选定学生产生的流量日志或审计日志，作为分析任务分发给指定学生。</div>
+            <div class="form-group" style="margin-top:14px"><label>任务名称</label><input class="input" value="RSA 实验异常访问行为分析"></div>
+            <div class="form-group"><label>日志类型</label><select class="input"><option>流量日志（PCAP）</option><option>审计日志</option></select></div>
+            <div class="form-group"><label>分发对象</label><select class="input"><option>网络安全 2301 班（43人）</option></select></div>
+            <div class="form-group"><label>分析要求</label><textarea class="input" rows="5">找出异常访问来源、发生时间、关键行为，并给出判断依据。</textarea></div>
+            <div class="row"><button class="btn">下载选定日志</button><button class="btn primary" onclick="showToast('日志任务已发布')">发布任务</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ANALYTICS -->
+      <section class="page hidden" id="page-analytics">
+        <div class="page-title">
+          <div><h1>学情分析</h1><p>课程、班级、学生、实验四个维度统一分析。</p></div>
+          <button class="btn">导出 Excel</button>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">平均到课率</div><div class="value">95.3%</div><div class="sub">43 名学生</div></div>
+          <div class="card kpi"><div class="label">作业平均分</div><div class="value">84.6</div><div class="sub">12 次作业</div></div>
+          <div class="card kpi"><div class="label">测验平均分</div><div class="value">81.2</div><div class="sub">6 次测验</div></div>
+          <div class="card kpi"><div class="label">实验平均分</div><div class="value">86.7</div><div class="sub">8 个实验</div></div>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card pad">
+            <div class="panel-title">章节掌握情况</div>
+            <div class="chart-row"><span>数据安全基础</span><div class="chart-bar"><i style="width:92%"></i></div><b>92%</b></div>
+            <div class="chart-row"><span>分类分级</span><div class="chart-bar"><i style="width:86%"></i></div><b>86%</b></div>
+            <div class="chart-row"><span>加密技术</span><div class="chart-bar"><i style="width:71%"></i></div><b>71%</b></div>
+            <div class="chart-row"><span>数据脱敏</span><div class="chart-bar"><i style="width:85%"></i></div><b>85%</b></div>
+            <div class="chart-row"><span>隐私保护</span><div class="chart-bar"><i style="width:79%"></i></div><b>79%</b></div>
+            <div class="chart-row"><span>灾备与销毁</span><div class="chart-bar"><i style="width:82%"></i></div><b>82%</b></div>
+          </div>
+          <div class="card">
+            <div class="section-head"><h3>需要重点关注的学生</h3><span class="hint">系统自动识别</span></div>
+            <table>
+              <thead><tr><th>学生</th><th>到课率</th><th>实验</th><th>原因</th></tr></thead>
+              <tbody>
+                <tr><td><strong>张三</strong></td><td>88%</td><td>62</td><td><span class="tag red">连续 3 次未完成</span></td></tr>
+                <tr><td><strong>李明</strong></td><td>93%</td><td>68</td><td><span class="tag orange">RSA 得分偏低</span></td></tr>
+                <tr><td><strong>王五</strong></td><td>61%</td><td>76</td><td><span class="tag red">到课率异常</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESOURCES -->
+      <section class="page hidden" id="page-resources">
+        <div class="page-title">
+          <div><h1>课程资源</h1><p>理论课时与实验课时资源完整性检查。</p></div>
+          <button class="btn primary">上传资源</button>
+        </div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">理论课时</div><div class="value">36/36</div><div class="sub">达到采购要求</div></div>
+          <div class="card kpi"><div class="label">实验课时</div><div class="value">12/12</div><div class="sub">达到采购要求</div></div>
+          <div class="card kpi"><div class="label">理论视频</div><div class="value">35/36</div><div class="sub">1 个待上传</div></div>
+          <div class="card kpi"><div class="label">课后练习</div><div class="value">144</div><div class="sub">四类题型</div></div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="section-head"><h3>资源完整性</h3><span class="hint">PPT / 视频 / 题库 / 实验文件 / 实验讲解</span></div>
+          <table>
+            <thead><tr><th>课时</th><th>PPT</th><th>讲解视频</th><th>课后练习</th><th>实验文件</th><th>完整度</th></tr></thead>
+            <tbody>
+              <tr><td>3.1 AES / DES 原理</td><td>✓</td><td>✓</td><td>4 题</td><td>—</td><td><span class="tag green">100%</span></td></tr>
+              <tr><td>3.2 RSA 密钥与数字签名</td><td>✓</td><td>✓</td><td>4 题</td><td>RSA 实验</td><td><span class="tag green">100%</span></td></tr>
+              <tr><td>4.7 数据库访问控制</td><td>✓</td><td>缺失</td><td>4 题</td><td>权限实验</td><td><span class="tag orange">80%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- STUDENT HOME -->
+      <section class="page hidden" id="page-student-home">
+        <div class="page-title">
+          <div><h1>下午好，刘同学</h1><p>今天有 1 次签到、1 个实验需要完成。</p></div>
+          <button class="btn primary" onclick="go('student-lab')">进入 RSA 实验</button>
+        </div>
+        <div class="hero">
+          <h2>数据安全技术基础</h2>
+          <p>第 12 课时 · RSA 数字签名</p>
+          <div class="resource-strip">
+            <div class="rs"><b>14:00</b><span>课堂开始</span></div>
+            <div class="rs"><b>已签到</b><span>课堂签到</span></div>
+            <div class="rs"><b>90</b><span>上次实验</span></div>
+            <div class="rs"><b>86.4</b><span>当前总评</span></div>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card pad">
+            <div class="panel-title">今天要完成</div>
+            <div class="todo"><div class="num">1</div><div><strong>学习 RSA 数字签名课程</strong><small>PPT + 视频 + 4 道练习</small></div></div>
+            <div class="todo"><div class="num">2</div><div><strong>RSA 非对称加密算法实验</strong><small>截止今天 18:00 · 预计 45 分钟</small></div></div>
+          </div>
+          <div class="card pad">
+            <div class="panel-title">学习进度</div>
+            <div class="chart-row"><span>理论课程</span><div class="chart-bar"><i style="width:74%"></i></div><b>74%</b></div>
+            <div class="chart-row"><span>实验课程</span><div class="chart-bar"><i style="width:67%"></i></div><b>67%</b></div>
+            <div class="chart-row"><span>作业</span><div class="chart-bar"><i style="width:92%"></i></div><b>92%</b></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STUDENT COURSE -->
+      <section class="page hidden" id="page-student-course">
+        <div class="page-title"><div><h1>我的课程</h1><p>按章节学习理论内容并进入关联实验。</p></div></div>
+        <div class="card">
+          <div class="section-head"><h3>第三章 数据加密与完整性保护</h3><span class="tag blue">学习中</span></div>
+          <table>
+            <tbody>
+              <tr><td><strong>3.1 对称加密算法：AES / DES</strong><div class="muted">PPT · 视频 · 练习 · 实验</div></td><td><span class="tag green">已完成</span></td><td><button class="btn sm">复习</button></td></tr>
+              <tr><td><strong>3.2 RSA 密钥生成、加解密与数字签名</strong><div class="muted">PPT · 视频 · 练习 · 实验</div></td><td><span class="tag blue">学习中</span></td><td><button class="btn sm primary" onclick="go('student-lab')">继续</button></td></tr>
+              <tr><td><strong>3.3 MD5 / SHA 完整性校验</strong><div class="muted">PPT · 视频 · 练习 · 实验</div></td><td><span class="tag">未开始</span></td><td><button class="btn sm">预习</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- STUDENT LAB -->
+      <section class="page hidden" id="page-student-lab">
+        <div class="page-title">
+          <div><h1>RSA 非对称加密算法实验</h1><p>预计 45 分钟 · 满分 100 · 截止今天 18:00</p></div>
+          <div class="row"><span class="tag green" id="envState">环境未启动</span><button class="btn primary" id="startBtn" onclick="startLab()">启动实验环境</button></div>
+        </div>
+        <div class="student-lab">
+          <div>
+            <div class="card pad">
+              <div class="panel-title">实验步骤 <span class="score" id="scoreText">0 / 100</span></div>
+              <div class="step" id="s1"><div class="step-head"><strong>1. 启动实验环境</strong><span class="tag">0分</span></div><p>系统自动创建隔离的 Student / Target 环境。</p></div>
+              <div class="step" id="s2"><div class="step-head"><strong>2. 生成 RSA 密钥对</strong><span class="tag blue">20分</span></div><p>生成 private.pem 与 public.pem。</p></div>
+              <div class="step" id="s3"><div class="step-head"><strong>3. 使用公钥加密</strong><span class="tag blue">20分</span></div><p>将 source.txt 加密为 cipher.bin。</p></div>
+              <div class="step" id="s4"><div class="step-head"><strong>4. 使用私钥解密</strong><span class="tag blue">30分</span></div><p>解密并验证文件完整性。</p></div>
+              <div class="step" id="s5"><div class="step-head"><strong>5. 数字签名与验签</strong><span class="tag blue">20分</span></div><p>生成签名并使用公钥完成验签。</p></div>
+              <div class="step" id="s6"><div class="step-head"><strong>6. 提交实验报告</strong><span class="tag blue">10分</span></div><p>上传实验记录与必要截图。</p></div>
+              <button class="btn success" style="width:100%;margin-top:8px" onclick="submitLab()">提交实验</button>
+            </div>
+          </div>
+          <div>
+            <div class="card pad">
+              <div class="row between" style="margin-bottom:12px"><div><strong>Web 终端</strong><div class="muted">student-rsa · Ubuntu 22.04</div></div><div class="row"><button class="btn sm" onclick="runDemo()">运行示例命令</button><button class="btn sm danger" onclick="resetLab()">重置</button></div></div>
+              <div class="terminal" id="terminal">
+                <div class="term-head"><div class="term-dots"><i></i><i></i><i></i></div><span>等待启动实验环境...</span></div>
+                <div id="termBody">$ <span style="color:#7f97b8">请先点击“启动实验环境”</span></div>
+              </div>
+            </div>
+            <div class="grid g2" style="margin-top:16px">
+              <div class="card pad"><div class="panel-title">实验目标</div><p class="muted">掌握 RSA 密钥生成、加解密操作，完成数字签名生成与验证，理解数字签名的安全意义。</p></div>
+              <div class="card pad"><div class="panel-title">实验环境</div><div class="row between"><span>Student</span><span class="tag">Ubuntu 22.04</span></div><div class="row between" style="margin-top:8px"><span>Target</span><span class="tag">Ubuntu 22.04</span></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STUDENT LOG -->
+      <section class="page hidden" id="page-student-log">
+        <div class="page-title"><div><h1>日志任务</h1><p>老师分发的日志分析任务。</p></div></div>
+        <div class="card pad">
+          <div class="row between"><div><span class="tag blue">进行中</span><h2>RSA 实验异常访问行为分析</h2><p class="muted">找出异常访问来源、发生时间、关键行为，并给出判断依据。</p></div><button class="btn primary">下载 PCAP</button></div>
+        </div>
+      </section>
+
+      <!-- STUDENT SCORE -->
+      <section class="page hidden" id="page-student-score">
+        <div class="page-title"><div><h1>我的成绩</h1><p>理论、作业、测验和实验成绩统一查看。</p></div></div>
+        <div class="grid g4">
+          <div class="card kpi"><div class="label">课程总评</div><div class="value">86.4</div><div class="sub">班级第 12 名</div></div>
+          <div class="card kpi"><div class="label">实验平均</div><div class="value">90.2</div><div class="sub">已完成 8 个</div></div>
+          <div class="card kpi"><div class="label">作业平均</div><div class="value">85.1</div><div class="sub">已提交 11/12</div></div>
+          <div class="card kpi"><div class="label">到课率</div><div class="value">97.7%</div><div class="sub">42/43</div></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <div class="mh"><strong id="modalTitle">新建</strong><button class="btn sm" onclick="closeModal()">关闭</button></div>
+    <div class="mb">
+      <div class="form-group"><label>名称</label><input class="input" placeholder="请输入名称"></div>
+      <div class="form-group"><label>所属课程 / 班级</label><select class="input"><option>数据安全技术基础 · 网络安全2301班</option></select></div>
+      <div class="form-group"><label>说明</label><textarea class="input" rows="4" placeholder="请输入说明"></textarea></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();showToast('已保存')">确定</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const titleMap={
+ dashboard:'教学工作台',courses:'课程中心',attendance:'签到管理',labs:'实验中心',builder:'实验编排器',
+ instances:'实例管理',logs:'日志中心',analytics:'学情分析',resources:'课程资源',
+ 'student-home':'学习首页','student-course':'我的课程','student-lab':'我的实验','student-log':'日志任务','student-score':'我的成绩'
+};
+document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click',()=>go(el.dataset.page)));
+function go(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  const target=document.getElementById('page-'+name); if(target) target.classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===name));
+  document.getElementById('topTitle').textContent=titleMap[name]||'';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function switchRole(role){
+  const teacher=role==='teacher';
+  document.getElementById('teacherNav').classList.toggle('hidden',!teacher);
+  document.getElementById('studentNav').classList.toggle('hidden',teacher);
+  document.getElementById('teacherRole').classList.toggle('active',teacher);
+  document.getElementById('studentRole').classList.toggle('active',!teacher);
+  document.querySelector('.avatar').textContent=teacher?'王':'刘';
+  go(teacher?'dashboard':'student-home');
+}
+function openModal(title){document.getElementById('modalTitle').textContent=title;document.getElementById('modalMask').style.display='grid'}
+function closeModal(){document.getElementById('modalMask').style.display='none'}
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';
+  clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.style.display='none',2200);
+}
+function addNode(type){
+  const c=document.getElementById('dagCanvas');
+  const line=document.createElement('div');line.className='dag-line';
+  const node=document.createElement('div');node.className='dag-node';
+  node.innerHTML=`<div class="node-top"><strong>＋ ${type}</strong><span class="tag blue">10 分</span></div><small>点击右侧配置判定规则</small>`;
+  c.appendChild(line);c.appendChild(node);showToast('已添加 '+type);
+}
+function destroy(btn){
+  const card=btn.closest('.instance');card.style.opacity='.45';
+  card.querySelector('.tag').className='tag';card.querySelector('.tag').textContent='已销毁';
+  showToast('实例已销毁并回收资源');
+}
+let labScore=0, labStarted=false, demoStep=0;
+function startLab(){
+  labStarted=true;demoStep=0;labScore=0;
+  document.getElementById('envState').textContent='环境运行中';
+  document.getElementById('envState').className='tag green';
+  document.getElementById('startBtn').textContent='重新启动';
+  document.getElementById('s1').classList.add('done');
+  document.getElementById('terminal').querySelector('.term-head span').textContent='student-rsa · 10.20.0.18';
+  document.getElementById('termBody').innerHTML=`[system] 正在创建隔离实验网络...<br>[system] student-rsa started<br>[system] target-rsa started<br>[system] 日志采集已开启<br><span style="color:#84f2c3">lab@student-rsa:~$</span> `;
+  document.getElementById('scoreText').textContent='0 / 100';
+  showToast('实验环境启动成功');
+}
+function runDemo(){
+ if(!labStarted){showToast('请先启动实验环境');return}
+ const steps=[
+  {s:'s2',score:20,cmd:'openssl genpkey -algorithm RSA -out private.pem -pkeyopt rsa_keygen_bits:2048',out:'[PASS] 密钥对已生成 · +20 分'},
+  {s:'s3',score:20,cmd:'openssl pkeyutl -encrypt -pubin -inkey public.pem -in source.txt -out cipher.bin',out:'[PASS] cipher.bin 校验通过 · +20 分'},
+  {s:'s4',score:30,cmd:'openssl pkeyutl -decrypt -inkey private.pem -in cipher.bin -out plain.out',out:'[PASS] SHA256 与原文一致 · +30 分'},
+  {s:'s5',score:20,cmd:'openssl dgst -sha256 -sign private.pem -out signature.bin source.txt',out:'[PASS] Signature Verified Successfully · +20 分'}
+ ];
+ if(demoStep>=steps.length){showToast('核心实验步骤已全部通过');return}
+ const st=steps[demoStep++];labScore+=st.score;
+ document.getElementById(st.s).classList.add('done');
+ document.getElementById('scoreText').textContent=labScore+' / 100';
+ const b=document.getElementById('termBody');
+ b.innerHTML += `<br><span style="color:#84f2c3">lab@student-rsa:~$</span> ${st.cmd}<br><span style="color:#8df0b5">${st.out}</span>`;
+ document.getElementById('terminal').scrollTop=document.getElementById('terminal').scrollHeight;
+}
+function submitLab(){
+ if(!labStarted){showToast('请先启动并完成实验');return}
+ if(labScore<90){showToast('核心步骤尚未全部完成');return}
+ document.getElementById('s6').classList.add('done');labScore=100;
+ document.getElementById('scoreText').textContent='100 / 100';
+ showToast('实验提交成功，最终得分 100');
+}
+function resetLab(){
+ labStarted=false;demoStep=0;labScore=0;
+ ['s1','s2','s3','s4','s5','s6'].forEach(x=>document.getElementById(x).classList.remove('done'));
+ document.getElementById('scoreText').textContent='0 / 100';
+ document.getElementById('envState').textContent='环境未启动';
+ document.getElementById('startBtn').textContent='启动实验环境';
+ document.getElementById('termBody').innerHTML='$ <span style="color:#7f97b8">请先点击“启动实验环境”</span>';
+ showToast('实验已重置');
+}
+</script>
+</body>
+</html>
