@@ -11,6 +11,7 @@ if BACKEND_ROOT not in sys.path:
 
 from app.common.models import Base
 from app.labs import models as lab_models  # noqa: F401 - 注册 C 线表元数据
+from app.runtime import models as runtime_models  # noqa: F401 - 注册 D 线表元数据
 
 config = context.config
 target_metadata = Base.metadata
