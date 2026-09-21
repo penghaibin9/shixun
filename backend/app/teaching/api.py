@@ -92,6 +92,10 @@ def member_detail(class_id: str, membership_id: str, db: Db, user: CurrentUser):
 def member_learning_summary(class_id: str, membership_id: str, db: Db, user: CurrentUser): return service(db, user).learning_summary(class_id, membership_id)
 
 
+@router.get("/classes/{class_id}/students/{student_id}/learning-summary")
+def student_learning_summary(class_id: str, student_id: str, db: Db, user: CurrentUser): return service(db, user).learning_summary(class_id, student_id)
+
+
 @router.post("/classes/{class_id}/members", status_code=201)
 def add_member(class_id: str, body: MemberCreate, db: Db, user: CurrentUser): return service(db, user).add_member(class_id, body)
 

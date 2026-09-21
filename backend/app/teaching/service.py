@@ -108,7 +108,7 @@ class TeachingService:
 
     def member_detail(self, class_id: str, membership_id: str):
         self.require("teaching.members.read"); self.require_class(class_id)
-        item = self.repo.membership_by_id(class_id, membership_id)
+        item = self.repo.membership_by_id(class_id, membership_id) or self.repo.membership(class_id, membership_id)
         if not item: raise ApiError("MEMBER.NOT_FOUND", "班级成员不存在", 404)
         return entity_dict(item)
 
@@ -126,7 +126,7 @@ class TeachingService:
 
     def remove_member(self, class_id: str, membership_id: str):
         self.require("teaching.members.write"); self.require_class(class_id)
-        item = self.repo.membership_by_id(class_id, membership_id)
+        item = self.repo.membership_by_id(class_id, membership_id) or self.repo.membership(class_id, membership_id)
         if not item: raise ApiError("MEMBER.NOT_FOUND", "班级成员不存在", 404)
         item.status = "REMOVED"
         self.audit("membership.removed", "class_membership", membership_id, {"class_id": class_id, "student_id": item.student_id})
@@ -134,7 +134,7 @@ class TeachingService:
 
     def learning_summary(self, class_id: str, membership_id: str):
         self.require("teaching.members.read"); self.require_class(class_id)
-        item = self.repo.membership_by_id(class_id, membership_id)
+        item = self.repo.membership_by_id(class_id, membership_id) or self.repo.membership(class_id, membership_id)
         if not item: raise ApiError("MEMBER.NOT_FOUND", "班级成员不存在", 404)
         tasks = self.repo.attendance_tasks(frozenset({class_id}))
         attendance_signed = sum(bool(self.repo.attendance_record(x.task_id, item.student_id)) for x in tasks)

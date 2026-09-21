@@ -165,6 +165,8 @@ def test_teacher_student_management_search_detail_summary_remove_and_permissions
     assert client.get(f"/api/v1/classes/{class_id}/members/{membership_id}", headers=teacher).json()["email"] == "li@example.edu.cn"
     summary = client.get(f"/api/v1/classes/{class_id}/members/{membership_id}/learning-summary", headers=teacher).json()
     assert summary["experiment"]["label"] == "数据待汇总" and summary["grade"]["label"] == "数据待汇总"
+    student_summary = client.get(f"/api/v1/classes/{class_id}/students/existing-student-1/learning-summary", headers=teacher)
+    assert student_summary.status_code == 200 and student_summary.json()["student_id"] == "existing-student-1"
     exported = client.get(f"/api/v1/classes/{class_id}/members/export.xlsx", headers=teacher)
     assert exported.status_code == 200 and load_workbook(BytesIO(exported.content)).active.max_row == 3
     student = headers("teaching.members.read", student_id="existing-student-1", teacher_id="", class_id=class_id, course_id=course_id)
