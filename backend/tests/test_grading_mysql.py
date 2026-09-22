@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+from io import BytesIO
 from pathlib import Path
 import re
 import tempfile
@@ -12,6 +13,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
@@ -104,12 +106,33 @@ def test_event_replay_three_times_creates_one_grade_event(client):
     with Session(engine) as session: assert len(list(session.query(GradeEvent)))==1
 
 
+def test_concurrent_event_replay_returns_duplicate_instead_of_database_error():
+    data=envelope("quiz.completed","student_1","quiz_concurrent",88)
+    def consume_once():
+        with TestClient(app) as local_client:
+            response=local_client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data)
+            return response.status_code,response.json()
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results=list(pool.map(lambda _:consume_once(),range(6)))
+    assert all(status==200 for status,_ in results)
+    assert sorted(body["status"] for _,body in results)==["CONSUMED",*["DUPLICATE"]*5]
+    engine=create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:assert len(list(session.scalars(select(GradeEvent).where(GradeEvent.event_id==data["event_id"]))))==1
+
+
 def test_invalid_event_records_one_replayable_error_state(client):
     data=envelope("quiz.completed","student_1","quiz_broken",88);data["payload"].pop("max_score")
     responses=[client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data) for _ in range(3)]
     assert all(x.status_code==422 and x.json()["code"]=="GRADING.EVENT_PAYLOAD_INVALID" for x in responses)
     rows=client.get("/api/v1/audit/events",headers=MANAGER,params={"action":"GRADE_EVENT_REJECTED"}).json()
     assert rows["total"]==1 and rows["items"][0]["result"]=="ERROR"
+
+
+@pytest.mark.parametrize(("field","value","code"),[("source_id","x"*37,"GRADING.EVENT_PAYLOAD_INVALID"),("raw_score","NaN","GRADING.SCORE_INVALID")])
+def test_invalid_event_values_are_rejected_before_mysql(client,field,value,code):
+    data=envelope("quiz.completed","student_1","quiz_invalid",88);data["payload"][field]=value
+    response=client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data)
+    assert response.status_code==422 and response.json()["code"]==code
 
 
 def test_lab_submission_requires_release_id_and_keeps_source_for_trace(client):
@@ -151,6 +174,9 @@ def test_fact_snapshot_blocks_stale_post_and_isolates_events_after_post(client,m
     assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
     unapplied=envelope("quiz.completed","student_1","quiz_after_calculation",10)
     assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=unapplied).json()["status"]=="CONSUMED"
+    trace=client.get(f"/api/v1/gradebook/courses/{COURSE}/trace/student_1",headers=MANAGER,params={"class_id":CLASS}).json()
+    assert unapplied["event_id"] not in trace["source_snapshot_event_ids"]
+    assert all(source["event_id"]!=unapplied["event_id"] for component in trace["components"] for source in component["sources"])
     stale=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
     assert stale.status_code==409 and stale.json()["code"]=="GRADING.GRADEBOOK_STALE"
     assert unapplied["event_id"] in stale.json()["details"]["unapplied_source_event_ids"]
@@ -270,6 +296,8 @@ def test_policy_weight_recalculate_trace_post_analytics_and_student_scope(client
     seed_complete_facts(client)
     calc=client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS})
     assert calc.status_code==200 and calc.json()["status"]=="READY"
+    hidden=client.get(f"/api/v1/gradebook/courses/{COURSE}/students/student_1",headers=STUDENT,params={"class_id":CLASS}).json()
+    assert hidden["status"]=="PENDING" and hidden["items"]==[]
     assert client.get(f"/api/v1/gradebook/courses/{COURSE}",headers=MANAGER).status_code==422
     assert client.get(f"/api/v1/gradebook/courses/{COURSE}",headers=MANAGER,params={"class_id":"class_other"}).status_code==403
     book=client.get(f"/api/v1/gradebook/courses/{COURSE}",headers=MANAGER,params={"class_id":CLASS}).json()
@@ -292,8 +320,48 @@ def test_policy_weight_recalculate_trace_post_analytics_and_student_scope(client
     assert client.get(f"/api/v1/analytics/courses/{COURSE}/learning-summary",headers=STUDENT,params={"student_id":"student_1"}).status_code==422
     summary=client.get(f"/api/v1/analytics/courses/{COURSE}/learning-summary",headers=STUDENT,params={"class_id":CLASS,"student_id":"student_1"}).json()
     assert summary["status"]=="READY" and summary["grade"]["items"][0]["student_id"]=="student_1"
-    assert client.get(f"/api/v1/gradebook/courses/{COURSE}/export.xlsx",headers=MANAGER,params={"class_id":CLASS}).content.startswith(b"PK")
-    assert client.get(f"/api/v1/analytics/courses/{COURSE}/export.xlsx",headers=MANAGER,params={"class_id":CLASS}).content.startswith(b"PK")
+    gradebook_xlsx=client.get(f"/api/v1/gradebook/courses/{COURSE}/export.xlsx",headers=MANAGER,params={"class_id":CLASS}).content
+    assert gradebook_xlsx.startswith(b"PK")
+    gradebook_sheet=load_workbook(BytesIO(gradebook_xlsx),read_only=True)["成绩册"]
+    assert [cell.value for cell in next(iter(gradebook_sheet.iter_rows(min_row=4,max_row=4)))][0:8]==["学生标识","签到","作业","测验","实验","互动","人工调整","总评"]
+    analytics_xlsx=client.get(f"/api/v1/analytics/courses/{COURSE}/export.xlsx",headers=MANAGER,params={"class_id":CLASS}).content
+    assert {"课程总览","课程排行","小节成绩","学生实验完成","实验完成统计","风险依据"}<=set(load_workbook(BytesIO(analytics_xlsx),read_only=True).sheetnames)
+
+
+def test_trace_includes_manual_adjustment_that_explains_total(client):
+    seed_complete_facts(client)
+    adjustment=envelope("grade.manual.adjusted","student_1","manual_bonus",5)
+    assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=adjustment).status_code==200
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    trace=client.get(f"/api/v1/gradebook/courses/{COURSE}/trace/student_1",headers=MANAGER,params={"class_id":CLASS}).json()
+    manual=next(item for item in trace["components"] if item["component"]=="MANUAL_ADJUSTMENT")
+    assert trace["total_score"]==96.0 and manual["score"]==5.0 and manual["sources"][0]["source_id"]=="manual_bonus"
+
+
+def test_negative_manual_adjustment_is_audited_and_explains_total(client):
+    seed_complete_facts(client)
+    adjustment=envelope("grade.manual.adjusted","student_1","manual_penalty",-5)
+    assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=adjustment).status_code==200
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    trace=client.get(f"/api/v1/gradebook/courses/{COURSE}/trace/student_1",headers=MANAGER,params={"class_id":CLASS}).json()
+    manual=next(item for item in trace["components"] if item["component"]=="MANUAL_ADJUSTMENT")
+    assert trace["total_score"]==86.0 and manual["score"]==-5.0
+    audit=client.get("/api/v1/audit/events",headers=MANAGER,params={"action":"GRADE_MANUAL_ADJUSTMENT"}).json()
+    assert audit["total"]==1 and audit["items"][0]["student_id"]=="student_1"
+
+
+def test_lab_analytics_uses_latest_submission_and_keeps_non_submitter(client):
+    checkpoint=envelope("lab.checkpoint.failed","student_1","checkpoint_only",0)
+    checkpoint["payload"]["lab_release_id"]="lab_retry"
+    assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=checkpoint).status_code==200
+    for score in [40,80]:
+        assert client.post("/api/v1/grading/events/consume",headers=SERVICE,json=envelope("lab.submitted","student_2",f"submission_{score}",score,lab_release_id="lab_retry")).status_code==200
+    assert client.post(f"/api/v1/grading/courses/{COURSE}/recalculate",headers=MANAGER,json={"class_id":CLASS}).status_code==200
+    students={item["student_id"]:item for item in client.get(f"/api/v1/analytics/courses/{COURSE}/labs/by-student",headers=MANAGER,params={"class_id":CLASS}).json()["items"]}
+    assert students["student_1"]=={"student_id":"student_1","sum_lab_score":0.0,"submitted_count":0,"unsubmitted_count":1}
+    assert students["student_2"]=={"student_id":"student_2","sum_lab_score":80.0,"submitted_count":1,"unsubmitted_count":0}
+    lab=client.get(f"/api/v1/analytics/courses/{COURSE}/labs/by-lab",headers=MANAGER,params={"class_id":CLASS}).json()["items"][0]
+    assert lab["avg_score"]==80.0 and lab["submitted_students"]==1 and lab["unsubmitted_students"]==1
 
 
 def test_post_blocks_missing_enabled_component_but_allows_zero_weight_component(client):
@@ -387,6 +455,21 @@ def test_cross_domain_high_risk_audit_is_idempotent_and_immutable(client):
     rows=client.get("/api/v1/audit/events",headers=MANAGER,params={"action":"RUNTIME_INSTANCE_DESTROYED"}).json()
     assert rows["total"]==1 and rows["items"][0]["reason"]=="教师确认重建"
     assert client.patch(f"/api/v1/audit/events/{rows['items'][0]['audit_event_id']}",headers=MANAGER,json={"reason":"篡改"}).status_code in {404,405}
+
+
+def test_audit_query_and_exports_are_limited_to_authorized_courses(client):
+    own={"source_event_id":"audit-own","actor_user_id":"admin_d","actor_role":"admin","action":"RUNTIME_INSTANCE_DESTROYED","resource_type":"runtime_instance","resource_id":"instance_1","course_id":COURSE,"class_id":CLASS,"student_id":"student_1","result":"SUCCESS","occurred_at":datetime.now(timezone.utc).isoformat(),"details":{}}
+    foreign={**own,"source_event_id":"audit-foreign","resource_id":"instance_2","course_id":"course_foreign","class_id":"class_foreign"}
+    assert client.post("/api/v1/audit/events/ingest",headers=SERVICE,json=own).status_code==200
+    assert client.post("/api/v1/audit/events/ingest",headers=SERVICE,json=foreign).status_code==200
+    scoped=client.get("/api/v1/audit/events",headers=MANAGER).json()
+    assert scoped["total"]==1 and scoped["items"][0]["course_id"]==COURSE
+    assert client.get("/api/v1/audit/events",headers=MANAGER,params={"course_id":"course_foreign"}).status_code==403
+    sheet=load_workbook(BytesIO(client.get("/api/v1/audit/events/export.xlsx",headers=MANAGER).content),read_only=True)["审计"]
+    exported=list(sheet.iter_rows(min_row=5,values_only=True))
+    assert len(exported)==1 and exported[0][6]==COURSE
+    admin={"X-User-Id":"admin_f","X-Role":"admin","X-Permissions":"audit:read,grading:all-courses,grading:all-classes"}
+    assert client.get("/api/v1/audit/events",headers=admin).json()["total"]==2
 
 
 def test_risk_flags_are_backed_by_checkpoint_and_submission_facts(client):

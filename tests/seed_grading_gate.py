@@ -88,6 +88,7 @@ def main() -> None:
         session.execute(delete(runtime.RuntimeInstanceGroup).where(runtime.RuntimeInstanceGroup.runtime_group_id.in_(group_ids)))
         session.execute(delete(runtime.RuntimeRequest).where(runtime.RuntimeRequest.runtime_request_id.in_(request_ids)))
         session.execute(delete(runtime.RuntimeReleaseReadModel).where(runtime.RuntimeReleaseReadModel.lab_release_id == RELEASE_ID))
+        session.execute(delete(runtime.InfraNode).where(runtime.InfraNode.node_id == "node_g8_gate"))
 
         session.execute(delete(teaching.QuizAnswer).where(teaching.QuizAnswer.attempt_id.like("qat_g8_%")))
         session.execute(delete(teaching.QuizAttempt).where(teaching.QuizAttempt.quiz_id == "quiz_g8_gate"))
@@ -134,6 +135,8 @@ def main() -> None:
             STUDENTS[0]: {"attendance": (1, 1), "assignment": (80, 100), "quiz": (90, 100), "poll": (1, 1), "lab": (100, 100)},
             STUDENTS[1]: {"attendance": (1, 2), "assignment": (60, 100), "quiz": (70, 100), "poll": (1, 2), "lab": (80, 100)},
         }
+        session.add(runtime.InfraNode(node_id="node_g8_gate", name="G8 成绩门禁计算节点", agent_url="http://g8-node.invalid", status="READY", scheduling_paused=False, weight=100, labels_json={"gate":"G8"}, cpu_total=8, memory_total_mb=8192, last_seen_at=stamp, created_at=stamp))
+        session.flush()
         session.add(runtime.RuntimeReleaseReadModel(lab_release_id=RELEASE_ID, lab_version_id=VERSION_ID, course_id=COURSE_ID, class_id=CLASS_ID, status="OPEN", spec_snapshot_json=spec, published_at=stamp, updated_at=stamp))
         for index, student_id in enumerate(STUDENTS, 1):
             values = scores[student_id]

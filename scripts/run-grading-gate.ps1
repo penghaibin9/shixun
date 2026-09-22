@@ -9,7 +9,9 @@ if ($DatabaseName.ToLowerInvariant() -notlike '*g8*' -or $DatabaseName.ToLowerIn
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $repoRoot 'backend/.venv/Scripts/python.exe'
-if (-not (Test-Path -LiteralPath $python)) { throw 'Backend virtual environment is missing' }
+if (-not (Test-Path -LiteralPath $python)) {
+  $python = (Get-Command python -ErrorAction Stop).Source
+}
 
 $containerEnv = docker inspect yueke-contract-mysql-dev --format '{{json .Config.Env}}' | ConvertFrom-Json
 $rootEntry = $containerEnv | Where-Object { $_ -like 'MYSQL_ROOT_PASSWORD=*' } | Select-Object -First 1
@@ -57,7 +59,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'G8 gate data preparation failed' }
   Push-Location (Join-Path $repoRoot 'frontend')
   try {
-    npx playwright test e2e/grading-live.spec.ts --reporter=line
+    npx playwright test e2e/grading-live.spec.ts --config=playwright.grading.config.ts --reporter=line
     if ($LASTEXITCODE -ne 0) { throw 'G8 browser gate failed' }
   } finally {
     Pop-Location
