@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+import os
 from os import getenv
 from pathlib import Path
 import re
+import stat
 from tempfile import NamedTemporaryFile
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -13,6 +15,7 @@ from app.common.models import FileObject
 
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
+_PCAP_MAGICS = {b"\xd4\xc3\xb2\xa1", b"\x4d\x3c\xb2\xa1", b"\xa1\xb2\xc3\xd4", b"\xa1\xb2\x3c\x4d"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +31,93 @@ class BundleEntry:
 def artifact_root() -> Path:
     configured = getenv("YUEKE_RUNTIME_ARTIFACT_DIR")
     root = Path(configured).expanduser() if configured else Path(__file__).resolve().parents[2] / "var" / "runtime_artifacts"
+    if not root.is_absolute():
+        raise ApiError("RUNTIME.ARTIFACT_STORAGE_CONFIG_INVALID", "运行制品目录必须是绝对路径", 503)
+    if root.exists() and root.is_symlink():
+        raise ApiError("RUNTIME.ARTIFACT_STORAGE_CONFIG_INVALID", "运行制品目录不能是符号链接", 503)
     return root.resolve()
+
+
+def _verify_capture_file(path: Path, expected_sha256: str, expected_size_bytes: int) -> None:
+    descriptor = None
+    try:
+        if path.is_symlink():
+            raise OSError("capture artifact is a symlink")
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size != expected_size_bytes:
+            raise OSError("capture artifact size mismatch")
+        digest = sha256()
+        with os.fdopen(descriptor, "rb") as source:
+            descriptor = None
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+    except OSError as error:
+        raise ApiError("RUNTIME.ARTIFACT_STORAGE_WRITE_FAILED", "流量制品文件无法安全校验", 503) from error
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if digest.hexdigest() != expected_sha256:
+        raise ApiError("RUNTIME.ARTIFACT_INTEGRITY_FAILED", "流量制品落盘后完整性校验失败", 503)
+
+
+def store_capture_artifact(content: bytes, expected_sha256: str, expected_size_bytes: int) -> str:
+    """原子写入已验证的 PCAP，并返回相对受控根目录的对象键。"""
+    try:
+        maximum = int(getenv("YUEKE_RUNTIME_ARTIFACT_MAX_BYTES", str(128 * 1024 * 1024)))
+    except ValueError as error:
+        raise ApiError("RUNTIME.ARTIFACT_STORAGE_CONFIG_INVALID", "运行制品大小限制配置无效", 503) from error
+    if (
+        not isinstance(content, bytes)
+        or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
+        or expected_size_bytes != len(content)
+        or not 24 < expected_size_bytes <= maximum
+        or content[:4] not in _PCAP_MAGICS
+        or sha256(content).hexdigest() != expected_sha256
+    ):
+        raise ApiError("RUNTIME.ARTIFACT_INTEGRITY_FAILED", "节点抓包产物摘要、大小或格式校验失败", 503)
+    root = artifact_root()
+    directory = root / "traffic"
+    try:
+        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        directory.mkdir(mode=0o700, exist_ok=True)
+        if root.is_symlink() or directory.is_symlink() or not root.is_dir() or not directory.is_dir():
+            raise OSError("runtime artifact directory is unsafe")
+    except OSError as error:
+        raise ApiError("RUNTIME.ARTIFACT_STORAGE_UNAVAILABLE", "运行制品目录不可用", 503) from error
+    object_key = f"traffic/{expected_sha256}.pcap"
+    destination = directory / f"{expected_sha256}.pcap"
+    if destination.exists() or destination.is_symlink():
+        _verify_capture_file(destination, expected_sha256, expected_size_bytes)
+        return object_key
+
+    try:
+        temporary = NamedTemporaryFile(prefix=".capture-", suffix=".tmp", dir=directory, delete=False)
+    except OSError as error:
+        raise ApiError("RUNTIME.ARTIFACT_STORAGE_WRITE_FAILED", "流量制品无法安全写入", 503) from error
+    temporary_path = Path(temporary.name)
+    try:
+        os.chmod(temporary_path, 0o600)
+        temporary.write(content)
+        temporary.flush()
+        os.fsync(temporary.fileno())
+        temporary.close()
+        try:
+            os.link(temporary_path, destination, follow_symlinks=False)
+        except FileExistsError:
+            pass
+        _verify_capture_file(destination, expected_sha256, expected_size_bytes)
+        return object_key
+    except ApiError:
+        raise
+    except OSError as error:
+        raise ApiError("RUNTIME.ARTIFACT_STORAGE_WRITE_FAILED", "流量制品无法安全写入", 503) from error
+    finally:
+        try:
+            temporary.close()
+        except OSError:
+            pass
+        temporary_path.unlink(missing_ok=True)
 
 
 def _managed_file_path(file_object: FileObject) -> Path:
