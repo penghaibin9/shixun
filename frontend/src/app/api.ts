@@ -43,6 +43,7 @@ export async function getCurrentContext(headers: HeadersInit = {}): Promise<User
 const teacherPermissions = ['teaching.course.read','teaching.course.write','teaching.class.read','teaching.class.write','teaching.members.read','teaching.members.import','teaching.members.write','teaching.attendance.read','teaching.attendance.write','teaching.poll.read','teaching.poll.write','teaching.assignment.write','teaching.quiz.write','teaching.dashboard.read']
 
 export function teachingIdentity(role = 'teacher'): Record<string, string> {
+  if (!import.meta.env.DEV) return {}
   const courseId = localStorage.getItem('yk-course-id') || '', classId = localStorage.getItem('yk-class-id') || ''
   if (role === 'student') return {'X-User-Id':localStorage.getItem('yk-student-id')||'student-demo','X-Role':'student','X-Student-Id':localStorage.getItem('yk-student-id')||'student-demo','X-Permissions':'teaching.student.read,teaching.course.read,teaching.attendance.sign,teaching.poll.answer,teaching.assignment.submit,teaching.quiz.submit','X-Course-Ids':courseId,'X-Class-Ids':classId}
   return {'X-User-Id':'teacher-a','X-Role':'teacher','X-Teacher-Id':'teacher-a','X-Permissions':teacherPermissions.join(','),'X-Course-Ids':courseId,'X-Class-Ids':classId}
@@ -84,14 +85,14 @@ export function selectedResourceCourseId(): string {
   return courseId
 }
 function resourceIdentityHeaders(): Record<string, string> {
-  const courseHeaders = { 'X-Course-Ids': selectedResourceCourseId() }
-  return import.meta.env.DEV ? {
+  if (import.meta.env.DEV) return {
     'X-User-Id': 'teacher_b',
     'X-Role': 'teacher',
     'X-Teacher-Id': 'teacher_b',
-    ...courseHeaders,
+    'X-Course-Ids': selectedResourceCourseId(),
     'X-Permissions': 'resources:read,resources:write,resources:review,resources:freeze',
-  } : courseHeaders
+  }
+  return {}
 }
 function resourceQuery(path: string): string {
   const separator = path.includes('?') ? '&' : '?'
@@ -194,6 +195,10 @@ const classroomTeacherPermissions = [
 const classroomStudentPermissions = ['classroom.lab.start','classroom.lab.read','classroom.lab.submit','classroom.terminal.use','classroom.logs.assignment.read','classroom.logs.assignment.download']
 
 export function classroomHeaders(role: 'teacher' | 'student', extra: HeadersInit = {}): HeadersInit {
+  if (!import.meta.env.DEV) return {
+    'Content-Type': 'application/json',
+    ...extra,
+  }
   const studentId = localStorage.getItem('yk-student-id') || 'student-a'
   return {
     'Content-Type': 'application/json',
@@ -270,40 +275,52 @@ export function subscribeClassroomEvents(
   return () => controller.abort()
 }
 
-const courseId = localStorage.getItem('yk-course-id') || 'course_data_security', classId = localStorage.getItem('yk-class-id') || 'class_netsec_2301', gradingLessonId = localStorage.getItem('yk-lesson-id') || 'lesson_3_2'
-const teacherHeaders = { 'X-User-Id':'teacher_f','X-Role':'teacher','X-Teacher-Id':'teacher_f','X-Course-Ids':courseId,'X-Class-Ids':classId,'X-Permissions':'grading:read,grading:policy,grading:recalculate,grading:post,analytics:class,analytics:read,archives:read,archives:write,archives:freeze' }
-const gradingStudentId = localStorage.getItem('yk-student-id') || 'student_1'
-const studentHeaders = { 'X-User-Id':`user_${gradingStudentId}`,'X-Role':'student','X-Student-Id':gradingStudentId,'X-Course-Ids':courseId,'X-Class-Ids':classId,'X-Permissions':'grading:read,analytics:read' }
-const adminHeaders = { 'X-User-Id':'admin_f','X-Role':'admin','X-Permissions':'audit:read,grading:all-courses,grading:all-classes' }
+function gradingScope() {
+  return {
+    courseId: localStorage.getItem('yk-course-id') || 'course_data_security',
+    classId: localStorage.getItem('yk-class-id') || 'class_netsec_2301',
+    lessonId: localStorage.getItem('yk-lesson-id') || 'lesson_3_2',
+    studentId: localStorage.getItem('yk-student-id') || 'student_1',
+  }
+}
+
+function gradingIdentity(role: 'teacher' | 'student' | 'admin'): Record<string, string> {
+  if (!import.meta.env.DEV) return {}
+  const scope = gradingScope()
+  if (role === 'student') return { 'X-User-Id': `user_${scope.studentId}`, 'X-Role': 'student', 'X-Student-Id': scope.studentId, 'X-Course-Ids': scope.courseId, 'X-Class-Ids': scope.classId, 'X-Permissions': 'grading:read,analytics:read' }
+  if (role === 'admin') return { 'X-User-Id': 'admin_f', 'X-Role': 'admin', 'X-Permissions': 'audit:read,grading:all-courses,grading:all-classes' }
+  return { 'X-User-Id': 'teacher_f', 'X-Role': 'teacher', 'X-Teacher-Id': 'teacher_f', 'X-Course-Ids': scope.courseId, 'X-Class-Ids': scope.classId, 'X-Permissions': 'grading:read,grading:policy,grading:recalculate,grading:post,analytics:class,analytics:read,archives:read,archives:write,archives:freeze' }
+}
+
 async function gradingRequest<T>(path:string, init:RequestInit={}, role:'teacher'|'student'|'admin'='teacher'):Promise<T>{
-  const identity=role==='student'?studentHeaders:role==='admin'?adminHeaders:teacherHeaders
+  const identity = gradingIdentity(role)
   const response=await fetch(path,{...init,headers:{...identity,'Content-Type':'application/json',...(init.headers||{})}})
   if(!response.ok)throw await response.json() as ApiError
   return response.json() as Promise<T>
 }
 async function gradingDownload(path:string,role:'teacher'|'admin'='teacher'):Promise<Blob>{
-  const response=await fetch(path,{headers:role==='admin'?adminHeaders:teacherHeaders})
+  const response=await fetch(path,{headers:gradingIdentity(role)})
   if(!response.ok)throw await response.json() as ApiError
   return response.blob()
 }
 export const gradingApi={
-  policy:()=>gradingRequest<any>(`/api/v1/grading/policies/${courseId}`),
-  gradebook:()=>gradingRequest<any>(`/api/v1/gradebook/courses/${courseId}?class_id=${classId}`),
-  trace:(studentId:string)=>gradingRequest<any>(`/api/v1/gradebook/courses/${courseId}/trace/${studentId}?class_id=${classId}`),
-  recalculate:()=>gradingRequest<any>(`/api/v1/grading/courses/${courseId}/recalculate`,{method:'POST',body:JSON.stringify({class_id:classId})}),
-  post:()=>gradingRequest<any>(`/api/v1/grading/courses/${courseId}/post?class_id=${classId}`,{method:'POST'}),
-  overview:()=>gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/overview?class_id=${classId}`),
-  section:(lessonId=gradingLessonId)=>gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/sections/${lessonId}?class_id=${classId}`),
-  labsStudent:()=>gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/labs/by-student?class_id=${classId}`),
-  labsLab:()=>gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/labs/by-lab?class_id=${classId}`),
-  risks:()=>gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/risks?class_id=${classId}`),
-  precheck:()=>gradingRequest<any>(`/api/v1/archives/courses/${courseId}/precheck`,{method:'POST',body:JSON.stringify({class_id:classId})}),
-  freeze:()=>gradingRequest<any>(`/api/v1/archives/courses/${courseId}/freeze`,{method:'POST',body:JSON.stringify({class_id:classId})}),
-  archive:()=>gradingRequest<any>(`/api/v1/archives/courses/${courseId}?class_id=${classId}`),
-  gradebookExport:()=>gradingDownload(`/api/v1/gradebook/courses/${courseId}/export.xlsx?class_id=${classId}`),
-  analyticsExport:()=>gradingDownload(`/api/v1/analytics/courses/${courseId}/export.xlsx?class_id=${classId}`),
-  archiveArtifact:(artifactType:string)=>gradingDownload(`/api/v1/archives/courses/${courseId}/artifacts/${encodeURIComponent(artifactType)}?class_id=${classId}`),
-  studentScore:()=>gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/learning-summary?class_id=${classId}&student_id=${gradingStudentId}`,{},'student'),
+  policy:()=>{ const { courseId } = gradingScope(); return gradingRequest<any>(`/api/v1/grading/policies/${courseId}`) },
+  gradebook:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/gradebook/courses/${courseId}?class_id=${classId}`) },
+  trace:(studentId:string)=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/gradebook/courses/${courseId}/trace/${studentId}?class_id=${classId}`) },
+  recalculate:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/grading/courses/${courseId}/recalculate`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
+  post:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/grading/courses/${courseId}/post?class_id=${classId}`,{method:'POST'}) },
+  overview:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/overview?class_id=${classId}`) },
+  section:(lessonId?:string)=>{ const scope = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${scope.courseId}/sections/${lessonId || scope.lessonId}?class_id=${scope.classId}`) },
+  labsStudent:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/labs/by-student?class_id=${classId}`) },
+  labsLab:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/labs/by-lab?class_id=${classId}`) },
+  risks:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/risks?class_id=${classId}`) },
+  precheck:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/archives/courses/${courseId}/precheck`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
+  freeze:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/archives/courses/${courseId}/freeze`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
+  archive:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/archives/courses/${courseId}?class_id=${classId}`) },
+  gradebookExport:()=>{ const { courseId, classId } = gradingScope(); return gradingDownload(`/api/v1/gradebook/courses/${courseId}/export.xlsx?class_id=${classId}`) },
+  analyticsExport:()=>{ const { courseId, classId } = gradingScope(); return gradingDownload(`/api/v1/analytics/courses/${courseId}/export.xlsx?class_id=${classId}`) },
+  archiveArtifact:(artifactType:string)=>{ const { courseId, classId } = gradingScope(); return gradingDownload(`/api/v1/archives/courses/${courseId}/artifacts/${encodeURIComponent(artifactType)}?class_id=${classId}`) },
+  studentScore:()=>{ const { courseId, classId, studentId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/learning-summary?class_id=${classId}&student_id=${studentId}`,{},'student') },
   audit:()=>gradingRequest<any>('/api/v1/audit/events',{},'admin'),
   auditExport:(format:'xlsx'|'csv')=>gradingDownload(`/api/v1/audit/events/export.${format}`,'admin'),
 }
