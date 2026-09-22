@@ -1,0 +1,59 @@
+[Unit]
+Description=Yueke Cyber Range Node Agent
+Documentation=file:///opt/yueke-node-agent/current/deploy/node-agent/linux/README.md
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/etc/yueke-node-agent/node-agent.env
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+User=yueke-agent
+Group=yueke-agent
+SupplementaryGroups=docker
+WorkingDirectory=/opt/yueke-node-agent/current/node_agent
+EnvironmentFile=/etc/yueke-node-agent/node-agent.env
+Environment=HOME=/var/lib/yueke-node-agent
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+UnsetEnvironment=DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH
+ExecStartPre=/opt/yueke-node-agent/current/deploy/node-agent/linux/preflight.sh /etc/yueke-node-agent/node-agent.env /opt/yueke-node-agent/current/.venv/bin/python
+ExecStart=/opt/yueke-node-agent/current/.venv/bin/python -m uvicorn app:app --host ${YUEKE_NODE_AGENT_BIND_HOST} --port ${YUEKE_NODE_AGENT_PORT} --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=45s
+TimeoutStopSec=30s
+KillMode=control-group
+UMask=0077
+StateDirectory=yueke-node-agent
+StateDirectoryMode=0750
+ReadWritePaths=/var/lib/yueke-node-agent
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=yes
+TasksMax=512
+LimitNOFILE=4096
+SyslogIdentifier=yueke-node-agent
+
+[Install]
+WantedBy=multi-user.target

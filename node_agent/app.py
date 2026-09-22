@@ -7,6 +7,7 @@ import os
 import re
 import stat
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -1078,6 +1079,23 @@ async def terminal(websocket: WebSocket, group_id: str, node_key: str):
             os.close(master_fd)
 
 
+def linux_capture_root_permissions_safe(metadata: os.stat_result, effective_uid: int) -> bool:
+    return (
+        stat.S_ISDIR(metadata.st_mode)
+        and metadata.st_uid == effective_uid
+        and not (stat.S_IMODE(metadata.st_mode) & 0o022)
+    )
+
+
+def validate_capture_root_permissions(root: Path) -> None:
+    """Linux（操作系统）上拒绝可被其他身份篡改的既有抓包目录。"""
+    if not sys.platform.startswith("linux"):
+        return
+    metadata = root.lstat()
+    if not linux_capture_root_permissions_safe(metadata, os.geteuid()):
+        raise OSError("capture root owner or permissions are unsafe")
+
+
 def capture_root() -> Path:
     configured = os.getenv("YUEKE_AGENT_CAPTURE_DIR", "/var/lib/yueke-node-agent/captures")
     root = Path(configured)
@@ -1087,8 +1105,9 @@ def capture_root() -> Path:
         root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if root.is_symlink() or not root.is_dir():
             raise OSError("capture root is not a real directory")
+        validate_capture_root_permissions(root)
     except OSError as error:
-        raise HTTPException(503, "流量采集目录不可用") from error
+        raise HTTPException(503, "流量采集目录不可用或权限不安全") from error
     return root
 
 

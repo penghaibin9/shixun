@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
+import stat
 import struct
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -44,6 +46,34 @@ def test_capture_rejects_path_traversal_before_docker(monkeypatch, tmp_path):
     with pytest.raises(HTTPException) as captured:
         agent.capture_start("../outside")
     assert captured.value.status_code == 422
+
+
+def test_linux_capture_directory_permissions_require_effective_owner_and_no_group_or_other_write():
+    safe = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=1001)
+    group_writable = SimpleNamespace(st_mode=stat.S_IFDIR | 0o720, st_uid=1001)
+    other_writable = SimpleNamespace(st_mode=stat.S_IFDIR | 0o702, st_uid=1001)
+    not_owner = SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=1002)
+    assert agent.linux_capture_root_permissions_safe(safe, 1001)
+    assert not agent.linux_capture_root_permissions_safe(group_writable, 1001)
+    assert not agent.linux_capture_root_permissions_safe(other_writable, 1001)
+    assert not agent.linux_capture_root_permissions_safe(not_owner, 1001)
+
+
+def test_capture_directory_posix_permission_check_is_skipped_on_windows(monkeypatch):
+    class UnexpectedLstat:
+        def lstat(self):
+            pytest.fail("Windows 不应读取 POSIX 目录权限")
+
+    monkeypatch.setattr(agent.sys, "platform", "win32")
+    agent.validate_capture_root_permissions(UnexpectedLstat())
+
+
+def test_capture_root_rejects_existing_linux_directory_owned_by_another_user(monkeypatch, tmp_path):
+    monkeypatch.setenv("YUEKE_AGENT_CAPTURE_DIR", str(tmp_path))
+    monkeypatch.setattr(agent.sys, "platform", "linux")
+    monkeypatch.setattr(agent.os, "geteuid", lambda: tmp_path.lstat().st_uid + 1, raising=False)
+    with pytest.raises(HTTPException, match="权限不安全"):
+        agent.capture_root()
 
 
 def test_capture_stop_rejects_unknown_runtime_group(monkeypatch, tmp_path):
