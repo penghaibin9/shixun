@@ -22,7 +22,9 @@ def checked(response: httpx.Response) -> dict:
 async def main() -> None:
     async with httpx.AsyncClient(base_url=BASE, timeout=60) as client:
         labs = checked(await client.get("/api/v1/labs", headers=TEACHER))["items"]
-        lab = next(x for x in labs if x["lab_definition_id"] == "lab_rsa_d_gate")
+        lab = next((x for x in labs if x["lab_definition_id"] == "lab_rsa_d_gate_v3"), None)
+        if not lab:
+            raise RuntimeError("请先在同一门禁库运行 tests/runtime_gate.py 创建规范 RSA 容量基线")
         version_id = lab["latest_version"]["lab_version_id"]
         await client.post("/api/v1/infrastructure/images", headers=TEACHER, json={"image_id": "img_python_openssl_gate", "name": "Python OpenSSL 门禁镜像", "tag": "3.11-bookworm", "digest": DIGEST, "size_bytes": 0, "scan_status": "PASSED", "startup_check_status": "PASSED", "teaching_validation_status": "PASSED", "enabled": True})
         checked(await client.post("/api/v1/infrastructure/nodes", headers=TEACHER, json={"node_id": "node_docker_desktop_gate", "name": "Docker Desktop Linux 门禁节点", "agent_url": "http://127.0.0.1:19443", "weight": 1000, "labels": {"environment": "gate"}}))
