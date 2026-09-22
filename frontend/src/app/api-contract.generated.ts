@@ -1152,6 +1152,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Lab */
+        post: operations["import_lab_api_v1_labs_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{definition_id}": {
         parameters: {
             query?: never;
@@ -2908,6 +2925,19 @@ export interface components {
             /** Course Id */
             course_id: string;
         };
+        /** Body_import_lab_api_v1_labs_import_post */
+        Body_import_lab_api_v1_labs_import_post: {
+            /** File */
+            file: string;
+            /** Course Id */
+            course_id: string;
+            /** Code */
+            code: string;
+            /** Category */
+            category: string;
+            /** Objective */
+            objective: string;
+        };
         /** Body_import_members_api_v1_classes__class_id__members_import_post */
         Body_import_members_api_v1_classes__class_id__members_import_post: {
             /** File */
@@ -3608,7 +3638,7 @@ export interface components {
             /** Class Id */
             class_id: string;
             /** Lesson Id */
-            lesson_id?: string | null;
+            lesson_id: string;
             /**
              * Opens At
              * Format: date-time
@@ -8271,6 +8301,66 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LabCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    import_lab_api_v1_labs_import_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Idempotency-Key": string;
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_lab_api_v1_labs_import_post"];
             };
         };
         responses: {

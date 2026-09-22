@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,28 @@ def list_labs(session: DbSession, user: CurrentUser):
 @router.post("/labs", status_code=201)
 def create_lab(data: LabCreate, session: DbSession, user: CurrentUser, idempotency_key: IdempotencyKey):
     return service(session, user).create_lab(data, idempotency_key)
+
+
+@router.post("/labs/import", status_code=201)
+async def import_lab(
+    session: DbSession,
+    user: CurrentUser,
+    idempotency_key: IdempotencyKey,
+    file: UploadFile = File(...),
+    course_id: str = Form(..., min_length=1, max_length=36),
+    code: str = Form(..., min_length=1, max_length=64),
+    category: str = Form(..., min_length=1, max_length=64),
+    objective: str = Form(..., min_length=1, max_length=4000),
+):
+    content = await file.read(1024 * 1024 + 1)
+    return service(session, user).import_lab(
+        course_id=course_id,
+        code=code,
+        category=category,
+        objective=objective,
+        content=content,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get("/labs/{definition_id}")

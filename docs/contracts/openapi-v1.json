@@ -13275,6 +13275,190 @@
         }
       }
     },
+    "/api/v1/labs/import": {
+      "post": {
+        "tags": [
+          "实验定义"
+        ],
+        "summary": "Import Lab",
+        "operationId": "import_lab_api_v1_labs_import_post",
+        "parameters": [
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255,
+              "title": "X-Idempotency-Key"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-teacher-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Teacher-Id"
+            }
+          },
+          {
+            "name": "x-student-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Student-Id"
+            }
+          },
+          {
+            "name": "x-permissions",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Permissions"
+            }
+          },
+          {
+            "name": "x-course-ids",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Course-Ids"
+            }
+          },
+          {
+            "name": "x-class-ids",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Class-Ids"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_lab_api_v1_labs_import_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/labs/{definition_id}": {
       "get": {
         "tags": [
@@ -31655,6 +31839,48 @@
         ],
         "title": "AuditRequest"
       },
+      "Body_import_lab_api_v1_labs_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "course_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Course Id"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Category"
+          },
+          "objective": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Objective"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "course_id",
+          "code",
+          "category",
+          "objective"
+        ],
+        "title": "Body_import_lab_api_v1_labs_import_post"
+      },
       "Body_import_members_api_v1_classes__class_id__members_import_post": {
         "properties": {
           "file": {
@@ -31764,6 +31990,7 @@
             "title": "Order No"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "checkpoint_id",
@@ -31820,6 +32047,7 @@
             "title": "Source Lab Version Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "CloneVersionInput"
       },
@@ -31941,6 +32169,7 @@
             "title": "To Node Key"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "from_node_key",
@@ -31974,6 +32203,7 @@
             "title": "Order No"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "node_key",
@@ -32003,6 +32233,7 @@
             "title": "Order No"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "file_id",
@@ -32186,6 +32417,7 @@
             "title": "Digest"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "node_key",
@@ -32319,6 +32551,7 @@
             "title": "Diagrams"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "course_id",
@@ -32357,6 +32590,7 @@
             "$ref": "#/components/schemas/LabDefinitionSpec"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "course_id",
@@ -32450,6 +32684,7 @@
             "$ref": "#/components/schemas/RuntimePolicy"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "lab_definition_id",
@@ -32473,6 +32708,7 @@
             "$ref": "#/components/schemas/LabDefinitionSpec"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "spec"
@@ -33758,14 +33994,7 @@
             "title": "Class Id"
           },
           "lesson_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Lesson Id"
           },
           "opens_at": {
@@ -33802,11 +34031,13 @@
             "default": true
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "lab_version_id",
           "course_id",
           "class_id",
+          "lesson_id",
           "opens_at",
           "closes_at",
           "max_attempts",
@@ -34081,6 +34312,7 @@
             "title": "Timeout Minutes"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "max_attempts",
@@ -34213,6 +34445,7 @@
             "default": true
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "network_key",
@@ -34323,6 +34556,7 @@
             "default": 80
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "node_key",
@@ -34385,6 +34619,7 @@
             "title": "Spec"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name",

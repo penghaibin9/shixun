@@ -8,6 +8,7 @@ const templates = ref<Template[]>([])
 const loading = ref(true)
 const error = ref('')
 onMounted(async () => { try { templates.value = await listTemplates() } catch (reason) { error.value = (reason as ApiError).message } finally { loading.value = false } })
+function exampleLab(item: Template): string { return typeof item.spec.example_lab_definition_id === 'string' ? item.spec.example_lab_definition_id : 'lab_rsa' }
 </script>
 
 <template>
@@ -18,7 +19,7 @@ onMounted(async () => { try { templates.value = await listTemplates() } catch (r
   <div v-else class="grid grid-3">
     <article v-for="item in templates" :key="item.template_id" class="card template-card">
       <span class="badge success">推荐</span><h2>{{ item.name }}</h2><p class="muted">{{ item.description }}</p>
-      <RouterLink class="yk-button primary" to="/lab-builder?lab=lab_rsa">使用模板创建 RSA 实验</RouterLink>
+      <RouterLink class="yk-button primary" :to="`/lab-builder?lab=${exampleLab(item)}`">查看模板示例定义</RouterLink>
     </article>
   </div>
 </template>

@@ -2,10 +2,15 @@ import { expect, test } from '@playwright/test'
 
 test('G3：模板到 RSA 不可变版本与 JSON 导出', async ({ page }) => {
   test.skip(process.env.E2E_REAL_API !== '1', '仅在真实后端与 MySQL 验收时运行')
+  await page.goto('/labs')
+  await expect(page.getByText('AES（高级加密标准）/DES（数据加密标准）基础加解密', { exact: true })).toBeVisible()
+  await expect(page.getByText('数据安全治理综合实践', { exact: true })).toBeVisible()
+  expect(await page.locator('.lab-card').count()).toBeGreaterThanOrEqual(12)
   await page.goto('/lab-templates')
   await expect(page.getByRole('heading', { name: '实验模板库' })).toBeVisible()
-  await expect(page.getByText('双机密码学实验', { exact: true })).toBeVisible()
-  await page.getByRole('link', { name: '使用模板创建 RSA 实验' }).click()
+  const cryptoTemplate = page.locator('.template-card').filter({ hasText: '双机密码学实验' })
+  await expect(cryptoTemplate).toBeVisible()
+  await cryptoTemplate.getByRole('link', { name: '查看模板示例定义' }).click()
 
   await expect(page.getByRole('heading', { name: '创建实验 · 完整 6 步设计器' })).toBeVisible()
   await expect(page.getByText('RSA 非对称加密算法实验', { exact: true })).toBeVisible()

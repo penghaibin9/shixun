@@ -4,12 +4,16 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 ID = str
 DIGEST_PATTERN = r"^sha256:[0-9a-f]{64}$"
 KEY_PATTERN = r"^[a-z][a-z0-9_-]{1,63}$"
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
 class LabVersionStatus(StrEnum):
@@ -34,12 +38,12 @@ class NetworkEnvironment(StrEnum):
     CUSTOM = "CUSTOM"
 
 
-class RuntimePolicy(BaseModel):
+class RuntimePolicy(StrictModel):
     max_attempts: int = Field(ge=1, le=10)
     timeout_minutes: int = Field(ge=5, le=240)
 
 
-class SceneNetwork(BaseModel):
+class SceneNetwork(StrictModel):
     network_key: str = Field(pattern=KEY_PATTERN)
     cidr_policy: str = Field(min_length=1, max_length=64)
     internet_access: bool = False
@@ -47,7 +51,7 @@ class SceneNetwork(BaseModel):
     student_isolation: bool = True
 
 
-class SceneNode(BaseModel):
+class SceneNode(StrictModel):
     node_key: str = Field(pattern=KEY_PATTERN)
     display_name: str = Field(min_length=1, max_length=128)
     role: str = Field(min_length=1, max_length=64)
@@ -75,20 +79,20 @@ class SceneNode(BaseModel):
         return ports
 
 
-class ImageBinding(BaseModel):
+class ImageBinding(StrictModel):
     node_key: str = Field(pattern=KEY_PATTERN)
     infra_image_id: ID = Field(min_length=1, max_length=36)
     digest: str = Field(pattern=DIGEST_PATTERN)
 
 
-class DagNode(BaseModel):
+class DagNode(StrictModel):
     node_key: str = Field(pattern=KEY_PATTERN)
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
     order_no: int = Field(ge=0, le=999)
 
 
-class DagEdge(BaseModel):
+class DagEdge(StrictModel):
     from_node_key: str = Field(pattern=KEY_PATTERN)
     to_node_key: str = Field(pattern=KEY_PATTERN)
 
@@ -99,7 +103,7 @@ class DagEdge(BaseModel):
         return self
 
 
-class Checkpoint(BaseModel):
+class Checkpoint(StrictModel):
     checkpoint_id: str = Field(pattern=KEY_PATTERN)
     dag_node_id: str = Field(pattern=KEY_PATTERN)
     name: str = Field(min_length=1, max_length=160)
@@ -141,7 +145,7 @@ class Checkpoint(BaseModel):
         return self
 
 
-class LabDefinitionSpec(BaseModel):
+class LabDefinitionSpec(StrictModel):
     lab_definition_id: ID = Field(min_length=1, max_length=36)
     version: int = Field(ge=1)
     name: str = Field(min_length=1, max_length=160)
@@ -187,7 +191,7 @@ class LabDefinitionSpec(BaseModel):
         return self
 
 
-class LabCreate(BaseModel):
+class LabCreate(StrictModel):
     course_id: ID = Field(min_length=1, max_length=36)
     code: str = Field(min_length=1, max_length=64)
     category: str = Field(min_length=1, max_length=64)
@@ -195,23 +199,23 @@ class LabCreate(BaseModel):
     spec: LabDefinitionSpec
 
 
-class LabVersionPatch(BaseModel):
+class LabVersionPatch(StrictModel):
     spec: LabDefinitionSpec
 
 
-class TemplateCreate(BaseModel):
+class TemplateCreate(StrictModel):
     name: str = Field(min_length=1, max_length=128)
     description: str = Field(min_length=1, max_length=4000)
     spec: dict[str, Any]
 
 
-class DiagramInput(BaseModel):
+class DiagramInput(StrictModel):
     file_id: ID = Field(min_length=1, max_length=36)
     title: str = Field(min_length=1, max_length=160)
     order_no: int = Field(ge=0, le=999)
 
 
-class KnowledgeInput(BaseModel):
+class KnowledgeInput(StrictModel):
     course_id: ID = Field(min_length=1, max_length=36)
     title: str = Field(min_length=1, max_length=160)
     explain_text: str = Field(min_length=1, max_length=10000)
@@ -219,11 +223,11 @@ class KnowledgeInput(BaseModel):
     diagrams: list[DiagramInput] = Field(default_factory=list, max_length=20)
 
 
-class ReleaseCreate(BaseModel):
+class ReleaseCreate(StrictModel):
     lab_version_id: ID
     course_id: ID
     class_id: ID
-    lesson_id: ID | None = None
+    lesson_id: ID
     opens_at: datetime
     closes_at: datetime
     max_attempts: int = Field(ge=1, le=10)
@@ -238,11 +242,11 @@ class ReleaseCreate(BaseModel):
         return self
 
 
-class CloneVersionInput(BaseModel):
+class CloneVersionInput(StrictModel):
     source_lab_version_id: ID | None = None
 
 
-class ListResponse(BaseModel):
+class ListResponse(StrictModel):
     items: list[dict[str, Any]]
     page: int = 1
     page_size: int

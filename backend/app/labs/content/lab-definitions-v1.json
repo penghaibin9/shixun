@@ -1,0 +1,151 @@
+{
+  "version": "1.0.0",
+  "course_id": "course_data_security",
+  "definitions": [
+    {
+      "lesson_id": "lesson_lab_01",
+      "lesson_code": "实验01",
+      "lab_definition_id": "lab_aes_des",
+      "code": "EXP-DS-01",
+      "family": "SYMMETRIC_CRYPTO",
+      "category": "密码学",
+      "duration_minutes": 45,
+      "profile": "dual-linux",
+      "special_judge": {
+        "judge_type": "FILE_HASH",
+        "judge_target": "student-lab01:work/plain.out=data/plaintext.txt",
+        "judge_config_json": {
+          "left_path": "work/plain.out",
+          "right_path": "data/plaintext.txt",
+          "algorithm": "sha256"
+        }
+      }
+    },
+    {
+      "lesson_id": "lesson_lab_02",
+      "lesson_code": "实验02",
+      "lab_definition_id": "lab_aes_modes",
+      "code": "EXP-DS-02",
+      "family": "SYMMETRIC_CRYPTO",
+      "category": "密码学",
+      "duration_minutes": 45,
+      "profile": "dual-linux"
+    },
+    {
+      "lesson_id": "lesson_lab_03",
+      "lesson_code": "实验03",
+      "lab_definition_id": "lab_rsa",
+      "code": "EXP-RSA-001",
+      "family": "ASYMMETRIC_CRYPTO",
+      "category": "密码学",
+      "duration_minutes": 60,
+      "profile": "rsa-deep"
+    },
+    {
+      "lesson_id": "lesson_lab_04",
+      "lesson_code": "实验04",
+      "lab_definition_id": "lab_rsa_signature",
+      "code": "EXP-DS-04",
+      "family": "ASYMMETRIC_CRYPTO",
+      "category": "密码学",
+      "duration_minutes": 45,
+      "profile": "dual-linux"
+    },
+    {
+      "lesson_id": "lesson_lab_05",
+      "lesson_code": "实验05",
+      "lab_definition_id": "lab_hash_integrity",
+      "code": "EXP-DS-05",
+      "family": "HASH",
+      "category": "完整性保护",
+      "duration_minutes": 45,
+      "profile": "dual-linux"
+    },
+    {
+      "lesson_id": "lesson_lab_06",
+      "lesson_code": "实验06",
+      "lab_definition_id": "lab_base64",
+      "code": "EXP-DS-06",
+      "family": "ENCODING",
+      "category": "数据编码",
+      "duration_minutes": 40,
+      "profile": "data-processing"
+    },
+    {
+      "lesson_id": "lesson_lab_07",
+      "lesson_code": "实验07",
+      "lab_definition_id": "lab_lsb",
+      "code": "EXP-DS-07",
+      "family": "STEGANOGRAPHY",
+      "category": "数据隐写",
+      "duration_minutes": 50,
+      "profile": "data-processing"
+    },
+    {
+      "lesson_id": "lesson_lab_08",
+      "lesson_code": "实验08",
+      "lab_definition_id": "lab_database_rbac",
+      "code": "EXP-DS-08",
+      "family": "DATABASE_ACCESS",
+      "category": "访问控制",
+      "duration_minutes": 60,
+      "profile": "mysql",
+      "special_judge": {
+        "judge_type": "PORT_LISTEN",
+        "judge_target": "target-lab08:3306",
+        "judge_config_json": {
+          "host": "target-lab08",
+          "port": 3306
+        }
+      }
+    },
+    {
+      "lesson_id": "lesson_lab_09",
+      "lesson_code": "实验09",
+      "lab_definition_id": "lab_data_masking",
+      "code": "EXP-DS-09",
+      "family": "DATA_MASKING",
+      "category": "数据脱敏",
+      "duration_minutes": 45,
+      "profile": "data-processing"
+    },
+    {
+      "lesson_id": "lesson_lab_10",
+      "lesson_code": "实验10",
+      "lab_definition_id": "lab_backup_restore",
+      "code": "EXP-DS-10",
+      "family": "BACKUP_RECOVERY",
+      "category": "备份恢复",
+      "duration_minutes": 60,
+      "profile": "data-processing"
+    },
+    {
+      "lesson_id": "lesson_lab_11",
+      "lesson_code": "实验11",
+      "lab_definition_id": "lab_log_audit",
+      "code": "EXP-DS-11",
+      "family": "AUDIT",
+      "category": "日志审计",
+      "duration_minutes": 50,
+      "profile": "data-processing"
+    },
+    {
+      "lesson_id": "lesson_lab_12",
+      "lesson_code": "实验12",
+      "lab_definition_id": "lab_data_governance",
+      "code": "EXP-DS-12",
+      "family": "COMPREHENSIVE",
+      "category": "综合实践",
+      "duration_minutes": 90,
+      "profile": "web-service",
+      "special_judge": {
+        "judge_type": "HTTP_RESPONSE",
+        "judge_target": "target-lab12:/health",
+        "judge_config_json": {
+          "path": "/health",
+          "status_code": 200
+        }
+      }
+    }
+  ]
+}

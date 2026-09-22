@@ -1,8 +1,10 @@
+import json
 from datetime import datetime, timezone
 from os import getenv
 from pathlib import Path
 
 import httpx
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,6 +14,8 @@ from app.common.errors import ApiError
 from app.common.outbox import enqueue_event
 from app.common.models import FileObject
 from app.common.models import DomainEventOutbox
+from app.resources.models import LessonResource, Question, QuestionBank
+from app.teaching.models import ClassCourse, CourseLesson, TeachingTeacherAssignment
 
 from . import models
 from .repository import LabRepository, new_id
@@ -39,6 +43,19 @@ class LabService:
     def _class_scope(self, class_id: str) -> None:
         if class_id not in self.user.class_ids:
             raise ApiError("AUTH.CLASS_SCOPE_DENIED", "发布班级不在当前账号的数据范围内", 403, {"class_id": class_id})
+
+    def _teacher_assignment_scope(self, course_id: str, class_id: str) -> None:
+        if self.user.role == "admin":
+            return
+        assignment = self.session.scalar(
+            select(TeachingTeacherAssignment).where(
+                TeachingTeacherAssignment.teacher_id == self.user.teacher_id,
+                TeachingTeacherAssignment.class_id == class_id,
+                TeachingTeacherAssignment.course_id == course_id,
+            )
+        )
+        if not assignment:
+            raise ApiError("AUTH.TEACHER_ASSIGNMENT_DENIED", "当前教师未获授权向该班级发布此课程", 403)
 
     def list_labs(self) -> list[dict]:
         self._permission("labs.read")
@@ -81,6 +98,25 @@ class LabService:
             self.session.rollback()
             raise ApiError("LAB.DUPLICATE", "实验编号、标识或幂等键已存在", 409) from error
         return self._definition_view(definition, version)
+
+    def import_lab(self, *, course_id: str, code: str, category: str, objective: str, content: bytes, idempotency_key: str) -> dict:
+        self._permission("labs.write")
+        self._course_scope(course_id)
+        if not content or len(content) > 1024 * 1024:
+            raise ApiError("LAB.IMPORT_FILE_INVALID", "实验定义文件必须是 1 MB 以内的非空 JSON 文件", 422)
+        try:
+            payload = json.loads(content.decode("utf-8-sig"))
+            spec = LabDefinitionSpec.model_validate(payload)
+            data = LabCreate(
+                course_id=course_id,
+                code=code,
+                category=category,
+                objective=objective,
+                spec=spec,
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError, ValidationError) as error:
+            raise ApiError("LAB.IMPORT_SCHEMA_INVALID", "实验定义 JSON 未通过格式与字段校验", 422) from error
+        return self.create_lab(data, idempotency_key)
 
     def get_version(self, version_id: str) -> dict:
         self._permission("labs.read")
@@ -200,6 +236,7 @@ class LabService:
             item = self.session.get(models.LabKnowledgePoint, previous)
             if item:
                 return self._knowledge_view(item)
+        self._validate_knowledge_refs(data)
         stamp = now()
         item = models.LabKnowledgePoint(knowledge_point_id=new_id("kp"), course_id=data.course_id, title=data.title, explain_text=data.explain_text, created_by=self.user.user_id, created_at=stamp, updated_at=stamp)
         self.session.add(item)
@@ -221,11 +258,22 @@ class LabService:
         self._course_scope(item.course_id)
         if data.course_id != item.course_id:
             raise ApiError("LAB.KNOWLEDGE_COURSE_IMMUTABLE", "知识点所属课程不可变更", 409)
+        self._validate_knowledge_refs(data)
         item.title, item.explain_text, item.updated_at = data.title, data.explain_text, now()
         self.repo.replace_knowledge_children(knowledge_id, data.question_ids, data.diagrams)
         enqueue_event(self.session, event_type="lab.knowledge.updated", aggregate_type="lab_knowledge_point", aggregate_id=knowledge_id, actor_user_id=self.user.user_id, idempotency_key=idempotency_key, payload={"course_id": item.course_id})
         self.session.commit()
         return self._knowledge_view(item)
+
+    def _validate_knowledge_refs(self, data: KnowledgeInput) -> None:
+        for question_id in set(data.question_ids):
+            question = self.session.get(Question, question_id)
+            bank = self.session.get(QuestionBank, question.question_bank_id) if question else None
+            if not question or not bank or bank.course_id != data.course_id:
+                raise ApiError("LAB.KNOWLEDGE_QUESTION_NOT_FOUND", "关联题目不存在或不属于当前课程", 422, {"question_id": question_id})
+        for diagram in data.diagrams:
+            if not self.session.get(FileObject, diagram.file_id):
+                raise ApiError("LAB.KNOWLEDGE_FILE_NOT_FOUND", "讲解图文件不存在", 422, {"file_id": diagram.file_id})
 
     def diagram_download(self, knowledge_id: str, diagram_id: str) -> tuple[Path, str, str]:
         self._permission("labs.read")
@@ -258,6 +306,32 @@ class LabService:
             raise ApiError("LAB.RELEASE_COURSE_MISMATCH", "实验版本不属于发布课程", 422)
         if version.status != "PUBLISHED":
             raise ApiError("LAB.RELEASE_VERSION_NOT_PUBLISHED", "只能发布不可变的已发布实验版本", 409)
+        class_course = self.session.scalar(
+            select(ClassCourse).where(
+                ClassCourse.class_id == data.class_id,
+                ClassCourse.course_id == data.course_id,
+            )
+        )
+        if not class_course:
+            raise ApiError("LAB.CLASS_COURSE_NOT_FOUND", "发布班级尚未开设该课程", 422)
+        self._teacher_assignment_scope(data.course_id, data.class_id)
+        lesson = self.session.scalar(
+            select(CourseLesson).where(
+                CourseLesson.course_id == data.course_id,
+                CourseLesson.lesson_id == data.lesson_id,
+                CourseLesson.lesson_type == "LAB",
+            )
+        )
+        if not lesson:
+            raise ApiError("LAB.RELEASE_LESSON_NOT_FOUND", "发布课时不是该课程的实验课时", 422)
+        extension = self.session.scalar(
+            select(LessonResource).where(
+                LessonResource.course_id == data.course_id,
+                LessonResource.lesson_id == data.lesson_id,
+            )
+        )
+        if not extension or extension.linked_lab_definition_id != definition.lab_definition_id:
+            raise ApiError("LAB.RELEASE_LESSON_MISMATCH", "发布课时未关联当前实验定义", 422)
         release = models.LabRelease(lab_release_id=new_id("labr"), lab_version_id=version.lab_version_id, course_id=data.course_id, class_id=data.class_id, lesson_id=data.lesson_id, status="SCHEDULED", created_by=self.user.user_id, created_at=now())
         self.session.add(release)
         self.session.flush()
@@ -349,11 +423,17 @@ class LabService:
             raise ApiError("LAB.RELEASE_NOT_FOUND", "实验发布不存在", 404)
         self._course_scope(item.course_id)
         self._class_scope(item.class_id)
+        self._teacher_assignment_scope(item.course_id, item.class_id)
         return item
 
-    @staticmethod
-    def _definition_view(item: models.LabDefinition, version: models.LabVersion | None) -> dict:
-        return {"lab_definition_id": item.lab_definition_id, "course_id": item.course_id, "code": item.code, "name": item.name, "category": item.category, "objective": item.objective, "latest_version": LabService._version_view(version) if version else None}
+    def _definition_view(self, item: models.LabDefinition, version: models.LabVersion | None) -> dict:
+        lesson_id = self.session.scalar(
+            select(LessonResource.lesson_id).where(
+                LessonResource.course_id == item.course_id,
+                LessonResource.linked_lab_definition_id == item.lab_definition_id,
+            )
+        )
+        return {"lab_definition_id": item.lab_definition_id, "course_id": item.course_id, "lesson_id": lesson_id, "code": item.code, "name": item.name, "category": item.category, "objective": item.objective, "latest_version": self._version_view(version) if version else None}
 
     @staticmethod
     def _version_view(item: models.LabVersion | None) -> dict | None:

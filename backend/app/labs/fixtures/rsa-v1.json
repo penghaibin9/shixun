@@ -11,9 +11,9 @@
       "role": "STUDENT_WORKSTATION",
       "network_env": "ISOLATED",
       "network_keys": ["lab-net-rsa"],
-      "device_model": "Ubuntu 22.04 教学终端",
-      "image_id": "img_ubuntu_openssl",
-      "image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "device_model": "Python 3.11 / OpenSSL 教学终端",
+      "image_id": "img_python_openssl_gate",
+      "image_digest": "sha256:35d3a4a3d5e42e02ab916d44513a050689f12c0533d45598d229672503fe77ca",
       "cpu_limit": 1,
       "memory_mb": 1024,
       "ip_policy": "DYNAMIC_PRIVATE",
@@ -29,9 +29,9 @@
       "role": "TARGET",
       "network_env": "ISOLATED",
       "network_keys": ["lab-net-rsa"],
-      "device_model": "Ubuntu 22.04 验证节点",
-      "image_id": "img_ubuntu_openssl",
-      "image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "device_model": "Python 3.11 / OpenSSL 验证节点",
+      "image_id": "img_python_openssl_gate",
+      "image_digest": "sha256:35d3a4a3d5e42e02ab916d44513a050689f12c0533d45598d229672503fe77ca",
       "cpu_limit": 1,
       "memory_mb": 1024,
       "ip_policy": "DYNAMIC_PRIVATE",
@@ -54,13 +54,13 @@
   "image_bindings": [
     {
       "node_key": "student-rsa",
-      "infra_image_id": "img_ubuntu_openssl",
-      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      "infra_image_id": "img_python_openssl_gate",
+      "digest": "sha256:35d3a4a3d5e42e02ab916d44513a050689f12c0533d45598d229672503fe77ca"
     },
     {
       "node_key": "target-rsa",
-      "infra_image_id": "img_ubuntu_openssl",
-      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      "infra_image_id": "img_python_openssl_gate",
+      "digest": "sha256:35d3a4a3d5e42e02ab916d44513a050689f12c0533d45598d229672503fe77ca"
     }
   ],
   "steps": [

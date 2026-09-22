@@ -54,6 +54,13 @@ class LessonResource(Base):
             name="fk_lesson_resource_course_lesson",
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["course_id", "linked_lab_definition_id"],
+            ["lab_definition.course_id", "lab_definition.lab_definition_id"],
+            name="fk_lesson_resource_lab_definition",
+            ondelete="RESTRICT",
+        ),
+        Index("ix_lesson_resource_lab_definition", "course_id", "linked_lab_definition_id"),
     )
     lesson_resource_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     course_id: Mapped[str] = mapped_column(String(36))

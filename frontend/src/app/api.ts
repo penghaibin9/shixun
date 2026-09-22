@@ -14,7 +14,7 @@ export type LabSpec = {
   runtime_policy: { max_attempts: number; timeout_minutes: number }
 }
 export type LabVersion = { lab_version_id: string; lab_definition_id: string; version: number; status: string; spec: LabSpec; validation_errors: Array<{ code: string; message: string }>; published_at: string | null }
-export type Lab = { lab_definition_id: string; course_id: string; code: string; name: string; category: string; objective: string; latest_version: LabVersion }
+export type Lab = { lab_definition_id: string; course_id: string; lesson_id: string | null; code: string; name: string; category: string; objective: string; latest_version: LabVersion }
 export type LabRelease = { lab_release_id: string; lab_version_id: string; course_id: string; class_id: string; status: string; publish_config: { preflight: Record<string, unknown>; preview_request_id: string | null } }
 
 const devHeaders: HeadersInit = import.meta.env.DEV ? {
@@ -28,7 +28,7 @@ function idempotencyKey(action: string): string { return `${action}-${crypto.ran
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(devHeaders)
   new Headers(init.headers).forEach((value, key) => headers.set(key, value))
-  if (init.body) headers.set('Content-Type', 'application/json')
+  if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const response = await fetch(path, { ...init, headers })
   if (!response.ok) throw await response.json() as ApiError
   return response.json() as Promise<T>
@@ -138,6 +138,13 @@ export const resourceApi = {
 }
 
 export async function listLabs(): Promise<Lab[]> { return (await request<{ items: Lab[] }>('/api/v1/labs')).items }
+export async function importLab(file: File, metadata: { course_id: string; code: string; category: string; objective: string }): Promise<Lab> {
+  const body = new FormData()
+  body.append('file', file)
+  for (const [key, value] of Object.entries(metadata)) body.append(key, value)
+  const key = await fileIdempotencyKey(`lab-import-${metadata.course_id}-${metadata.code}`, file)
+  return request('/api/v1/labs/import', { method: 'POST', headers: { 'X-Idempotency-Key': key }, body })
+}
 export async function listTemplates(): Promise<Array<{ template_id: string; name: string; description: string; spec: Record<string, unknown> }>> { return (await request<{ items: Array<{ template_id: string; name: string; description: string; spec: Record<string, unknown> }> }>('/api/v1/lab-templates')).items }
 export async function listKnowledge(): Promise<Array<{ knowledge_point_id: string; title: string; explain_text: string; question_ids: string[]; diagrams: Array<{ diagram_id: string; file_id: string; title: string }> }>> { return (await request<{ items: Array<{ knowledge_point_id: string; title: string; explain_text: string; question_ids: string[]; diagrams: Array<{ diagram_id: string; file_id: string; title: string }> }> }>('/api/v1/lab-knowledge')).items }
 export async function downloadKnowledgeDiagram(knowledgeId: string, diagramId: string): Promise<Blob> {
@@ -155,13 +162,14 @@ export async function exportVersion(versionId: string): Promise<Blob> {
   if (!response.ok) throw await response.json() as ApiError
   return response.blob()
 }
-export async function createRelease(versionId: string): Promise<LabRelease> {
+export async function createRelease(versionId: string, scope: { course_id: string; class_id: string; lesson_id: string; max_concurrency: number }): Promise<LabRelease> {
   const opensAt = new Date(Date.now() + 60_000)
   const closesAt = new Date(opensAt.getTime() + 60 * 60_000)
-  return request('/api/v1/lab-releases', { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('release') }, body: JSON.stringify({ lab_version_id: versionId, course_id: 'course_data_security', class_id: 'class_netsec_2301', lesson_id: 'lesson_03_04', opens_at: opensAt.toISOString(), closes_at: closesAt.toISOString(), max_attempts: 3, timeout_minutes: 60, max_concurrency: 43, teacher_preview_required: true }) })
+  return request('/api/v1/lab-releases', { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('release') }, body: JSON.stringify({ lab_version_id: versionId, ...scope, opens_at: opensAt.toISOString(), closes_at: closesAt.toISOString(), max_attempts: 3, timeout_minutes: 60, teacher_preview_required: true }) })
 }
 export async function preflightRelease(releaseId: string): Promise<{ passed: boolean; checks: Record<string, boolean> }> { return request(`/api/v1/lab-releases/${releaseId}/preflight`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preflight') } }) }
 export async function teacherPreview(releaseId: string): Promise<{ status: string; runtime_request_id: string }> { return request(`/api/v1/lab-releases/${releaseId}/teacher-preview`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preview') } }) }
+export async function publishRelease(releaseId: string): Promise<LabRelease> { return request(`/api/v1/lab-releases/${releaseId}/publish`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('release-publish') } }) }
 
 export type RuntimeNode = { node_id: string; name: string; status: string; scheduling_paused: boolean; weight: number; cpu_total: number; memory_total_mb: number; last_seen_at: string | null; capacity: null | { cpu_available: number; memory_available_mb: number; running_groups: number; image_digests: string[] } }
 export type RuntimeImage = { image_id: string; name: string; tag: string; digest: string; size_bytes: number; scan_status: string; startup_check_status: string; teaching_validation_status: string; enabled: boolean }

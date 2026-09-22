@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('vue-router', () => ({ useRoute: () => ({ query: { lab: 'lab_rsa' } }) }))
 vi.mock('../api', () => ({
   listLabs: vi.fn(async () => [{
-    lab_definition_id: 'lab_rsa', course_id: 'course_data_security', code: 'EXP-RSA-001', name: 'RSA 非对称加密算法实验', category: '密码学', objective: '目标',
+    lab_definition_id: 'lab_rsa', course_id: 'course_data_security', lesson_id: 'lesson_lab_03', code: 'EXP-RSA-001', name: 'RSA 非对称加密算法实验', category: '密码学', objective: '目标',
     latest_version: {
       lab_version_id: 'labv_rsa_v1', lab_definition_id: 'lab_rsa', version: 1, status: 'PUBLISHED', validation_errors: [], published_at: '2026-09-21T00:00:00',
       spec: {
@@ -22,7 +22,7 @@ vi.mock('../api', () => ({
       },
     },
   }]),
-  cloneVersion: vi.fn(), saveVersion: vi.fn(), validateVersion: vi.fn(), publishVersion: vi.fn(), exportVersion: vi.fn(), createRelease: vi.fn(), preflightRelease: vi.fn(), teacherPreview: vi.fn(),
+  cloneVersion: vi.fn(), saveVersion: vi.fn(), validateVersion: vi.fn(), publishVersion: vi.fn(), exportVersion: vi.fn(), createRelease: vi.fn(), preflightRelease: vi.fn(), teacherPreview: vi.fn(), publishRelease: vi.fn(),
 }))
 
 import LabBuilderView from './LabBuilderView.vue'

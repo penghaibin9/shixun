@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.models import Base
@@ -18,9 +18,13 @@ class LabTemplate(Base):
 
 class LabDefinition(Base):
     __tablename__ = "lab_definition"
-    __table_args__ = (UniqueConstraint("course_id", "code", name="uq_lab_definition_course_code"), Index("ix_lab_definition_course", "course_id"))
+    __table_args__ = (
+        UniqueConstraint("course_id", "code", name="uq_lab_definition_course_code"),
+        UniqueConstraint("course_id", "lab_definition_id", name="uq_lab_definition_course_scope"),
+        Index("ix_lab_definition_course", "course_id"),
+    )
     lab_definition_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    course_id: Mapped[str] = mapped_column(String(36))
+    course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="RESTRICT"))
     code: Mapped[str] = mapped_column(String(64))
     name: Mapped[str] = mapped_column(String(160))
     category: Mapped[str] = mapped_column(String(64))
@@ -136,7 +140,7 @@ class LabKnowledgePoint(Base):
     __tablename__ = "lab_knowledge_point"
     __table_args__ = (Index("ix_lab_knowledge_course", "course_id"),)
     knowledge_point_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    course_id: Mapped[str] = mapped_column(String(36))
+    course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="RESTRICT"))
     title: Mapped[str] = mapped_column(String(160))
     explain_text: Mapped[str] = mapped_column(Text)
     created_by: Mapped[str] = mapped_column(String(36))
@@ -149,7 +153,7 @@ class LabQuestionKnowledgeMap(Base):
     __table_args__ = (UniqueConstraint("knowledge_point_id", "question_id", name="uq_lab_knowledge_question"), Index("ix_lab_question_ref", "question_id"))
     map_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     knowledge_point_id: Mapped[str] = mapped_column(ForeignKey("lab_knowledge_point.knowledge_point_id", ondelete="CASCADE"))
-    question_id: Mapped[str] = mapped_column(String(36))
+    question_id: Mapped[str] = mapped_column(ForeignKey("question.question_id", ondelete="RESTRICT"))
 
 
 class LabExplainDiagram(Base):
@@ -157,19 +161,33 @@ class LabExplainDiagram(Base):
     __table_args__ = (Index("ix_lab_diagram_file", "file_id"),)
     diagram_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     knowledge_point_id: Mapped[str] = mapped_column(ForeignKey("lab_knowledge_point.knowledge_point_id", ondelete="CASCADE"))
-    file_id: Mapped[str] = mapped_column(String(36))
+    file_id: Mapped[str] = mapped_column(ForeignKey("file_object.file_id", ondelete="RESTRICT"))
     title: Mapped[str] = mapped_column(String(160))
     order_no: Mapped[int] = mapped_column(Integer)
 
 
 class LabRelease(Base):
     __tablename__ = "lab_release"
-    __table_args__ = (Index("ix_lab_release_class_status", "class_id", "status"),)
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["class_id", "course_id"],
+            ["class_course.class_id", "class_course.course_id"],
+            name="fk_lab_release_class_course",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["course_id", "lesson_id"],
+            ["course_lesson.course_id", "course_lesson.lesson_id"],
+            name="fk_lab_release_course_lesson",
+            ondelete="RESTRICT",
+        ),
+        Index("ix_lab_release_class_status", "class_id", "status"),
+    )
     lab_release_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     lab_version_id: Mapped[str] = mapped_column(ForeignKey("lab_version.lab_version_id"))
-    course_id: Mapped[str] = mapped_column(String(36))
+    course_id: Mapped[str] = mapped_column(ForeignKey("course.course_id", ondelete="RESTRICT"))
     class_id: Mapped[str] = mapped_column(String(36))
-    lesson_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lesson_id: Mapped[str] = mapped_column(String(36), nullable=False)
     status: Mapped[str] = mapped_column(String(24))
     created_by: Mapped[str] = mapped_column(String(36))
     created_at: Mapped[datetime] = mapped_column(DateTime)
