@@ -35,7 +35,8 @@ class NodeAgentClient:
         return await self._request("GET", "/capacity")
 
     async def create_group(self, payload: dict) -> dict:
-        return await self._request("POST", "/runtime-groups", json=payload)
+        # 节点代理创建阶段最多 120 秒，失败回滚另有 30 秒共享预算；客户端需覆盖完整边界。
+        return await self._request("POST", "/runtime-groups", json=payload, timeout=160)
 
     async def group(self, provider_group_id: str) -> dict:
         return await self._request("GET", f"/runtime-groups/{provider_group_id}")

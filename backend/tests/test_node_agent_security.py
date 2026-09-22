@@ -12,7 +12,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from node_agent import app as node_agent_module
-from node_agent.app import approved_command, command_evidence_container, container_name, remove_labeled_container, remove_owned_container, safe_file
+from node_agent.app import MYSQL_84_DIGEST, NGINX_127_DIGEST, approved_command, command_evidence_container, container_name, remove_labeled_container, remove_owned_container, runtime_profile, safe_file
 
 
 def test_runtime_start_requires_student_subject():
@@ -96,5 +96,15 @@ def test_failed_group_cleanup_never_removes_a_name_owned_by_another_group(monkey
         return node_agent_module.subprocess.CompletedProcess(args, 0, stdout="another-group\n", stderr="")
 
     monkeypatch.setattr(node_agent_module, "docker", fake_docker)
-    remove_labeled_container("this-group", "colliding-name")
+    with pytest.raises(HTTPException, match="归属"):
+        remove_labeled_container("this-group", "colliding-name")
     assert [call[0] for call in calls] == ["inspect"]
+
+
+def test_service_profiles_are_digest_role_and_capacity_bound():
+    assert runtime_profile(MYSQL_84_DIGEST, "TARGET", 1024)["profile_id"] == "mysql-8.4-formal-v1"
+    assert runtime_profile(NGINX_127_DIGEST, "TARGET", 128)["service_port"] == 8080
+    with pytest.raises(HTTPException, match="目标节点"):
+        runtime_profile(MYSQL_84_DIGEST, "STUDENT_WORKSTATION", 1024)
+    with pytest.raises(HTTPException, match="内存不足"):
+        runtime_profile(MYSQL_84_DIGEST, "TARGET", 512)
