@@ -70,6 +70,83 @@ class NodeSchedulePatch(StrictModel):
     weight: int | None = Field(default=None, ge=1, le=1000)
 
 
+class RuntimeMaintenanceRun(StrictModel):
+    node_timeout_seconds: int = Field(default=90, ge=30, le=3600)
+    processing_timeout_seconds: int = Field(default=120, ge=30, le=3600)
+    retry_limit: int = Field(default=20, ge=0, le=100)
+    expiry_limit: int = Field(default=20, ge=0, le=100)
+    max_queue_attempts: int = Field(default=5, ge=1, le=20)
+
+
+class RuntimeHeartbeatResult(StrictModel):
+    node_id: str
+    status: Literal["READY"]
+    observed_at: str
+    cpu_available: float
+    memory_available_mb: int
+    running_groups: int
+    idempotent_replay: bool
+
+
+class RuntimeRequestError(StrictModel):
+    code: str
+    message: str
+
+
+class RuntimeQueueRetryResult(StrictModel):
+    runtime_request_id: str
+    queue_id: str
+    lab_release_id: str
+    lab_version_id: str
+    course_id: str | None
+    class_id: str | None
+    mode: str
+    student_id: str | None
+    status: Literal["QUEUED", "SCHEDULING", "STARTING", "RUNNING", "FAILED", "CANCELED"]
+    display_status: str
+    error: RuntimeRequestError | None
+    runtime_group_id: str | None
+    instance_ids: list[str]
+    submission_status: str
+    submitted_at: str | None
+    started_at: str | None
+    last_activity_at: str
+    created_at: str
+    updated_at: str
+    idempotent_replay: bool
+
+
+class RuntimeProcessingResult(StrictModel):
+    queue_id: str
+    status: str
+    error_code: str | None = None
+
+
+class RuntimeExpiryResult(StrictModel):
+    runtime_group_id: str
+    status: str
+    error_code: str | None = None
+    cleanup_intent: str | None = None
+
+
+class RuntimeMaintenanceQueueResult(StrictModel):
+    queue_id: str
+    status: str
+    error_code: str | None = None
+
+
+class RuntimeMaintenanceResult(StrictModel):
+    status: Literal["COMPLETED", "COMPLETED_WITH_ERRORS"]
+    automatic: bool
+    node_timeouts: list[str]
+    processing_recovered: list[str]
+    processing_results: list[RuntimeProcessingResult]
+    expiry_results: list[RuntimeExpiryResult]
+    queue_results: list[RuntimeMaintenanceQueueResult]
+    completed_at: str
+    idempotent_replay: bool
+
+
 class ImageRegister(StrictModel):
     image_id: str = Field(min_length=1, max_length=36)
     name: str = Field(min_length=1, max_length=160)

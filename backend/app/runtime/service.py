@@ -1,9 +1,11 @@
+import re
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+from math import isfinite
 from secrets import token_urlsafe
 from uuid import uuid4
 
-from sqlalchemy import delete, desc, func, select
+from sqlalchemy import and_, delete, desc, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,7 +16,7 @@ from app.common.outbox import enqueue_event
 from . import models
 from .catalog import LabCatalogClient
 from .provider import NodeAgentClient
-from .schemas import ImageRegister, NodeRegister, RuntimeExtend, RuntimeStart
+from .schemas import ImageRegister, NodeRegister, RuntimeExtend, RuntimeMaintenanceRun, RuntimeStart
 
 
 def now() -> datetime:
@@ -34,6 +36,9 @@ ALLOWED_TRANSITIONS = {
     "CANCELED": set(),
     "DESTROYED": set(),
 }
+QUEUE_LEASE_SECONDS = 240
+ADMIN_ACTION_LEASE_SECONDS = 300
+LEASE_ERROR_CODES = {"RUNTIME.QUEUE_LEASE_LOST", "RUNTIME.RECOVERY_LEASE_LOST", "RUNTIME.PROVISION_LEASE_LOST"}
 
 
 class RuntimeService:
@@ -46,6 +51,224 @@ class RuntimeService:
     def _permission(self, name: str) -> None:
         if name not in self.user.permissions:
             raise ApiError("AUTH.FORBIDDEN", "当前账号没有此操作权限", 403, {"required_permission": name})
+
+    def _admin_control(self) -> None:
+        self._permission("infrastructure.write")
+        if self.user.role != "admin":
+            raise ApiError("AUTH.ADMIN_REQUIRED", "仅管理员可执行运行底座恢复操作", 403)
+
+    def _claim_admin_action(self, action_type: str, target_id: str, action_key: str, request_json: dict) -> tuple[models.RuntimeAdminAction, bool]:
+        def load(*, lock: bool = False) -> models.RuntimeAdminAction | None:
+            query = select(models.RuntimeAdminAction).where(
+                    models.RuntimeAdminAction.actor_user_id == self.user.user_id,
+                    models.RuntimeAdminAction.idempotency_key == action_key,
+                )
+            if lock:
+                query = query.with_for_update().execution_options(populate_existing=True)
+            return self.session.scalar(query)
+
+        action = load(lock=True)
+        if action:
+            self._validate_admin_action(action, action_type, target_id, request_json)
+            if action.status == "IN_PROGRESS" and action.lease_expires_at <= now():
+                action.status = "FAILED"
+                action.error_code = "RUNTIME.RECOVERY_INTERRUPTED"
+                action.error_message = "恢复动作租约已过期，请使用新的幂等键重试"
+                action.error_status_code = 503
+                action.error_details_json = {"action_id": action.action_id}
+                action.updated_at = now()
+                self.session.commit()
+            return action, False
+        stamp = now()
+        action = models.RuntimeAdminAction(
+            action_id=new_id("raa"), actor_user_id=self.user.user_id, idempotency_key=action_key,
+            action_type=action_type, target_id=target_id, request_json=request_json, status="IN_PROGRESS",
+            owner_token=uuid4().hex, generation=1, lease_expires_at=stamp + timedelta(seconds=ADMIN_ACTION_LEASE_SECONDS),
+            result_json=None, error_code=None, error_message=None, error_status_code=None,
+            error_details_json=None,
+            created_at=stamp, updated_at=stamp,
+        )
+        self.session.add(action)
+        try:
+            self.session.commit()
+            return action, True
+        except IntegrityError:
+            self.session.rollback()
+            action = load(lock=True)
+            if not action:
+                raise
+            self._validate_admin_action(action, action_type, target_id, request_json)
+            return action, False
+
+    @staticmethod
+    def _validate_admin_action(action: models.RuntimeAdminAction, action_type: str, target_id: str, request_json: dict) -> None:
+        if action.action_type != action_type or action.target_id != target_id or action.request_json != request_json:
+            raise ApiError("RUNTIME.IDEMPOTENCY_KEY_CONFLICT", "幂等键已用于其他恢复动作或参数", 409)
+
+    @staticmethod
+    def _validate_destroy_result(result: dict, expected_group_id: str) -> None:
+        if (
+            not isinstance(result, dict)
+            or result.get("status") != "DESTROYED"
+            or result.get("provider_group_id") != expected_group_id
+        ):
+            raise ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "计算节点代理销毁响应无效", 503)
+
+    @staticmethod
+    def _validate_create_result(result: dict, spec: dict, expected_group_id: str) -> None:
+        def bounded_string(value, max_length: int) -> bool:
+            return isinstance(value, str) and bool(value.strip()) and len(value) <= max_length
+
+        valid = (
+            isinstance(result, dict) and result.get("provider_group_id") == expected_group_id
+            and result.get("status") == "RUNNING"
+            and isinstance(result.get("containers"), list) and isinstance(result.get("networks"), list)
+            and all(
+                isinstance(item, dict)
+                and bounded_string(item.get("container_id"), 128)
+                and bounded_string(item.get("node_key"), 64)
+                for item in result["containers"]
+            )
+            and all(
+                isinstance(item, dict)
+                and bounded_string(item.get("network_id"), 128)
+                and bounded_string(item.get("network_key"), 64)
+                for item in result["networks"]
+            )
+        )
+        if valid:
+            node_keys = [item["node_key"] for item in result["containers"]]
+            network_keys = [item["network_key"] for item in result["networks"]]
+            container_ids = [item["container_id"] for item in result["containers"]]
+            network_ids = [item["network_id"] for item in result["networks"]]
+            valid = (
+                len(node_keys) == len(set(node_keys)) == len(spec["nodes"])
+                and set(node_keys) == {item["node_key"] for item in spec["nodes"]}
+                and len(container_ids) == len(set(container_ids))
+                and len(network_keys) == len(set(network_keys)) == len(spec["networks"])
+                and set(network_keys) == {item["network_key"] for item in spec["networks"]}
+                and len(network_ids) == len(set(network_ids))
+            )
+        if not valid:
+            raise ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "计算节点代理创建响应无效", 503)
+
+    @staticmethod
+    def _provider_group_id(runtime_group_id: str, generation: int) -> str:
+        return runtime_group_id if generation == 1 else f"{runtime_group_id}-g{generation}"
+
+    @staticmethod
+    def _validate_capacity_result(result: dict) -> dict:
+        if not isinstance(result, dict):
+            raise ApiError("RUNTIME.NODE_RESPONSE_INVALID", "节点代理容量响应无效", 503)
+        engine = result.get("engine")
+        cpu_total = result.get("cpu_total")
+        memory_total = result.get("memory_total_mb")
+        cpu = result.get("cpu_available")
+        memory = result.get("memory_available_mb")
+        running = result.get("running_groups")
+        digests = result.get("image_digests")
+        max_database_integer = 2_147_483_647
+        max_supported_cpu = 1_000_000.0
+        if (
+            not isinstance(engine, str) or not engine.strip() or len(engine) > 128
+            or isinstance(cpu_total, bool) or not isinstance(cpu_total, (int, float))
+            or not isfinite(float(cpu_total)) or not 0 <= float(cpu_total) <= max_supported_cpu
+            or isinstance(memory_total, bool) or not isinstance(memory_total, int)
+            or not 0 <= memory_total <= max_database_integer
+            or isinstance(cpu, bool) or not isinstance(cpu, (int, float))
+            or not isfinite(float(cpu)) or not 0 <= float(cpu) <= max_supported_cpu
+            or float(cpu) > float(cpu_total)
+            or isinstance(memory, bool) or not isinstance(memory, int)
+            or not 0 <= memory <= memory_total
+            or isinstance(running, bool) or not isinstance(running, int)
+            or not 0 <= running <= max_database_integer
+            or not isinstance(digests, list)
+            or any(
+                not isinstance(digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+                for digest in digests
+            )
+        ):
+            raise ApiError("RUNTIME.NODE_RESPONSE_INVALID", "节点代理容量响应无效", 503)
+        return {
+            "engine": engine,
+            "cpu_total": float(cpu_total),
+            "memory_total_mb": memory_total,
+            "cpu_available": float(cpu),
+            "memory_available_mb": memory,
+            "running_groups": running,
+            "image_digests": digests,
+        }
+
+    @staticmethod
+    def _admin_action_replay(action: models.RuntimeAdminAction) -> dict:
+        if action.status == "SUCCEEDED":
+            return {**(action.result_json or {}), "idempotent_replay": True}
+        if action.status == "FAILED":
+            raise ApiError(
+                action.error_code or "RUNTIME.RECOVERY_FAILED",
+                action.error_message or "恢复动作执行失败",
+                action.error_status_code or 503,
+                {**(action.error_details_json or {}), "idempotent_replay": True},
+            )
+        raise ApiError(
+            "RUNTIME.RECOVERY_IN_PROGRESS", "相同幂等键的恢复动作仍在执行", 409,
+            {"action_id": action.action_id, "retryable": True},
+        )
+
+    def _renew_admin_action(self, action: models.RuntimeAdminAction, *, lease_seconds: int = ADMIN_ACTION_LEASE_SECONDS) -> models.RuntimeAdminAction:
+        expected_owner = action.owner_token
+        expected_generation = action.generation
+        current = self.session.scalar(
+            select(models.RuntimeAdminAction).where(models.RuntimeAdminAction.action_id == action.action_id).with_for_update().execution_options(populate_existing=True)
+        )
+        stamp = now()
+        if (
+            not current or current.status != "IN_PROGRESS" or current.owner_token != expected_owner
+            or current.generation != expected_generation or current.lease_expires_at <= stamp
+        ):
+            raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "恢复动作执行权已失效", 409)
+        current.lease_expires_at = stamp + timedelta(seconds=lease_seconds)
+        current.updated_at = stamp
+        self.session.commit()
+        return current
+
+    def _complete_admin_action(self, action: models.RuntimeAdminAction, result: dict) -> None:
+        expected_owner = action.owner_token
+        expected_generation = action.generation
+        current = self.session.scalar(
+            select(models.RuntimeAdminAction).where(models.RuntimeAdminAction.action_id == action.action_id).with_for_update().execution_options(populate_existing=True)
+        )
+        if (
+            not current or current.status != "IN_PROGRESS" or current.owner_token != expected_owner
+            or current.generation != expected_generation or current.lease_expires_at <= now()
+        ):
+            raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "恢复动作执行权已失效", 409)
+        current.status = "SUCCEEDED"
+        current.result_json = {**result, "idempotent_replay": False}
+        current.error_code = current.error_message = None
+        current.error_status_code = None
+        current.error_details_json = None
+        current.updated_at = now()
+
+    def _fail_admin_action(self, action: models.RuntimeAdminAction, error: ApiError) -> None:
+        expected_owner = action.owner_token
+        expected_generation = action.generation
+        current = self.session.scalar(
+            select(models.RuntimeAdminAction).where(models.RuntimeAdminAction.action_id == action.action_id).with_for_update().execution_options(populate_existing=True)
+        )
+        if (
+            not current or current.status != "IN_PROGRESS" or current.owner_token != expected_owner
+            or current.generation != expected_generation
+        ):
+            return
+        current.status = "FAILED"
+        current.result_json = None
+        current.error_code = error.code
+        current.error_message = error.message
+        current.error_status_code = error.status_code
+        current.error_details_json = error.details
+        current.updated_at = now()
 
     def _scope(self, data: RuntimeStart) -> None:
         if data.course_id and data.course_id not in self.user.course_ids:
@@ -70,6 +293,167 @@ class RuntimeService:
                 raise ApiError("AUTH.COURSE_SCOPE_DENIED", "无权访问该课程的实验实例", 403)
             if request.class_id and request.class_id not in self.user.class_ids:
                 raise ApiError("AUTH.CLASS_SCOPE_DENIED", "无权访问该班级的实验实例", 403)
+
+    def _renew_queue_lease(self, request_id: str, owner: str) -> models.RuntimeQueue:
+        queued = self.session.scalar(
+            select(models.RuntimeQueue)
+            .where(models.RuntimeQueue.runtime_request_id == request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        stamp = now()
+        if (
+            not queued or queued.status != "PROCESSING" or queued.processing_owner != owner
+            or not queued.lease_expires_at or queued.lease_expires_at <= stamp
+        ):
+            raise ApiError("RUNTIME.QUEUE_LEASE_LOST", "运行队列处理租约已失效", 409)
+        action = self.session.scalar(
+            select(models.RuntimeAdminAction).where(
+                models.RuntimeAdminAction.owner_token == owner,
+                models.RuntimeAdminAction.status == "IN_PROGRESS",
+            ).with_for_update().execution_options(populate_existing=True)
+        )
+        if not action or action.lease_expires_at <= stamp:
+            raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "恢复动作执行权已失效", 409)
+        queued.lease_expires_at = stamp + timedelta(seconds=QUEUE_LEASE_SECONDS)
+        action.lease_expires_at = stamp + timedelta(seconds=ADMIN_ACTION_LEASE_SECONDS)
+        action.updated_at = stamp
+        self.session.commit()
+        return queued
+
+    def _assert_queue_lease(self, request_id: str, owner: str) -> models.RuntimeQueue:
+        queued = self.session.scalar(
+            select(models.RuntimeQueue)
+            .where(models.RuntimeQueue.runtime_request_id == request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if (
+            not queued or queued.status != "PROCESSING" or queued.processing_owner != owner
+            or not queued.lease_expires_at or queued.lease_expires_at <= now()
+        ):
+            raise ApiError("RUNTIME.QUEUE_LEASE_LOST", "运行队列处理租约已失效", 409)
+        action = self.session.scalar(select(models.RuntimeAdminAction).where(models.RuntimeAdminAction.owner_token == owner))
+        if not action or action.status != "IN_PROGRESS" or action.lease_expires_at <= now():
+            raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "恢复动作执行权已失效", 409)
+        return queued
+
+    def _renew_request_provision(self, request_id: str, owner: str) -> models.RuntimeRequest:
+        request = self.session.scalar(
+            select(models.RuntimeRequest)
+            .where(models.RuntimeRequest.runtime_request_id == request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        stamp = now()
+        if (
+            not request or request.status != "SCHEDULING" or request.provision_owner != owner
+            or not request.provision_lease_expires_at or request.provision_lease_expires_at <= stamp
+        ):
+            raise ApiError("RUNTIME.PROVISION_LEASE_LOST", "实验环境创建执行权已失效", 409)
+        request.provision_lease_expires_at = stamp + timedelta(seconds=QUEUE_LEASE_SECONDS)
+        request.updated_at = stamp
+        self.session.commit()
+        return request
+
+    def _lock_provision_owner(
+        self, request_id: str, group_id: str, owner: str, *, renew: bool = False
+    ) -> tuple[models.RuntimeInstanceGroup, models.RuntimeRequest]:
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup)
+            .where(models.RuntimeInstanceGroup.runtime_group_id == group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        request = self.session.scalar(
+            select(models.RuntimeRequest)
+            .where(models.RuntimeRequest.runtime_request_id == request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        stamp = now()
+        if (
+            not group or not request or group.status != "STARTING" or group.cleanup_intent != "PROVISIONING"
+            or group.cleanup_owner != owner or not group.cleanup_lease_expires_at
+            or group.cleanup_lease_expires_at <= stamp
+            or request.provision_owner != owner or not request.provision_lease_expires_at
+            or request.provision_lease_expires_at <= stamp
+        ):
+            raise ApiError("RUNTIME.PROVISION_LEASE_LOST", "实验环境创建执行权已失效", 409)
+        if renew:
+            group.cleanup_lease_expires_at = stamp + timedelta(seconds=QUEUE_LEASE_SECONDS)
+            group.cleanup_not_before = group.cleanup_lease_expires_at
+            request.provision_lease_expires_at = stamp + timedelta(seconds=QUEUE_LEASE_SECONDS)
+        return group, request
+
+    def _record_cleanup_task(
+        self,
+        *,
+        runtime_group_id: str,
+        node_id: str,
+        provider_group_id: str,
+        provider_generation: int,
+        intent: str,
+        error: ApiError,
+    ) -> models.RuntimeCleanupTask:
+        self.session.rollback()
+        stamp = now()
+        task = self.session.scalar(
+            select(models.RuntimeCleanupTask)
+            .where(
+                models.RuntimeCleanupTask.node_id == node_id,
+                models.RuntimeCleanupTask.provider_group_id == provider_group_id,
+                models.RuntimeCleanupTask.intent == intent,
+            )
+            .with_for_update()
+        )
+        if not task:
+            task = models.RuntimeCleanupTask(
+                cleanup_task_id=new_id("rct"), runtime_group_id=runtime_group_id,
+                node_id=node_id, provider_group_id=provider_group_id,
+                provider_generation=provider_generation, intent=intent,
+                status="WAITING", attempts=0, not_before=stamp,
+                processing_owner=None, lease_expires_at=None,
+                error_code=error.code, error_message=error.message,
+                created_at=stamp, updated_at=stamp,
+            )
+            self.session.add(task)
+        else:
+            task.runtime_group_id = runtime_group_id
+            task.provider_generation = provider_generation
+            task.status = "WAITING"
+            task.not_before = stamp
+            task.processing_owner = None
+            task.lease_expires_at = None
+            task.error_code = error.code
+            task.error_message = error.message
+            task.updated_at = stamp
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            task = self.session.scalar(
+                select(models.RuntimeCleanupTask)
+                .where(
+                    models.RuntimeCleanupTask.node_id == node_id,
+                    models.RuntimeCleanupTask.provider_group_id == provider_group_id,
+                    models.RuntimeCleanupTask.intent == intent,
+                )
+                .with_for_update()
+            )
+            if not task:
+                raise
+            task.runtime_group_id = runtime_group_id
+            task.provider_generation = provider_generation
+            task.status = "WAITING"
+            task.not_before = stamp
+            task.processing_owner = None
+            task.lease_expires_at = None
+            task.error_code = error.code
+            task.error_message = error.message
+            task.updated_at = stamp
+            self.session.commit()
+        return task
 
     def _event(self, event_type: str, *, instance_id: str | None = None, group_id: str | None = None, detail: dict | None = None, idempotency_key: str | None = None) -> None:
         stamp = now()
@@ -97,6 +481,7 @@ class RuntimeService:
         spec = await self.catalog.frozen_version(data.lab_version_id, data.course_id)
         self._validate_spec(spec, data.lab_version_id)
         stamp = now()
+        provision_owner = f"provision-{uuid4().hex}"
         if data.course_id and data.class_id:
             context = self.session.get(models.RuntimeReleaseReadModel, data.lab_release_id)
             if not context:
@@ -105,7 +490,9 @@ class RuntimeService:
             runtime_request_id=new_id("rrq"), lab_release_id=data.lab_release_id, lab_version_id=data.lab_version_id,
             course_id=data.course_id, class_id=data.class_id, student_id=data.student_id, mode=data.mode, status="SCHEDULING",
             requested_by=self.user.user_id, idempotency_key=idempotency_key, spec_snapshot_json=spec,
-            error_code=None, error_message=None, submission_status="DRAFT", submitted_at=None, last_activity_at=stamp, created_at=stamp, updated_at=stamp,
+            error_code=None, error_message=None, provision_owner=provision_owner,
+            provision_lease_expires_at=stamp + timedelta(seconds=QUEUE_LEASE_SECONDS),
+            submission_status="DRAFT", submitted_at=None, last_activity_at=stamp, created_at=stamp, updated_at=stamp,
         )
         self.session.add(request)
         self._event("runtime.request.created", detail={"runtime_request_id": request.runtime_request_id, "student_id": data.student_id, "mode": data.mode})
@@ -117,7 +504,7 @@ class RuntimeService:
             if previous:
                 return self.request_view(previous)
             raise
-        return await self._schedule_and_provision(request)
+        return await self._schedule_and_provision(request, provision_owner=provision_owner)
 
     def _validate_spec(self, spec: dict, version_id: str) -> None:
         required = {"lab_definition_id", "version", "nodes", "networks", "image_bindings", "checkpoints", "runtime_policy"}
@@ -135,7 +522,16 @@ class RuntimeService:
         if any(net.get("internet_access") for net in spec["networks"]):
             raise ApiError("RUNTIME.NETWORK_POLICY_UNSUPPORTED", "首期实验网络默认禁止外网", 422)
 
-    async def _schedule_and_provision(self, request: models.RuntimeRequest) -> dict:
+    async def _schedule_and_provision(
+        self,
+        request: models.RuntimeRequest,
+        *,
+        provision_owner: str | None = None,
+        queue_owner: str | None = None,
+        parent_action: models.RuntimeAdminAction | None = None,
+    ) -> dict:
+        provision_owner = provision_owner or queue_owner or f"provision-{uuid4().hex}"
+        request = self._renew_request_provision(request.runtime_request_id, provision_owner)
         spec = request.spec_snapshot_json
         cpu = sum(float(node["cpu_limit"]) for node in spec["nodes"])
         memory = sum(int(node["memory_mb"]) for node in spec["nodes"])
@@ -143,65 +539,277 @@ class RuntimeService:
         enabled = set(self.session.scalars(select(models.InfraImage.digest).where(models.InfraImage.enabled.is_(True), models.InfraImage.scan_status == "PASSED", models.InfraImage.startup_check_status == "PASSED", models.InfraImage.teaching_validation_status == "PASSED")))
         missing = sorted(digests - enabled)
         if missing:
-            return self._pending(request, "RUNTIME.IMAGE_NOT_READY", "实验镜像尚未完成三重验证", {"missing_digests": missing})
+            if queue_owner:
+                self._assert_queue_lease(request.runtime_request_id, queue_owner)
+            return self._pending(request, "RUNTIME.IMAGE_NOT_READY", "实验镜像尚未完成三重验证", {"missing_digests": missing}, commit=not queue_owner)
         candidates = []
         for node in self.session.scalars(select(models.InfraNode).where(models.InfraNode.status == "READY", models.InfraNode.scheduling_paused.is_(False))):
             try:
+                if parent_action:
+                    parent_action = self._renew_admin_action(parent_action)
+                if queue_owner:
+                    self._renew_queue_lease(request.runtime_request_id, queue_owner)
+                request = self._renew_request_provision(request.runtime_request_id, provision_owner)
                 capacity = await self.agent_factory(node.agent_url).capacity()
+                capacity = self._validate_capacity_result(capacity)
+                if queue_owner:
+                    self._renew_queue_lease(request.runtime_request_id, queue_owner)
+                request = self._renew_request_provision(request.runtime_request_id, provision_owner)
                 observed = now()
                 node.last_seen_at = observed
-                heartbeat = models.InfraNodeHeartbeat(heartbeat_id=new_id("hbt"), node_id=node.node_id, observed_at=observed, cpu_available=float(capacity["cpu_available"]), memory_available_mb=int(capacity["memory_available_mb"]), running_groups=int(capacity["running_groups"]), image_digests_json=capacity.get("image_digests", []), detail_json={"engine": capacity.get("engine")})
+                heartbeat = models.InfraNodeHeartbeat(
+                    heartbeat_id=new_id("hbt"), node_id=node.node_id, observed_at=observed,
+                    cpu_available=capacity["cpu_available"], memory_available_mb=capacity["memory_available_mb"],
+                    running_groups=capacity["running_groups"], image_digests_json=capacity["image_digests"],
+                    detail_json={"engine": capacity.get("engine")},
+                )
                 self.session.add(heartbeat)
                 self.session.flush()
-            except ApiError:
+                if heartbeat.cpu_available >= cpu and heartbeat.memory_available_mb >= memory:
+                    cached = len(digests.intersection(heartbeat.image_digests_json))
+                    score = node.weight + heartbeat.cpu_available * 10 + heartbeat.memory_available_mb / 1024 + cached * 50 - heartbeat.running_groups * 5
+                    candidates.append((score, node, heartbeat, cached))
+            except ApiError as error:
+                if error.code in LEASE_ERROR_CODES:
+                    raise
                 continue
-            if heartbeat and heartbeat.cpu_available >= cpu and heartbeat.memory_available_mb >= memory:
-                cached = len(digests.intersection(heartbeat.image_digests_json or []))
-                score = node.weight + heartbeat.cpu_available * 10 + heartbeat.memory_available_mb / 1024 + cached * 50 - heartbeat.running_groups * 5
-                candidates.append((score, node, heartbeat, cached))
+            except (KeyError, TypeError, ValueError):
+                continue
         if not candidates:
-            return self._pending(request, "RUNTIME.CAPACITY_UNAVAILABLE", "暂无满足资源和健康要求的计算节点", {"cpu": cpu, "memory_mb": memory})
+            if queue_owner:
+                self._assert_queue_lease(request.runtime_request_id, queue_owner)
+            return self._pending(request, "RUNTIME.CAPACITY_UNAVAILABLE", "暂无满足资源和健康要求的计算节点", {"cpu": cpu, "memory_mb": memory}, commit=not queue_owner)
         candidates.sort(key=lambda item: item[0], reverse=True)
         score, node, _, cached = candidates[0]
+        timeout = int(spec["runtime_policy"]["timeout_minutes"])
+        request = self.session.scalar(
+            select(models.RuntimeRequest)
+            .where(models.RuntimeRequest.runtime_request_id == request.runtime_request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if (
+            not request or request.status != "SCHEDULING" or request.provision_owner != provision_owner
+            or not request.provision_lease_expires_at or request.provision_lease_expires_at <= now()
+        ):
+            raise ApiError("RUNTIME.PROVISION_LEASE_LOST", "实验环境创建执行权已失效", 409)
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup).where(
+                models.RuntimeInstanceGroup.runtime_request_id == request.runtime_request_id
+            )
+        )
+        if group:
+            if group.status != "FAILED" or self.session.scalar(
+                select(func.count()).select_from(models.RuntimeInstance).where(
+                    models.RuntimeInstance.runtime_group_id == group.runtime_group_id
+                )
+            ):
+                raise ApiError("RUNTIME.RETRY_STATE_CONFLICT", "当前运行组状态不允许重新调度", 409)
+            group.node_id = node.node_id
+            group.provider_generation = int(group.provider_generation or 1) + 1
+            group.status = "STARTING"
+            group.scheduler_score = score
+            group.scheduler_reason = f"健康节点；资源满足；命中 {cached}/{len(digests)} 个镜像缓存"
+            group.scheduled_at = now()
+            group.expires_at = now() + timedelta(minutes=timeout)
+            group.destroyed_at = None
+            group.cleanup_attempts = 0
+            group.cleanup_not_before = None
+            group.cleanup_intent = None
+            group.cleanup_owner = None
+            group.cleanup_lease_expires_at = None
+            group.cleanup_error_code = group.cleanup_error_message = None
+        else:
+            group = models.RuntimeInstanceGroup(runtime_group_id=new_id("rtg"), runtime_request_id=request.runtime_request_id, node_id=node.node_id, provider_group_id=None, provider_generation=1, status="STARTING", scheduler_score=score, scheduler_reason=f"健康节点；资源满足；命中 {cached}/{len(digests)} 个镜像缓存", scheduled_at=now(), expires_at=now() + timedelta(minutes=timeout), destroyed_at=None)
+            self.session.add(group)
+        provider_generation = group.provider_generation
+        provider_group_id = self._provider_group_id(group.runtime_group_id, provider_generation)
+        group.provider_group_id = provider_group_id
+        group.cleanup_intent = "PROVISIONING"
+        group.cleanup_owner = provision_owner
+        group.cleanup_lease_expires_at = now() + timedelta(seconds=QUEUE_LEASE_SECONDS)
+        group.cleanup_not_before = group.cleanup_lease_expires_at
         request.status = "STARTING"
         request.error_code = request.error_message = None
         request.updated_at = now()
-        group_id = new_id("rtg")
-        timeout = int(spec["runtime_policy"]["timeout_minutes"])
-        group = models.RuntimeInstanceGroup(runtime_group_id=group_id, runtime_request_id=request.runtime_request_id, node_id=node.node_id, provider_group_id=None, status="STARTING", scheduler_score=score, scheduler_reason=f"健康节点；资源满足；命中 {cached}/{len(digests)} 个镜像缓存", scheduled_at=now(), expires_at=now() + timedelta(minutes=timeout), destroyed_at=None)
-        self.session.add(group)
+        group_id = group.runtime_group_id
         self.session.commit()
         payload = {
-            "runtime_group_id": group_id,
+            "runtime_group_id": provider_group_id,
             "expires_at": group.expires_at.isoformat(),
             "networks": spec["networks"],
             "containers": [{"node_key": item["node_key"], "role": item["role"], "image_digest": item["image_digest"], "cpu_limit": item["cpu_limit"], "memory_mb": item["memory_mb"], "pids_limit": 128, "startup_command": item.get("startup_command", ""), "network_keys": item["network_keys"]} for item in spec["nodes"]],
         }
+        async def rollback_candidate(candidate_node: models.InfraNode, cause: ApiError) -> None:
+            try:
+                cleanup_result = await self.agent_factory(candidate_node.agent_url).destroy(provider_group_id)
+                self._validate_destroy_result(cleanup_result, provider_group_id)
+            except (ApiError, KeyError, TypeError, ValueError) as raw_cleanup_error:
+                cleanup_error = raw_cleanup_error if isinstance(raw_cleanup_error, ApiError) else ApiError(
+                    "RUNTIME.PROVISION_ROLLBACK_FAILED", "节点代理回滚响应无效", 503
+                )
+                cleanup_error = ApiError(
+                    "RUNTIME.PROVISION_ROLLBACK_FAILED", cleanup_error.message, 503,
+                    {"node_id": candidate_node.node_id, "cause": cause.code},
+                )
+                self._record_cleanup_task(
+                    runtime_group_id=group_id, node_id=candidate_node.node_id,
+                    provider_group_id=provider_group_id, provider_generation=provider_generation,
+                    intent="PROVISION_ORPHAN", error=cleanup_error,
+                )
+                current_group = self.session.scalar(
+                    select(models.RuntimeInstanceGroup)
+                    .where(models.RuntimeInstanceGroup.runtime_group_id == group_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                current_request = self.session.scalar(
+                    select(models.RuntimeRequest)
+                    .where(models.RuntimeRequest.runtime_request_id == request.runtime_request_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                claim_time = now()
+                if (
+                    current_group and current_request and current_group.status == "STARTING"
+                    and current_group.cleanup_owner == provision_owner
+                    and current_group.cleanup_lease_expires_at and current_group.cleanup_lease_expires_at > claim_time
+                    and current_request.provision_owner == provision_owner
+                    and current_request.provision_lease_expires_at and current_request.provision_lease_expires_at > claim_time
+                ):
+                    current_group.status = "FAILED"
+                    current_group.provider_group_id = None
+                    current_group.cleanup_intent = None
+                    current_group.cleanup_owner = None
+                    current_group.cleanup_lease_expires_at = None
+                    current_group.cleanup_not_before = None
+                    current_group.cleanup_error_code = cleanup_error.code
+                    current_group.cleanup_error_message = cleanup_error.message
+                    current_request.status = "FAILED"
+                    current_request.provision_owner = None
+                    current_request.provision_lease_expires_at = None
+                    current_request.error_code = cleanup_error.code
+                    current_request.error_message = cleanup_error.message
+                    current_request.updated_at = claim_time
+                    self.session.commit()
+                raise cleanup_error from raw_cleanup_error
+            try:
+                if parent_action:
+                    self._renew_admin_action(parent_action)
+                if queue_owner:
+                    self._assert_queue_lease(request.runtime_request_id, queue_owner)
+                current_group, _ = self._lock_provision_owner(request.runtime_request_id, group_id, provision_owner, renew=True)
+                if current_group.provider_group_id == provider_group_id:
+                    current_group.provider_group_id = None
+                self.session.commit()
+            except ApiError as lease_error:
+                if lease_error.code not in LEASE_ERROR_CODES:
+                    raise
+                self.session.rollback()
+                raise
+
         result = None
         last_error = None
         for attempt, (candidate_score, candidate_node, _, candidate_cached) in enumerate(candidates, start=1):
-            node, score, cached = candidate_node, candidate_score, candidate_cached
+            node = self.session.scalar(
+                select(models.InfraNode)
+                .where(models.InfraNode.node_id == candidate_node.node_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if not node or node.status != "READY" or node.scheduling_paused:
+                continue
+            group, request = self._lock_provision_owner(
+                request.runtime_request_id, group_id, provision_owner, renew=True
+            )
+            node.last_seen_at = now()
+            score, cached = candidate_score, candidate_cached
             group.node_id, group.scheduler_score = node.node_id, score
+            group.provider_group_id = provider_group_id
             group.scheduler_reason = f"健康节点；资源满足；命中 {cached}/{len(digests)} 个镜像缓存；第 {attempt} 次调度"
             group.scheduled_at = now()
             self._event("runtime.group.scheduled", group_id=group_id, detail={"node_id": node.node_id, "score": score, "reason": group.scheduler_reason, "scheduled_at": group.scheduled_at.isoformat(), "attempt": attempt})
             self.session.commit()
             try:
+                if parent_action:
+                    parent_action = self._renew_admin_action(parent_action)
+                if queue_owner:
+                    self._renew_queue_lease(request.runtime_request_id, queue_owner)
                 result = await self.agent_factory(node.agent_url).create_group(payload)
-                break
             except ApiError as error:
+                if error.code in LEASE_ERROR_CODES:
+                    raise
                 last_error = error
+                await rollback_candidate(node, error)
                 self._event("runtime.group.retry", group_id=group_id, detail={"node_id": node.node_id, "attempt": attempt, "error_code": error.code})
                 self.session.commit()
+                continue
+            except (KeyError, TypeError, ValueError) as error:
+                last_error = ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "计算节点代理创建响应无效", 503)
+                await rollback_candidate(node, last_error)
+                self._event("runtime.group.retry", group_id=group_id, detail={"node_id": node.node_id, "attempt": attempt, "error_code": last_error.code})
+                self.session.commit()
+                continue
+            try:
+                self._validate_create_result(result, spec, provider_group_id)
+            except (ApiError, KeyError, TypeError, ValueError) as validation_error:
+                last_error = ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "计算节点代理创建响应无效", 503)
+                await rollback_candidate(node, last_error)
+                result = None
+                continue
+            try:
+                if queue_owner:
+                    self._assert_queue_lease(request.runtime_request_id, queue_owner)
+                group, request = self._lock_provision_owner(
+                    request.runtime_request_id, group_id, provision_owner, renew=True
+                )
+                self.session.commit()
+            except ApiError as lease_error:
+                if lease_error.code not in LEASE_ERROR_CODES:
+                    raise
+                try:
+                    cleanup_result = await self.agent_factory(node.agent_url).destroy(provider_group_id)
+                    self._validate_destroy_result(cleanup_result, provider_group_id)
+                except (ApiError, KeyError, TypeError, ValueError) as raw_cleanup_error:
+                    cleanup_error = raw_cleanup_error if isinstance(raw_cleanup_error, ApiError) else ApiError(
+                        "RUNTIME.PROVISION_ROLLBACK_FAILED", "节点代理回滚响应无效", 503
+                    )
+                    self._record_cleanup_task(
+                        runtime_group_id=group_id, node_id=node.node_id,
+                        provider_group_id=provider_group_id, provider_generation=provider_generation,
+                        intent="PROVISION_ORPHAN", error=cleanup_error,
+                    )
+                raise lease_error
+            break
         if result is None:
+            if queue_owner:
+                self._assert_queue_lease(request.runtime_request_id, queue_owner)
+            group, request = self._lock_provision_owner(
+                request.runtime_request_id, group_id, provision_owner
+            )
             error = last_error or ApiError("RUNTIME.PROVIDER_UNAVAILABLE", "计算节点代理不可用", 503)
             request.status, request.error_code, request.error_message, request.updated_at = "FAILED", error.code, error.message, now()
+            request.provision_owner = None
+            request.provision_lease_expires_at = None
             group.status = "FAILED"
-            self._event("lab.instance.failed", group_id=group_id, detail=self._projection_payload(request, None, status="FAILED", error_code=error.code), idempotency_key=f"lab.instance.failed:{request.runtime_request_id}:{len(candidates)}")
-            self.session.commit()
+            group.cleanup_intent = None
+            group.cleanup_owner = None
+            group.cleanup_lease_expires_at = None
+            group.cleanup_not_before = None
+            self._event("lab.instance.failed", group_id=group_id, detail=self._projection_payload(request, None, status="FAILED", error_code=error.code), idempotency_key=f"lab.instance.failed:{request.runtime_request_id}:{int(group.scheduled_at.timestamp() * 1_000_000)}")
+            self.session.flush() if queue_owner else self.session.commit()
             raise ApiError(error.code, error.message, error.status_code, {**error.details, "runtime_request_id": request.runtime_request_id}) from error
+        if queue_owner:
+            self._assert_queue_lease(request.runtime_request_id, queue_owner)
+        group, request = self._lock_provision_owner(
+            request.runtime_request_id, group_id, provision_owner
+        )
         group.provider_group_id = result["provider_group_id"]
         group.status = "RUNNING"
+        group.cleanup_intent = None
+        group.cleanup_owner = None
+        group.cleanup_lease_expires_at = None
+        group.cleanup_not_before = None
         request.status = "RUNNING"
         request.updated_at = now()
         instances = []
@@ -216,14 +824,30 @@ class RuntimeService:
         primary = next((x for x in instances if x.role == "STUDENT_WORKSTATION"), instances[0] if instances else None)
         request.last_activity_at = now()
         self._event("lab.instance.started", instance_id=primary.runtime_instance_id if primary else None, group_id=group_id, detail=self._projection_payload(request, primary, status="RUNNING"), idempotency_key=f"lab.instance.started:{primary.runtime_instance_id if primary else group_id}:1")
-        self.session.commit()
+        queued = self.session.scalar(select(models.RuntimeQueue).where(models.RuntimeQueue.runtime_request_id == request.runtime_request_id))
+        if queued:
+            queued.status = "DONE"
+            queued.not_before = None
+            queued.processing_owner = None
+            queued.lease_expires_at = None
+        self.session.flush() if queue_owner else self.session.commit()
         return self.request_view(request)
 
-    def _pending(self, request: models.RuntimeRequest, code: str, message: str, detail: dict) -> dict:
+    def _pending(self, request: models.RuntimeRequest, code: str, message: str, detail: dict, *, commit: bool = True) -> dict:
         request.status, request.error_code, request.error_message, request.updated_at = "QUEUED", code, message, now()
-        self.session.add(models.RuntimeQueue(queue_id=new_id("rtq"), runtime_request_id=request.runtime_request_id, status="WAITING", priority=100, attempts=0, not_before=None, enqueued_at=now()))
+        request.provision_owner = None
+        request.provision_lease_expires_at = None
+        queued = self.session.scalar(select(models.RuntimeQueue).where(models.RuntimeQueue.runtime_request_id == request.runtime_request_id))
+        if not queued:
+            queued = models.RuntimeQueue(queue_id=new_id("rtq"), runtime_request_id=request.runtime_request_id, status="WAITING", priority=100, attempts=0, not_before=None, enqueued_at=now())
+            self.session.add(queued)
+        else:
+            queued.status = "WAITING"
+            queued.not_before = now() + timedelta(seconds=min(300, 5 * (2 ** min(queued.attempts, 6))))
+            queued.processing_owner = None
+            queued.lease_expires_at = None
         self._event("runtime.request.queued", detail={"runtime_request_id": request.runtime_request_id, "reason": code})
-        self.session.commit()
+        self.session.commit() if commit else self.session.flush()
         return self.request_view(request)
 
     def request(self, request_id: str) -> dict:
@@ -247,6 +871,8 @@ class RuntimeService:
         if item.status not in {"QUEUED", "SCHEDULING"}:
             raise ApiError("RUNTIME.REQUEST_NOT_CANCELABLE", "当前运行请求不能直接取消", 409)
         item.status, item.updated_at, item.last_activity_at = "CANCELED", now(), now()
+        item.provision_owner = None
+        item.provision_lease_expires_at = None
         queued = self.session.scalar(select(models.RuntimeQueue).where(models.RuntimeQueue.runtime_request_id == request_id))
         if queued:
             queued.status = "CANCELED"
@@ -279,22 +905,89 @@ class RuntimeService:
         if not item:
             raise ApiError("RUNTIME.NOT_FOUND", "实验实例不存在", 404)
         self._instance_scope(item, "runtime.destroy")
-        group = self.session.get(models.RuntimeInstanceGroup, item.runtime_group_id)
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup)
+            .where(models.RuntimeInstanceGroup.runtime_group_id == item.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
         if group.status == "DESTROYED":
             return self.instance(instance_id)
+        if group.status == "DESTROYING" or (
+            group.cleanup_owner and group.cleanup_lease_expires_at and group.cleanup_lease_expires_at > now()
+        ):
+            raise ApiError("RUNTIME.CLEANUP_IN_PROGRESS", "实验环境正在清理，请稍后重试", 409)
         node = self.session.get(models.InfraNode, group.node_id)
+        if not node:
+            raise ApiError("RUNTIME.NODE_NOT_FOUND", "计算节点不存在", 503)
+        cleanup_owner = f"manual-{uuid4().hex}"
+        cleanup_started = now()
         group.status = "DESTROYING"
+        group.cleanup_attempts = int(group.cleanup_attempts or 0) + 1
+        group.cleanup_intent = "MANUAL"
+        group.cleanup_owner = cleanup_owner
+        group.cleanup_lease_expires_at = cleanup_started + timedelta(seconds=QUEUE_LEASE_SECONDS)
+        group.cleanup_not_before = group.cleanup_lease_expires_at
         for sibling in self.session.scalars(select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)):
             sibling.status = "STOPPING"
         self.session.commit()
-        await self.agent_factory(node.agent_url).destroy(group.provider_group_id)
+        destroy_target = group.provider_group_id or group.runtime_group_id
+        try:
+            cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+            self._validate_destroy_result(cleanup_result, destroy_target)
+        except (ApiError, KeyError, TypeError, ValueError) as raw_error:
+            error = raw_error if isinstance(raw_error, ApiError) else ApiError(
+                "RUNTIME.MANUAL_CLEANUP_FAILED", "节点代理销毁响应无效", 503
+            )
+            group = self.session.scalar(
+                select(models.RuntimeInstanceGroup)
+                .where(models.RuntimeInstanceGroup.runtime_group_id == item.runtime_group_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if group and group.cleanup_owner == cleanup_owner:
+                group.cleanup_owner = None
+                group.cleanup_lease_expires_at = None
+                group.cleanup_not_before = now() + timedelta(seconds=min(300, 5 * (2 ** min(group.cleanup_attempts, 6))))
+                group.cleanup_error_code = "RUNTIME.MANUAL_CLEANUP_FAILED"
+                group.cleanup_error_message = error.message
+                self.session.commit()
+            raise error from raw_error
         stamp = now()
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup)
+            .where(models.RuntimeInstanceGroup.runtime_group_id == item.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if (
+            not group or group.cleanup_owner != cleanup_owner
+            or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= stamp
+        ):
+            raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "实验环境清理执行权已失效", 409)
+        request = self.session.scalar(
+            select(models.RuntimeRequest)
+            .where(models.RuntimeRequest.runtime_request_id == group.runtime_request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        siblings = list(self.session.scalars(
+            select(models.RuntimeInstance)
+            .where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ))
+        item = next((sibling for sibling in siblings if sibling.runtime_instance_id == instance_id), item)
         group.status, group.destroyed_at = "DESTROYED", stamp
-        for sibling in self.session.scalars(select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)):
+        group.cleanup_intent = None
+        group.cleanup_owner = None
+        group.cleanup_lease_expires_at = None
+        group.cleanup_not_before = None
+        group.cleanup_error_code = group.cleanup_error_message = None
+        for sibling in siblings:
             sibling.status, sibling.ended_at = "DESTROYED", stamp
-        request = self.session.get(models.RuntimeRequest, group.runtime_request_id)
         request.status, request.updated_at, request.last_activity_at = "CANCELED", stamp, stamp
-        self._event("lab.instance.destroyed", instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status="DESTROYED", reason=reason), idempotency_key=f"lab.instance.destroyed:{instance_id}")
+        self._event("lab.instance.destroyed", instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status="DESTROYED", reason=reason), idempotency_key=f"lab.instance.destroyed:{group.runtime_group_id}:g{group.provider_generation}")
         self.session.commit()
         return self.instance(instance_id)
 
@@ -303,22 +996,185 @@ class RuntimeService:
         if not item:
             raise ApiError("RUNTIME.NOT_FOUND", "实验实例不存在", 404)
         self._instance_scope(item, "runtime.rebuild")
-        group = self.session.get(models.RuntimeInstanceGroup, item.runtime_group_id)
-        request = self.session.get(models.RuntimeRequest, group.runtime_request_id)
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup)
+            .where(models.RuntimeInstanceGroup.runtime_group_id == item.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if group.status == "DESTROYING":
+            raise ApiError("RUNTIME.CLEANUP_IN_PROGRESS", "实验环境正在清理，暂不能重建", 409)
+        if group.cleanup_owner and group.cleanup_lease_expires_at and group.cleanup_lease_expires_at > now():
+            raise ApiError("RUNTIME.CLEANUP_IN_PROGRESS", "实验环境存在正在执行的恢复动作，暂不能重建", 409)
+        if group.status not in {"RUNNING", "FAILED", "DESTROYED"}:
+            raise ApiError("RUNTIME.REBUILD_STATE_CONFLICT", "当前实验状态不能重建", 409)
+        request = self.session.scalar(
+            select(models.RuntimeRequest)
+            .where(models.RuntimeRequest.runtime_request_id == group.runtime_request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        instances = list(self.session.scalars(
+            select(models.RuntimeInstance)
+            .where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ))
         node = self.session.get(models.InfraNode, group.node_id)
-        if group.provider_group_id:
-            await self.agent_factory(node.agent_url).destroy(group.provider_group_id)
+        if not node or not request:
+            raise ApiError("RUNTIME.REBUILD_FACT_INVALID", "实验重建所需事实不完整", 503)
         spec = request.spec_snapshot_json
-        result = await self.agent_factory(node.agent_url).create_group({"runtime_group_id": group.runtime_group_id, "expires_at": group.expires_at.isoformat(), "networks": spec["networks"], "containers": [{"node_key": x["node_key"], "role": x["role"], "image_digest": x["image_digest"], "cpu_limit": x["cpu_limit"], "memory_mb": x["memory_mb"], "pids_limit": 128, "startup_command": x.get("startup_command", ""), "network_keys": x["network_keys"]} for x in spec["nodes"]]})
+        rebuild_started = now()
+        group.expires_at = rebuild_started + timedelta(minutes=int(spec["runtime_policy"]["timeout_minutes"]))
+        owner = f"rebuild-{uuid4().hex}"
+        group_id = group.runtime_group_id
+        request_id = request.runtime_request_id
+        destroy_target = group.provider_group_id
+        provider_generation = int(group.provider_generation or 1) + 1
+        provider_group_id = self._provider_group_id(group_id, provider_generation)
+        group.status = "DESTROYING" if destroy_target else "STARTING"
+        if not destroy_target:
+            group.provider_generation = provider_generation
+            group.provider_group_id = provider_group_id
+        group.cleanup_attempts = int(group.cleanup_attempts or 0) + 1
+        group.cleanup_intent = "REBUILD"
+        group.cleanup_owner = owner
+        group.cleanup_lease_expires_at = now() + timedelta(seconds=QUEUE_LEASE_SECONDS)
+        group.cleanup_not_before = group.cleanup_lease_expires_at
+        group.cleanup_error_code = group.cleanup_error_message = None
+        for sibling in instances:
+            sibling.status = "STOPPING"
+        payload = {
+            "runtime_group_id": provider_group_id,
+            "expires_at": group.expires_at.isoformat(),
+            "networks": spec["networks"],
+            "containers": [
+                {"node_key": x["node_key"], "role": x["role"], "image_digest": x["image_digest"], "cpu_limit": x["cpu_limit"], "memory_mb": x["memory_mb"], "pids_limit": 128, "startup_command": x.get("startup_command", ""), "network_keys": x["network_keys"]}
+                for x in spec["nodes"]
+            ],
+        }
+        self.session.commit()
+
+        async def compensate_rebuild_orphan(error: ApiError) -> None:
+            try:
+                cleanup_result = await self.agent_factory(node.agent_url).destroy(provider_group_id)
+                self._validate_destroy_result(cleanup_result, provider_group_id)
+            except (ApiError, KeyError, TypeError, ValueError) as raw_cleanup_error:
+                cleanup_error = raw_cleanup_error if isinstance(raw_cleanup_error, ApiError) else ApiError(
+                    "RUNTIME.REBUILD_ORPHAN_CLEANUP_FAILED", "节点代理重建回滚响应无效", 503
+                )
+                self._record_cleanup_task(
+                    runtime_group_id=group_id, node_id=node.node_id,
+                    provider_group_id=provider_group_id, provider_generation=provider_generation,
+                    intent="REBUILD_ORPHAN", error=cleanup_error,
+                )
+
+        if destroy_target:
+            try:
+                cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+                self._validate_destroy_result(cleanup_result, destroy_target)
+            except (ApiError, KeyError, TypeError, ValueError) as raw_error:
+                error = raw_error if isinstance(raw_error, ApiError) else ApiError("RUNTIME.REBUILD_CLEANUP_FAILED", "节点代理销毁响应无效", 503)
+                group = self.session.scalar(
+                    select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+                )
+                request = self.session.scalar(
+                    select(models.RuntimeRequest).where(models.RuntimeRequest.runtime_request_id == request_id).with_for_update().execution_options(populate_existing=True)
+                )
+                if not group or group.cleanup_owner != owner or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= now():
+                    lease_error = ApiError("RUNTIME.RECOVERY_LEASE_LOST", "实验重建执行权已失效", 409)
+                    await compensate_rebuild_orphan(lease_error)
+                    raise lease_error
+                group.status = "DESTROYING"
+                group.cleanup_owner = None
+                group.cleanup_lease_expires_at = None
+                group.cleanup_not_before = now() + timedelta(seconds=min(300, 5 * (2 ** min(group.cleanup_attempts, 6))))
+                group.cleanup_error_code = "RUNTIME.REBUILD_CLEANUP_FAILED"
+                group.cleanup_error_message = error.message
+                request.status, request.error_code, request.error_message, request.updated_at = "FAILED", group.cleanup_error_code, error.message, now()
+                self.session.commit()
+                raise error from raw_error
+
+            group = self.session.scalar(
+                select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+            )
+            request = self.session.scalar(
+                select(models.RuntimeRequest).where(models.RuntimeRequest.runtime_request_id == request_id).with_for_update().execution_options(populate_existing=True)
+            )
+            if not group or not request or group.cleanup_owner != owner or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= now():
+                raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "实验重建执行权已失效", 409)
+            group.provider_generation = provider_generation
+            group.provider_group_id = provider_group_id
+            group.status = "STARTING"
+            group.cleanup_lease_expires_at = now() + timedelta(seconds=QUEUE_LEASE_SECONDS)
+            group.cleanup_not_before = group.cleanup_lease_expires_at
+            self.session.commit()
+
+        try:
+            result = await self.agent_factory(node.agent_url).create_group(payload)
+            self._validate_create_result(result, spec, provider_group_id)
+        except (ApiError, KeyError, TypeError, ValueError) as raw_error:
+            error = raw_error if isinstance(raw_error, ApiError) else ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "计算节点代理创建响应无效", 503)
+            group = self.session.scalar(
+                select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+            )
+            request = self.session.scalar(
+                select(models.RuntimeRequest).where(models.RuntimeRequest.runtime_request_id == request_id).with_for_update().execution_options(populate_existing=True)
+            )
+            if not group or group.cleanup_owner != owner or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= now():
+                lease_error = ApiError("RUNTIME.RECOVERY_LEASE_LOST", "实验重建执行权已失效", 409)
+                await compensate_rebuild_orphan(lease_error)
+                raise lease_error
+            group.status = "DESTROYING"
+            group.provider_group_id = provider_group_id
+            group.cleanup_owner = None
+            group.cleanup_lease_expires_at = None
+            group.cleanup_not_before = now()
+            group.cleanup_error_code = "RUNTIME.REBUILD_CREATE_FAILED"
+            group.cleanup_error_message = error.message
+            request.status, request.error_code, request.error_message, request.updated_at = "FAILED", group.cleanup_error_code, error.message, now()
+            self.session.commit()
+            raise error from raw_error
+
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+        )
+        request = self.session.scalar(
+            select(models.RuntimeRequest).where(models.RuntimeRequest.runtime_request_id == request_id).with_for_update().execution_options(populate_existing=True)
+        )
+        instances = list(self.session.scalars(
+            select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+        ))
+        if not group or not request or group.status != "STARTING" or group.cleanup_owner != owner or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= now():
+            lease_error = ApiError("RUNTIME.RECOVERY_LEASE_LOST", "实验重建执行权已失效", 409)
+            await compensate_rebuild_orphan(lease_error)
+            raise lease_error
         group.provider_group_id, group.status = result["provider_group_id"], "RUNNING"
-        existing = {x.node_key: x for x in self.session.scalars(select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id))}
+        group.destroyed_at = None
+        group.cleanup_intent = None
+        group.cleanup_owner = None
+        group.cleanup_lease_expires_at = None
+        group.cleanup_not_before = None
+        group.cleanup_error_code = group.cleanup_error_message = None
+        existing = {x.node_key: x for x in instances}
         for container in result["containers"]:
             instance = existing[container["node_key"]]
-            instance.status, instance.started_at, instance.ended_at = "RUNNING", now(), None
+            instance.status, instance.started_at, instance.ended_at, instance.expires_at = "RUNNING", now(), None, group.expires_at
             stored = self.session.scalar(select(models.RuntimeContainer).where(models.RuntimeContainer.runtime_instance_id == instance.runtime_instance_id))
             stored.provider_container_id, stored.status = container["container_id"], "RUNNING"
+        existing_networks = {x.network_key: x for x in self.session.scalars(select(models.RuntimeNetwork).where(models.RuntimeNetwork.runtime_group_id == group_id))}
+        for network in result["networks"]:
+            stored_network = existing_networks[network["network_key"]]
+            stored_network.provider_network_id = network["network_id"]
+            stored_network.status = "ACTIVE"
+            stored_network.isolation_checks_json = network.get("isolation_checks", {})
         request.last_activity_at = now()
-        self._event("lab.instance.started", instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status="RUNNING", reason=reason, checkpoint_results_preserved=True), idempotency_key=f"lab.instance.started:{instance_id}:{int(item.started_at.timestamp())}")
+        request.status = "RUNNING"
+        request.provision_owner = None
+        request.provision_lease_expires_at = None
+        request.error_code = request.error_message = None
+        item = existing[next(instance.node_key for instance in instances if instance.runtime_instance_id == instance_id)]
+        self._event("lab.instance.started", instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status="RUNNING", reason=reason, checkpoint_results_preserved=True), idempotency_key=f"lab.instance.started:{instance_id}:rebuild:{owner}")
         self.session.commit()
         return self.instance(instance_id)
 
@@ -327,11 +1183,31 @@ class RuntimeService:
         if not item:
             raise ApiError("RUNTIME.NOT_FOUND", "实验实例不存在", 404)
         self._instance_scope(item, "runtime.extend")
-        group = self.session.get(models.RuntimeInstanceGroup, item.runtime_group_id)
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup)
+            .where(models.RuntimeInstanceGroup.runtime_group_id == item.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        request = self.session.scalar(
+            select(models.RuntimeRequest)
+            .where(models.RuntimeRequest.runtime_request_id == group.runtime_request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        siblings = list(self.session.scalars(
+            select(models.RuntimeInstance)
+            .where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ))
+        if group.status != "RUNNING" or item.status != "RUNNING" or (
+            group.cleanup_owner and group.cleanup_lease_expires_at and group.cleanup_lease_expires_at > now()
+        ):
+            raise ApiError("RUNTIME.EXTEND_STATE_CONFLICT", "当前实验状态不能延长时限", 409)
         group.expires_at += timedelta(minutes=data.minutes)
-        for sibling in self.session.scalars(select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)):
+        for sibling in siblings:
             sibling.expires_at = group.expires_at
-        request = self.session.get(models.RuntimeRequest, group.runtime_request_id)
         request.last_activity_at = now()
         self._event("runtime.instance.extended", instance_id=instance_id, group_id=group.runtime_group_id, detail={"minutes": data.minutes, "reason": data.reason})
         self.session.commit()
@@ -342,9 +1218,32 @@ class RuntimeService:
         if not item:
             raise ApiError("RUNTIME.NOT_FOUND", "实验实例不存在", 404)
         self._instance_scope(item, "runtime.rejudge")
-        group = self.session.get(models.RuntimeInstanceGroup, item.runtime_group_id)
-        request = self.session.get(models.RuntimeRequest, group.runtime_request_id)
+        group = self.session.scalar(
+            select(models.RuntimeInstanceGroup)
+            .where(models.RuntimeInstanceGroup.runtime_group_id == item.runtime_group_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        request = self.session.scalar(
+            select(models.RuntimeRequest)
+            .where(models.RuntimeRequest.runtime_request_id == group.runtime_request_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        item = self.session.scalar(
+            select(models.RuntimeInstance)
+            .where(models.RuntimeInstance.runtime_instance_id == instance_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if group.status != "RUNNING" or item.status != "RUNNING" or (
+            group.cleanup_owner and group.cleanup_lease_expires_at and group.cleanup_lease_expires_at > now()
+        ):
+            raise ApiError("RUNTIME.REJUDGE_STATE_CONFLICT", "当前实验状态不能重新判题", 409)
         node = self.session.get(models.InfraNode, group.node_id)
+        if not node or not group.provider_group_id:
+            raise ApiError("RUNTIME.REJUDGE_FACT_INVALID", "重新判题所需运行事实不完整", 503)
+        self.session.commit()
         agent = self.agent_factory(node.agent_url)
         previous_results = list(self.session.scalars(
             select(models.CheckpointResult)
@@ -355,6 +1254,28 @@ class RuntimeService:
         total_score = int(request.spec_snapshot_json.get("total_score", 100))
         for checkpoint in request.spec_snapshot_json["checkpoints"]:
             result = await agent.exec(group.provider_group_id, {"operation": "judge", "checkpoint": checkpoint, "timeout_seconds": min(int(checkpoint["timeout_seconds"]), 30), "output_limit_bytes": 8192})
+            group = self.session.scalar(
+                select(models.RuntimeInstanceGroup)
+                .where(models.RuntimeInstanceGroup.runtime_group_id == item.runtime_group_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            request = self.session.scalar(
+                select(models.RuntimeRequest)
+                .where(models.RuntimeRequest.runtime_request_id == group.runtime_request_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            item = self.session.scalar(
+                select(models.RuntimeInstance)
+                .where(models.RuntimeInstance.runtime_instance_id == instance_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if group.status != "RUNNING" or item.status != "RUNNING" or (
+                group.cleanup_owner and group.cleanup_lease_expires_at and group.cleanup_lease_expires_at > now()
+            ):
+                raise ApiError("RUNTIME.REJUDGE_STATE_CONFLICT", "重新判题期间实验状态已变化", 409)
             attempt = (self.session.scalar(select(func.max(models.CheckpointResult.attempt)).where(models.CheckpointResult.runtime_instance_id == item.runtime_instance_id, models.CheckpointResult.checkpoint_id == checkpoint["checkpoint_id"])) or 0) + 1
             passed = bool(result.get("passed"))
             evidence = {**result.get("evidence", {}), "order_no": int(checkpoint.get("order_no", 0))}
@@ -408,8 +1329,9 @@ class RuntimeService:
         self._permission("infrastructure.write")
         client = self.agent_factory(data.agent_url)
         health, capacity = await client.health(), await client.capacity()
-        if health.get("status") != "ok":
+        if not isinstance(health, dict) or health.get("status") != "ok":
             raise ApiError("RUNTIME.NODE_NOT_READY", "节点代理健康检查未通过", 422)
+        capacity = self._validate_capacity_result(capacity)
         stamp = now()
         node = self.session.get(models.InfraNode, data.node_id) or models.InfraNode(node_id=data.node_id, name=data.name, agent_url=data.agent_url, status="READY", scheduling_paused=False, weight=data.weight, labels_json=data.labels, cpu_total=capacity["cpu_total"], memory_total_mb=capacity["memory_total_mb"], last_seen_at=stamp, created_at=stamp)
         node.name, node.agent_url, node.status, node.weight, node.labels_json, node.cpu_total, node.memory_total_mb, node.last_seen_at = data.name, data.agent_url, "READY", data.weight, data.labels, capacity["cpu_total"], capacity["memory_total_mb"], stamp
@@ -418,6 +1340,974 @@ class RuntimeService:
         self._event("infrastructure.node.registered", detail={"node_id": node.node_id, "name": node.name})
         self.session.commit()
         return next(x for x in self.nodes() if x["node_id"] == node.node_id)
+
+    async def refresh_node_heartbeat(self, node_id: str, action_key: str) -> dict:
+        self._admin_control()
+        action, claimed = self._claim_admin_action("NODE_HEARTBEAT", node_id, action_key, {})
+        if not claimed:
+            return self._admin_action_replay(action)
+        node = None
+        try:
+            node = self.session.scalar(
+                select(models.InfraNode).where(models.InfraNode.node_id == node_id).with_for_update()
+            )
+            if not node:
+                raise ApiError("RUNTIME.NODE_NOT_FOUND", "计算节点不存在", 404, {"node_id": node_id})
+            client = self.agent_factory(node.agent_url)
+            health, capacity = await client.health(), await client.capacity()
+            if not isinstance(health, dict) or health.get("status") != "ok":
+                raise ApiError("RUNTIME.NODE_NOT_READY", "节点代理健康检查未通过", 503)
+            capacity = self._validate_capacity_result(capacity)
+            stamp = now()
+            node.status = "READY"
+            node.cpu_total = float(capacity["cpu_total"])
+            node.memory_total_mb = int(capacity["memory_total_mb"])
+            node.last_seen_at = stamp
+            heartbeat = models.InfraNodeHeartbeat(
+                heartbeat_id=new_id("hbt"),
+                node_id=node.node_id,
+                observed_at=stamp,
+                cpu_available=float(capacity["cpu_available"]),
+                memory_available_mb=int(capacity["memory_available_mb"]),
+                running_groups=int(capacity["running_groups"]),
+                image_digests_json=capacity.get("image_digests", []),
+                detail_json={"engine": capacity.get("engine"), "source": "ADMIN_REFRESH"},
+            )
+            self.session.add(heartbeat)
+            result = {
+                "node_id": node.node_id,
+                "status": "READY",
+                "observed_at": stamp.isoformat(),
+                "cpu_available": heartbeat.cpu_available,
+                "memory_available_mb": heartbeat.memory_available_mb,
+                "running_groups": heartbeat.running_groups,
+                "idempotent_replay": False,
+            }
+            self._event("runtime.node.heartbeat.completed", detail={"action_id": action.action_id, "result": result})
+            self._complete_admin_action(action, result)
+            self.session.commit()
+            return result
+        except (ApiError, KeyError, TypeError, ValueError) as raw_error:
+            error = raw_error if isinstance(raw_error, ApiError) else ApiError("RUNTIME.NODE_RESPONSE_INVALID", "节点代理容量响应无效", 503)
+            if error.code in LEASE_ERROR_CODES:
+                self.session.rollback()
+                raise error
+            error = ApiError(error.code, error.message, error.status_code, {**error.details, "node_id": node_id})
+            if node:
+                node.status = "OFFLINE"
+            self._event("runtime.node.heartbeat.failed", detail={"action_id": action.action_id, "node_id": node_id, "error_code": error.code})
+            self._fail_admin_action(action, error)
+            self.session.commit()
+            raise error from raw_error
+
+    async def retry_queue(
+        self,
+        queue_id: str,
+        action_key: str,
+        *,
+        max_attempts: int = 5,
+        ignore_not_before: bool = False,
+        parent_action: models.RuntimeAdminAction | None = None,
+    ) -> dict:
+        self._admin_control()
+        action, claimed = self._claim_admin_action(
+            "QUEUE_RETRY", queue_id, action_key,
+            {"max_attempts": max_attempts, "ignore_not_before": ignore_not_before},
+        )
+        if not claimed:
+            return self._admin_action_replay(action)
+        try:
+            queued = self.session.scalar(
+                select(models.RuntimeQueue).where(models.RuntimeQueue.queue_id == queue_id).with_for_update()
+            )
+            if not queued:
+                raise ApiError("RUNTIME.QUEUE_NOT_FOUND", "运行队列项不存在", 404, {"queue_id": queue_id})
+            request = self.session.get(models.RuntimeRequest, queued.runtime_request_id)
+            if not request:
+                raise ApiError("RUNTIME.REQUEST_NOT_FOUND", "运行请求不存在", 404)
+            if queued.status == "DONE" and request.status == "RUNNING":
+                result = {**self.request_view(request), "queue_id": queue_id, "idempotent_replay": False}
+                self._complete_admin_action(action, result)
+                self._event("runtime.queue.retry.noop", group_id=result.get("runtime_group_id"), detail={"action_id": action.action_id, "queue_id": queue_id})
+                self.session.commit()
+                return result
+            if queued.status not in {"WAITING", "FAILED"}:
+                raise ApiError("RUNTIME.QUEUE_RETRY_CONFLICT", "当前队列状态不允许重试", 409, {"queue_id": queue_id, "status": queued.status})
+            if queued.attempts >= max_attempts:
+                queued.status = "FAILED"
+                request.status = "FAILED"
+                request.provision_owner = None
+                request.provision_lease_expires_at = None
+                request.error_code = "RUNTIME.QUEUE_RETRY_EXHAUSTED"
+                request.error_message = "运行队列已达到最大重试次数"
+                request.updated_at = now()
+                self._event("runtime.queue.retry.exhausted", detail={"action_id": action.action_id, "queue_id": queue_id, "attempts": queued.attempts})
+                raise ApiError("RUNTIME.QUEUE_RETRY_EXHAUSTED", "运行队列已达到最大重试次数", 409, {"queue_id": queue_id, "attempts": queued.attempts})
+            stamp = now()
+            if queued.not_before and queued.not_before > stamp and not ignore_not_before:
+                raise ApiError("RUNTIME.QUEUE_RETRY_TOO_EARLY", "运行队列尚未到可重试时间", 409, {"queue_id": queue_id, "not_before": queued.not_before.isoformat()})
+            queued.status = "PROCESSING"
+            queued.attempts += 1
+            queued.enqueued_at = stamp
+            queued.processing_owner = action.owner_token
+            queued.lease_expires_at = stamp + timedelta(seconds=QUEUE_LEASE_SECONDS)
+            request.status = "SCHEDULING"
+            request.error_code = request.error_message = None
+            request.provision_owner = action.owner_token
+            request.provision_lease_expires_at = stamp + timedelta(seconds=QUEUE_LEASE_SECONDS)
+            request.updated_at = stamp
+            self._event(
+                "runtime.queue.retry.requested",
+                detail={"action_id": action.action_id, "queue_id": queue_id, "runtime_request_id": request.runtime_request_id, "attempt": queued.attempts},
+            )
+            self.session.commit()
+            result = await self._schedule_and_provision(
+                request,
+                queue_owner=action.owner_token,
+                parent_action=parent_action,
+            )
+            result = {**result, "queue_id": queue_id, "idempotent_replay": False}
+            self._event("runtime.queue.retry.completed", group_id=result.get("runtime_group_id"), detail={"action_id": action.action_id, "queue_id": queue_id, "runtime_request_id": request.runtime_request_id, "status": result["status"]})
+            self._complete_admin_action(action, result)
+            self.session.commit()
+            return result
+        except ApiError as error:
+            if error.code in LEASE_ERROR_CODES:
+                self.session.rollback()
+                raise
+            queued = self.session.scalar(
+                select(models.RuntimeQueue).where(models.RuntimeQueue.queue_id == queue_id).with_for_update().execution_options(populate_existing=True)
+            )
+            request_id = queued.runtime_request_id if queued else None
+            if queued and queued.status == "PROCESSING" and queued.processing_owner == action.owner_token:
+                request = self.session.get(models.RuntimeRequest, queued.runtime_request_id)
+                if error.code == "RUNTIME.RETRY_STATE_CONFLICT":
+                    queued.lease_expires_at = now() - timedelta(seconds=1)
+                    if request:
+                        request.status = "STARTING"
+                else:
+                    queued.status = "FAILED" if queued.attempts >= max_attempts else "WAITING"
+                    queued.not_before = None if queued.status == "FAILED" else now() + timedelta(seconds=min(300, 5 * (2 ** min(queued.attempts, 6))))
+                    if error.code == "RUNTIME.PROVISION_ROLLBACK_FAILED" and queued.status == "WAITING":
+                        cleanup_group = self.session.scalar(
+                            select(models.RuntimeInstanceGroup).where(
+                                models.RuntimeInstanceGroup.runtime_request_id == queued.runtime_request_id
+                            )
+                        )
+                        if cleanup_group and cleanup_group.cleanup_not_before:
+                            queued.not_before = cleanup_group.cleanup_not_before
+                    queued.processing_owner = None
+                    queued.lease_expires_at = None
+                    if request and request.status in {"SCHEDULING", "STARTING"}:
+                        request.status = "QUEUED" if queued.status == "WAITING" else "FAILED"
+                        request.provision_owner = None
+                        request.provision_lease_expires_at = None
+                        request.error_code = error.code
+                        request.error_message = error.message
+                        request.updated_at = now()
+            self._event("runtime.queue.retry.failed", detail={"action_id": action.action_id, "queue_id": queue_id, "runtime_request_id": request_id, "error_code": error.code, "error_message": error.message, "status_code": error.status_code})
+            self._fail_admin_action(action, error)
+            self.session.commit()
+            raise
+
+    async def run_maintenance(self, data: RuntimeMaintenanceRun, action_key: str) -> dict:
+        self._admin_control()
+        request_parameters = data.model_dump()
+        action, claimed = self._claim_admin_action("MAINTENANCE", "runtime", action_key, request_parameters)
+        if not claimed:
+            return self._admin_action_replay(action)
+        try:
+            return await self._run_maintenance_action(data, action)
+        except ApiError as error:
+            self._fail_admin_action(action, error)
+            self.session.commit()
+            raise
+        except (KeyError, TypeError, ValueError) as raw_error:
+            error = ApiError("RUNTIME.MAINTENANCE_FACT_INVALID", "运行底座恢复事实不完整", 503)
+            self._fail_admin_action(action, error)
+            self.session.commit()
+            raise error from raw_error
+
+    async def _run_maintenance_action(self, data: RuntimeMaintenanceRun, action: models.RuntimeAdminAction) -> dict:
+        action = self._renew_admin_action(action)
+        stamp = now()
+        stale_before = stamp - timedelta(seconds=data.node_timeout_seconds)
+        processing_before = stamp - timedelta(seconds=data.processing_timeout_seconds)
+        stale_nodes = list(self.session.scalars(
+            select(models.InfraNode).where(
+                models.InfraNode.status == "READY",
+                (models.InfraNode.last_seen_at.is_(None)) | (models.InfraNode.last_seen_at < stale_before),
+            ).with_for_update()
+        ))
+        for node in stale_nodes:
+            node.status = "OFFLINE"
+            self._event("runtime.node.timed_out", detail={"node_id": node.node_id, "last_seen_at": node.last_seen_at.isoformat() if node.last_seen_at else None, "timeout_seconds": data.node_timeout_seconds})
+        stale_processing_ids = list(self.session.scalars(
+            select(models.RuntimeQueue.queue_id).where(
+                models.RuntimeQueue.status == "PROCESSING",
+                or_(
+                    models.RuntimeQueue.lease_expires_at < stamp,
+                    (models.RuntimeQueue.lease_expires_at.is_(None)) & (models.RuntimeQueue.enqueued_at < processing_before),
+                ),
+            )
+        ))
+        stale_scheduling_ids = list(self.session.scalars(
+            select(models.RuntimeRequest.runtime_request_id).where(
+                models.RuntimeRequest.status == "SCHEDULING",
+                or_(
+                    models.RuntimeRequest.provision_lease_expires_at < stamp,
+                    and_(
+                        models.RuntimeRequest.provision_lease_expires_at.is_(None),
+                        models.RuntimeRequest.updated_at < processing_before,
+                    ),
+                ),
+                ~select(models.RuntimeQueue.queue_id).where(
+                    models.RuntimeQueue.runtime_request_id == models.RuntimeRequest.runtime_request_id
+                ).exists(),
+                ~select(models.RuntimeInstanceGroup.runtime_group_id).where(
+                    models.RuntimeInstanceGroup.runtime_request_id == models.RuntimeRequest.runtime_request_id
+                ).exists(),
+            )
+        ))
+        stale_actions = list(self.session.scalars(
+            select(models.RuntimeAdminAction).where(
+                models.RuntimeAdminAction.status == "IN_PROGRESS",
+                models.RuntimeAdminAction.lease_expires_at < stamp,
+                models.RuntimeAdminAction.action_id != action.action_id,
+            ).with_for_update()
+        ))
+        for stale_action in stale_actions:
+            stale_action.status = "FAILED"
+            stale_action.error_code = "RUNTIME.RECOVERY_INTERRUPTED"
+            stale_action.error_message = "恢复动作执行中断，已由维护任务终止"
+            stale_action.error_status_code = 503
+            stale_action.error_details_json = {"action_id": stale_action.action_id, "recovered_by": action.action_id}
+            stale_action.updated_at = stamp
+        self.session.commit()
+
+        recovered_processing: list[str] = []
+        processing_results: list[dict] = []
+        for request_id in stale_scheduling_ids:
+            action = self._renew_admin_action(action)
+            request = self.session.scalar(
+                select(models.RuntimeRequest)
+                .where(models.RuntimeRequest.runtime_request_id == request_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if not request or request.status != "SCHEDULING" or not (
+                (request.provision_lease_expires_at and request.provision_lease_expires_at <= now())
+                or (request.provision_lease_expires_at is None and request.updated_at < processing_before)
+            ):
+                continue
+            existing_queue = self.session.scalar(select(models.RuntimeQueue).where(models.RuntimeQueue.runtime_request_id == request_id))
+            existing_group = self.session.scalar(select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_request_id == request_id))
+            if existing_queue or existing_group:
+                continue
+            queued = models.RuntimeQueue(
+                queue_id=new_id("rtq"), runtime_request_id=request_id, status="WAITING",
+                priority=100, attempts=0, not_before=None, processing_owner=None,
+                lease_expires_at=None, enqueued_at=now(),
+            )
+            self.session.add(queued)
+            request.status = "QUEUED"
+            request.provision_owner = None
+            request.provision_lease_expires_at = None
+            request.error_code = "RUNTIME.RETRY_INTERRUPTED"
+            request.error_message = "运行请求在调度前中断，已恢复为待处理"
+            request.updated_at = now()
+            self._event("runtime.request.scheduling_recovered", detail={"runtime_request_id": request_id, "queue_id": queued.queue_id})
+            recovered_processing.append(queued.queue_id)
+            processing_results.append({"queue_id": queued.queue_id, "status": "WAITING"})
+            self.session.commit()
+        for queue_id in stale_processing_ids:
+            action = self._renew_admin_action(action)
+            queued = self.session.scalar(
+                select(models.RuntimeQueue).where(models.RuntimeQueue.queue_id == queue_id).with_for_update().execution_options(populate_existing=True)
+            )
+            if not queued or queued.status != "PROCESSING" or (queued.lease_expires_at and queued.lease_expires_at > now()):
+                continue
+            previous_owner = queued.processing_owner
+            if previous_owner and previous_owner != action.owner_token:
+                previous_action = self.session.scalar(
+                    select(models.RuntimeAdminAction)
+                    .where(models.RuntimeAdminAction.owner_token == previous_owner)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                if previous_action and previous_action.status == "IN_PROGRESS":
+                    previous_action.status = "FAILED"
+                    previous_action.error_code = "RUNTIME.RECOVERY_INTERRUPTED"
+                    previous_action.error_message = "队列处理租约已过期，执行权已由维护任务接管"
+                    previous_action.error_status_code = 503
+                    previous_action.error_details_json = {"queue_id": queue_id, "recovered_by": action.action_id}
+                    previous_action.updated_at = now()
+            queued.processing_owner = action.owner_token
+            queued.lease_expires_at = now() + timedelta(seconds=QUEUE_LEASE_SECONDS)
+            group = self.session.scalar(
+                select(models.RuntimeInstanceGroup)
+                .where(models.RuntimeInstanceGroup.runtime_request_id == queued.runtime_request_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            request = self.session.scalar(
+                select(models.RuntimeRequest)
+                .where(models.RuntimeRequest.runtime_request_id == queued.runtime_request_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if not request:
+                queued.status = "FAILED"
+                queued.processing_owner = None
+                queued.lease_expires_at = None
+                processing_results.append({"queue_id": queue_id, "status": "FAILED", "error_code": "RUNTIME.REQUEST_NOT_FOUND"})
+                self.session.commit()
+                continue
+            request.provision_owner = None
+            request.provision_lease_expires_at = None
+            retry_exhausted = queued.attempts >= data.max_queue_attempts
+            if request.status == "RUNNING":
+                queued.status = "DONE"
+            elif group and group.status in {"STARTING", "DESTROYING"}:
+                cleanup_in_progress = (
+                    group.status == "DESTROYING"
+                    and (
+                        group.cleanup_intent != "RETRY_RECOVERY"
+                        or (
+                            group.cleanup_owner and group.cleanup_owner != action.owner_token
+                            and group.cleanup_lease_expires_at and group.cleanup_lease_expires_at > now()
+                        )
+                    )
+                )
+                if cleanup_in_progress:
+                    queued.status = "FAILED" if retry_exhausted else "WAITING"
+                    queued.not_before = None if retry_exhausted else group.cleanup_not_before or group.cleanup_lease_expires_at
+                    queued.processing_owner = None
+                    queued.lease_expires_at = None
+                    if retry_exhausted:
+                        request.status = "FAILED"
+                        request.error_code = "RUNTIME.QUEUE_RETRY_EXHAUSTED"
+                        request.error_message = "运行队列已达到最大重试次数，残留资源仍由清理任务接管"
+                        request.updated_at = now()
+                    processing_results.append({"queue_id": queue_id, "status": queued.status, "error_code": request.error_code or "RUNTIME.CLEANUP_IN_PROGRESS"})
+                    self.session.commit()
+                    continue
+                node = self.session.get(models.InfraNode, group.node_id)
+                if not node:
+                    group.status = "DESTROYING"
+                    group.cleanup_intent = "RETRY_RECOVERY"
+                    group.cleanup_owner = None
+                    group.cleanup_lease_expires_at = None
+                    group.cleanup_error_code = "RUNTIME.NODE_NOT_FOUND"
+                    group.cleanup_error_message = "运行组所属计算节点不存在"
+                    group.cleanup_not_before = now() + timedelta(seconds=30)
+                    queued.lease_expires_at = now() + timedelta(seconds=30)
+                    processing_results.append({"queue_id": queue_id, "status": "FAILED", "error_code": "RUNTIME.NODE_NOT_FOUND"})
+                    self.session.commit()
+                    continue
+                group.status = "DESTROYING"
+                group.cleanup_attempts = int(group.cleanup_attempts or 0) + 1
+                group.cleanup_intent = "RETRY_RECOVERY"
+                group.cleanup_owner = action.owner_token
+                group.cleanup_lease_expires_at = now() + timedelta(seconds=QUEUE_LEASE_SECONDS)
+                group.cleanup_not_before = now() + timedelta(seconds=QUEUE_LEASE_SECONDS)
+                queued.lease_expires_at = now() + timedelta(seconds=QUEUE_LEASE_SECONDS)
+                self.session.commit()
+                try:
+                    destroy_target = group.provider_group_id or group.runtime_group_id
+                    cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+                    self._validate_destroy_result(cleanup_result, destroy_target)
+                except (ApiError, KeyError, TypeError, ValueError) as raw_error:
+                    error = raw_error if isinstance(raw_error, ApiError) else ApiError(
+                        "RUNTIME.RETRY_CLEANUP_FAILED", "节点代理销毁响应无效", 503
+                    )
+                    action = self._renew_admin_action(action)
+                    queued = self.session.scalar(
+                        select(models.RuntimeQueue).where(models.RuntimeQueue.queue_id == queue_id).with_for_update().execution_options(populate_existing=True)
+                    )
+                    group = self.session.scalar(
+                        select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group.runtime_group_id).with_for_update().execution_options(populate_existing=True)
+                    )
+                    request = self.session.scalar(
+                        select(models.RuntimeRequest)
+                        .where(models.RuntimeRequest.runtime_request_id == request.runtime_request_id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                    if (
+                        not queued or queued.processing_owner != action.owner_token
+                        or not queued.lease_expires_at or queued.lease_expires_at <= now()
+                        or not group or group.cleanup_owner != action.owner_token
+                        or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= now()
+                        or not request
+                    ):
+                        raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "队列恢复清理执行权已失效", 409)
+                    group.cleanup_error_code = "RUNTIME.RETRY_CLEANUP_FAILED"
+                    group.cleanup_error_message = error.message
+                    group.cleanup_not_before = now() + timedelta(seconds=min(300, 5 * (2 ** min(group.cleanup_attempts, 6))))
+                    group.cleanup_owner = None
+                    group.cleanup_lease_expires_at = None
+                    queued.lease_expires_at = group.cleanup_not_before
+                    processing_results.append({"queue_id": queue_id, "status": "FAILED", "error_code": group.cleanup_error_code})
+                    self.session.commit()
+                    continue
+                action = self._renew_admin_action(action)
+                queued = self.session.scalar(
+                    select(models.RuntimeQueue).where(models.RuntimeQueue.queue_id == queue_id).with_for_update().execution_options(populate_existing=True)
+                )
+                group = self.session.scalar(
+                    select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group.runtime_group_id).with_for_update().execution_options(populate_existing=True)
+                )
+                request = self.session.scalar(
+                    select(models.RuntimeRequest)
+                    .where(models.RuntimeRequest.runtime_request_id == request.runtime_request_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                if (
+                    not queued or queued.processing_owner != action.owner_token
+                    or not queued.lease_expires_at or queued.lease_expires_at <= now()
+                    or not group or group.cleanup_owner != action.owner_token
+                    or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= now()
+                    or not request
+                ):
+                    raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "队列恢复清理执行权已失效", 409)
+                group.status = "FAILED"
+                group.provider_group_id = None
+                group.cleanup_not_before = None
+                group.cleanup_intent = None
+                group.cleanup_owner = None
+                group.cleanup_lease_expires_at = None
+                group.cleanup_error_code = group.cleanup_error_message = None
+                request.status = "FAILED" if retry_exhausted else "QUEUED"
+                request.error_code = "RUNTIME.QUEUE_RETRY_EXHAUSTED" if retry_exhausted else "RUNTIME.RETRY_INTERRUPTED"
+                request.error_message = "运行队列已达到最大重试次数，残留资源已清理" if retry_exhausted else "上次队列重试未完成，远端资源已清理"
+                request.updated_at = now()
+                queued.status = "FAILED" if retry_exhausted else "WAITING"
+            else:
+                queued.status = "FAILED" if retry_exhausted else "WAITING"
+                request.status = "FAILED" if retry_exhausted else "QUEUED"
+                request.error_code = "RUNTIME.QUEUE_RETRY_EXHAUSTED" if retry_exhausted else "RUNTIME.RETRY_INTERRUPTED"
+                request.error_message = "运行队列已达到最大重试次数" if retry_exhausted else "上次队列重试未完成，已恢复为待处理"
+                request.updated_at = now()
+            if retry_exhausted:
+                self._event("runtime.queue.retry.exhausted", detail={"queue_id": queue_id, "attempts": queued.attempts})
+            queued.not_before = None
+            queued.processing_owner = None
+            queued.lease_expires_at = None
+            recovered_processing.append(queue_id)
+            processing_results.append({"queue_id": queue_id, "status": queued.status})
+            self._event("runtime.queue.processing_recovered", detail={"queue_id": queue_id, "runtime_request_id": queued.runtime_request_id})
+            self.session.commit()
+
+        expired_group_ids = list(self.session.scalars(
+            select(models.RuntimeInstanceGroup.runtime_group_id).where(
+                or_(
+                    models.RuntimeInstanceGroup.status.in_(["RUNNING", "STARTING"]) & (models.RuntimeInstanceGroup.expires_at <= stamp),
+                    and_(
+                        models.RuntimeInstanceGroup.status == "STARTING",
+                        or_(
+                            and_(
+                                models.RuntimeInstanceGroup.cleanup_intent.in_(["PROVISIONING", "REBUILD"]),
+                                or_(models.RuntimeInstanceGroup.cleanup_lease_expires_at.is_(None), models.RuntimeInstanceGroup.cleanup_lease_expires_at <= stamp),
+                            ),
+                            and_(
+                                models.RuntimeInstanceGroup.cleanup_intent.is_(None),
+                                models.RuntimeInstanceGroup.scheduled_at <= processing_before,
+                            ),
+                        ),
+                    ),
+                    and_(
+                        models.RuntimeInstanceGroup.status == "DESTROYING",
+                        or_(models.RuntimeInstanceGroup.cleanup_intent.is_(None), models.RuntimeInstanceGroup.cleanup_intent.in_(["EXPIRY", "PROVISION_ROLLBACK", "MANUAL", "REBUILD", "ORPHAN_DESTROYED", "ORPHAN_FAILED"])),
+                        or_(models.RuntimeInstanceGroup.cleanup_not_before.is_(None), models.RuntimeInstanceGroup.cleanup_not_before <= stamp),
+                    ),
+                ),
+            ).order_by(models.RuntimeInstanceGroup.expires_at).limit(data.expiry_limit)
+        ))
+
+        expiry_results = []
+        for group_id in expired_group_ids:
+            action = self._renew_admin_action(action)
+            preview = self.session.scalar(
+                select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).execution_options(populate_existing=True)
+            )
+            cleanup_queue = None
+            if preview and preview.cleanup_intent in {"PROVISION_ROLLBACK", "ORPHAN_FAILED"}:
+                cleanup_queue = self.session.scalar(
+                    select(models.RuntimeQueue)
+                    .where(models.RuntimeQueue.runtime_request_id == preview.runtime_request_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            group = self.session.scalar(
+                select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+            )
+            if not group or group.status not in {"RUNNING", "STARTING", "DESTROYING"}:
+                continue
+            claim_time = now()
+            active_cleanup_owner = (
+                group.cleanup_owner and group.cleanup_owner != action.owner_token
+                and group.cleanup_lease_expires_at and group.cleanup_lease_expires_at > claim_time
+            )
+            if active_cleanup_owner:
+                continue
+            stale_starting = group.status == "STARTING" and (
+                (group.cleanup_intent in {"PROVISIONING", "REBUILD"} and (not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= claim_time))
+                or (group.cleanup_intent is None and group.scheduled_at <= processing_before)
+            )
+            if group.status in {"RUNNING", "STARTING"} and group.expires_at > claim_time and not stale_starting:
+                continue
+            if group.status == "DESTROYING" and (
+                group.cleanup_intent not in {None, "EXPIRY", "PROVISION_ROLLBACK", "MANUAL", "REBUILD", "ORPHAN_DESTROYED", "ORPHAN_FAILED"}
+                or (group.cleanup_not_before and group.cleanup_not_before > claim_time)
+            ):
+                continue
+            if group.cleanup_intent == "PROVISIONING" or (group.status == "STARTING" and group.cleanup_intent is None):
+                cleanup_intent = "PROVISION_ROLLBACK"
+            elif group.cleanup_intent in {"PROVISION_ROLLBACK", "MANUAL", "REBUILD", "ORPHAN_DESTROYED", "ORPHAN_FAILED"}:
+                cleanup_intent = group.cleanup_intent
+            else:
+                cleanup_intent = "EXPIRY"
+            if cleanup_intent in {"PROVISION_ROLLBACK", "ORPHAN_FAILED"} and cleanup_queue is None:
+                cleanup_queue = self.session.scalar(
+                    select(models.RuntimeQueue)
+                    .where(models.RuntimeQueue.runtime_request_id == group.runtime_request_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            node = self.session.get(models.InfraNode, group.node_id)
+            request = self.session.scalar(
+                select(models.RuntimeRequest)
+                .where(models.RuntimeRequest.runtime_request_id == group.runtime_request_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            instances = list(self.session.scalars(
+                select(models.RuntimeInstance)
+                .where(models.RuntimeInstance.runtime_group_id == group_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            ))
+            primary = next((item for item in instances if item.role == "STUDENT_WORKSTATION"), instances[0] if instances else None)
+            if not node or not request:
+                group.status = "DESTROYING"
+                group.cleanup_intent = cleanup_intent
+                group.cleanup_owner = None
+                group.cleanup_lease_expires_at = None
+                group.cleanup_error_code = "RUNTIME.CLEANUP_FACT_INVALID"
+                group.cleanup_error_message = "运行组缺少节点或请求事实"
+                group.cleanup_not_before = now() + timedelta(seconds=60)
+                expiry_results.append({"runtime_group_id": group_id, "status": "DESTROYING", "error_code": group.cleanup_error_code})
+                self.session.commit()
+                continue
+            request.provision_owner = None
+            request.provision_lease_expires_at = None
+            group.status = "DESTROYING"
+            group.cleanup_attempts = int(group.cleanup_attempts or 0) + 1
+            group.cleanup_intent = cleanup_intent
+            group.cleanup_owner = action.owner_token
+            group.cleanup_lease_expires_at = claim_time + timedelta(seconds=QUEUE_LEASE_SECONDS)
+            group.cleanup_not_before = group.cleanup_lease_expires_at
+            if cleanup_queue:
+                cleanup_queue.not_before = group.cleanup_not_before
+            for item in instances:
+                item.status = "DESTROYING"
+            runtime_request_id = group.runtime_request_id
+            destroy_target = group.provider_group_id or group.runtime_group_id
+            self.session.commit()
+            try:
+                cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+                self._validate_destroy_result(cleanup_result, destroy_target)
+                action = self._renew_admin_action(action)
+                ended = now()
+                if cleanup_intent in {"PROVISION_ROLLBACK", "ORPHAN_FAILED"}:
+                    cleanup_queue = self.session.scalar(
+                        select(models.RuntimeQueue)
+                        .where(models.RuntimeQueue.runtime_request_id == runtime_request_id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                group = self.session.scalar(
+                    select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+                )
+                if (
+                    not group or group.status != "DESTROYING" or group.cleanup_owner != action.owner_token
+                    or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= ended
+                    or group.cleanup_intent != cleanup_intent
+                ):
+                    raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "运行组清理执行权已失效", 409)
+                request = self.session.scalar(
+                    select(models.RuntimeRequest)
+                    .where(models.RuntimeRequest.runtime_request_id == runtime_request_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                instances = list(self.session.scalars(
+                    select(models.RuntimeInstance)
+                    .where(models.RuntimeInstance.runtime_group_id == group_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                ))
+                if not request:
+                    raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "运行请求恢复事实已失效", 409)
+                primary = next((item for item in instances if item.role == "STUDENT_WORKSTATION"), instances[0] if instances else None)
+                group.cleanup_owner = None
+                group.cleanup_lease_expires_at = None
+                group.cleanup_not_before = None
+                group.cleanup_error_code = group.cleanup_error_message = None
+                if cleanup_intent == "PROVISION_ROLLBACK":
+                    group.status = "FAILED"
+                    group.provider_group_id = None
+                    group.cleanup_intent = None
+                    if cleanup_queue is None:
+                        cleanup_queue = models.RuntimeQueue(
+                            queue_id=new_id("rtq"), runtime_request_id=request.runtime_request_id,
+                            status="WAITING", priority=100, attempts=0, not_before=None,
+                            processing_owner=None, lease_expires_at=None, enqueued_at=ended,
+                        )
+                        self.session.add(cleanup_queue)
+                    retry_exhausted = cleanup_queue.attempts >= data.max_queue_attempts
+                    request.status = "FAILED" if retry_exhausted else "QUEUED"
+                    request.error_code = "RUNTIME.QUEUE_RETRY_EXHAUSTED" if retry_exhausted else "RUNTIME.RETRY_INTERRUPTED"
+                    request.error_message = "运行队列已达到最大重试次数，创建残留资源已清理" if retry_exhausted else "创建失败残留资源已清理，可重新调度"
+                    request.updated_at = ended
+                    if cleanup_queue:
+                        cleanup_queue.status = "FAILED" if retry_exhausted else "WAITING"
+                        cleanup_queue.not_before = None
+                        cleanup_queue.processing_owner = None
+                        cleanup_queue.lease_expires_at = None
+                    self._event("runtime.group.rollback_completed", group_id=group_id, detail={"runtime_request_id": request.runtime_request_id})
+                    expiry_results.append({"runtime_group_id": group_id, "status": "FAILED", "cleanup_intent": cleanup_intent})
+                elif cleanup_intent == "ORPHAN_FAILED":
+                    group.status = "FAILED"
+                    group.provider_group_id = None
+                    group.cleanup_intent = None
+                    if cleanup_queue:
+                        retry_exhausted = cleanup_queue.attempts >= data.max_queue_attempts
+                        cleanup_queue.status = "FAILED" if retry_exhausted else "WAITING"
+                        cleanup_queue.not_before = None
+                        cleanup_queue.processing_owner = None
+                        cleanup_queue.lease_expires_at = None
+                        request.status = "FAILED" if retry_exhausted else "QUEUED"
+                        request.error_code = "RUNTIME.QUEUE_RETRY_EXHAUSTED" if retry_exhausted else "RUNTIME.RETRY_INTERRUPTED"
+                        request.error_message = "运行队列已达到最大重试次数，孤儿资源已清理" if retry_exhausted else "迟到创建产生的孤儿资源已清理，可重新调度"
+                        request.updated_at = ended
+                    self._event("runtime.group.orphan_cleanup_completed", group_id=group_id, detail={"runtime_request_id": request.runtime_request_id, "restored_status": "FAILED"})
+                    expiry_results.append({"runtime_group_id": group_id, "status": "FAILED", "cleanup_intent": cleanup_intent})
+                elif cleanup_intent == "REBUILD":
+                    group.status = "FAILED"
+                    group.provider_group_id = None
+                    group.cleanup_intent = None
+                    for item in instances:
+                        item.status, item.ended_at = "FAILED", ended
+                    request.status, request.error_code, request.error_message, request.updated_at = "FAILED", "RUNTIME.REBUILD_INTERRUPTED", "实验重建中断，残留资源已清理", ended
+                    self._event("runtime.group.rebuild_cleanup_completed", group_id=group_id, detail={"runtime_request_id": request.runtime_request_id})
+                    expiry_results.append({"runtime_group_id": group_id, "status": "FAILED", "cleanup_intent": cleanup_intent})
+                elif cleanup_intent == "ORPHAN_DESTROYED":
+                    group.status = "DESTROYED"
+                    group.provider_group_id = None
+                    group.cleanup_intent = None
+                    for item in instances:
+                        item.status = "DESTROYED"
+                        item.ended_at = item.ended_at or ended
+                    self._event("runtime.group.orphan_cleanup_completed", group_id=group_id, detail={"runtime_request_id": request.runtime_request_id, "restored_status": "DESTROYED"})
+                    expiry_results.append({"runtime_group_id": group_id, "status": "DESTROYED", "cleanup_intent": cleanup_intent})
+                else:
+                    group.status, group.destroyed_at = "DESTROYED", ended
+                    group.cleanup_intent = None
+                    for item in instances:
+                        item.status, item.ended_at = "DESTROYED", ended
+                    request.status, request.updated_at, request.last_activity_at = "CANCELED", ended, ended
+                    cleanup_reason = "待完成的人工销毁已恢复" if cleanup_intent == "MANUAL" else "运行时限到期自动回收"
+                    self._event("lab.instance.destroyed", instance_id=primary.runtime_instance_id if primary else None, group_id=group_id, detail=self._projection_payload(request, primary, status="DESTROYED", reason=cleanup_reason), idempotency_key=f"lab.instance.destroyed:{group_id}:g{group.provider_generation}")
+                    expiry_results.append({"runtime_group_id": group_id, "status": "DESTROYED"})
+            except (ApiError, KeyError, TypeError, ValueError) as raw_error:
+                if isinstance(raw_error, ApiError) and raw_error.code in LEASE_ERROR_CODES:
+                    raise
+                error = raw_error if isinstance(raw_error, ApiError) else ApiError("RUNTIME.EXPIRY_CLEANUP_FAILED", "节点代理销毁响应无效", 503)
+                action = self._renew_admin_action(action)
+                failed = now()
+                if cleanup_intent in {"PROVISION_ROLLBACK", "ORPHAN_FAILED"}:
+                    cleanup_queue = self.session.scalar(
+                        select(models.RuntimeQueue)
+                        .where(models.RuntimeQueue.runtime_request_id == runtime_request_id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                group = self.session.scalar(
+                    select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
+                )
+                if (
+                    not group or group.cleanup_owner != action.owner_token
+                    or not group.cleanup_lease_expires_at or group.cleanup_lease_expires_at <= failed
+                    or group.cleanup_intent != cleanup_intent
+                ):
+                    raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "运行组清理执行权已失效", 409)
+                request = self.session.scalar(
+                    select(models.RuntimeRequest)
+                    .where(models.RuntimeRequest.runtime_request_id == runtime_request_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                if not request:
+                    raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "运行请求恢复事实已失效", 409)
+                group.status = "DESTROYING"
+                group.cleanup_owner = None
+                group.cleanup_lease_expires_at = None
+                group.cleanup_error_code = (
+                    "RUNTIME.PROVISION_ROLLBACK_FAILED" if cleanup_intent == "PROVISION_ROLLBACK"
+                    else "RUNTIME.MANUAL_CLEANUP_FAILED" if cleanup_intent == "MANUAL"
+                    else "RUNTIME.REBUILD_CLEANUP_FAILED" if cleanup_intent == "REBUILD"
+                    else "RUNTIME.ORPHAN_CLEANUP_FAILED" if cleanup_intent in {"ORPHAN_FAILED", "ORPHAN_DESTROYED"}
+                    else "RUNTIME.EXPIRY_CLEANUP_FAILED"
+                )
+                group.cleanup_error_message = error.message
+                group.cleanup_not_before = failed + timedelta(seconds=min(300, 5 * (2 ** min(group.cleanup_attempts, 6))))
+                retry_exhausted = bool(cleanup_queue and cleanup_queue.attempts >= data.max_queue_attempts)
+                if cleanup_queue:
+                    cleanup_queue.status = "FAILED" if retry_exhausted else "WAITING"
+                    cleanup_queue.not_before = None if retry_exhausted else group.cleanup_not_before
+                    cleanup_queue.processing_owner = None
+                    cleanup_queue.lease_expires_at = None
+                elif cleanup_intent == "PROVISION_ROLLBACK":
+                    cleanup_queue = models.RuntimeQueue(
+                        queue_id=new_id("rtq"), runtime_request_id=request.runtime_request_id,
+                        status="WAITING", priority=100, attempts=0, not_before=group.cleanup_not_before,
+                        processing_owner=None, lease_expires_at=None, enqueued_at=failed,
+                    )
+                    self.session.add(cleanup_queue)
+                request.status, request.error_code, request.error_message, request.updated_at = (
+                    (
+                        "FAILED" if retry_exhausted else "QUEUED",
+                        "RUNTIME.QUEUE_RETRY_EXHAUSTED" if retry_exhausted else group.cleanup_error_code,
+                        "运行队列已达到最大重试次数，创建残留资源仍待清理" if retry_exhausted else error.message,
+                        failed,
+                    )
+                    if cleanup_intent == "PROVISION_ROLLBACK"
+                    else (request.status, request.error_code, request.error_message, request.updated_at)
+                    if cleanup_intent in {"ORPHAN_FAILED", "ORPHAN_DESTROYED"}
+                    else ("FAILED", group.cleanup_error_code, error.message, failed)
+                    if cleanup_intent == "REBUILD"
+                    else ("FAILED", group.cleanup_error_code, error.message, failed)
+                )
+                self._event("runtime.group.cleanup_failed", instance_id=primary.runtime_instance_id if primary else None, group_id=group_id, detail={"error_code": group.cleanup_error_code, "attempt": group.cleanup_attempts, "retry_at": group.cleanup_not_before.isoformat()})
+                expiry_results.append({"runtime_group_id": group_id, "status": "DESTROYING", "error_code": group.cleanup_error_code})
+            self.session.commit()
+
+        cleanup_task_ids = list(self.session.scalars(
+            select(models.RuntimeCleanupTask.cleanup_task_id).where(
+                or_(
+                    and_(
+                        models.RuntimeCleanupTask.status.in_(["WAITING", "FAILED"]),
+                        models.RuntimeCleanupTask.attempts < data.max_queue_attempts,
+                        or_(
+                            models.RuntimeCleanupTask.not_before.is_(None),
+                            models.RuntimeCleanupTask.not_before <= now(),
+                        ),
+                    ),
+                    and_(
+                        models.RuntimeCleanupTask.status == "PROCESSING",
+                        or_(
+                            models.RuntimeCleanupTask.lease_expires_at.is_(None),
+                            models.RuntimeCleanupTask.lease_expires_at <= now(),
+                        ),
+                    ),
+                ),
+            ).order_by(models.RuntimeCleanupTask.created_at).limit(data.expiry_limit)
+        ))
+        for cleanup_task_id in cleanup_task_ids:
+            action = self._renew_admin_action(action)
+            task = self.session.scalar(
+                select(models.RuntimeCleanupTask)
+                .where(models.RuntimeCleanupTask.cleanup_task_id == cleanup_task_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            claim_time = now()
+            if (
+                not task or task.status not in {"WAITING", "FAILED", "PROCESSING"}
+                or (task.status != "PROCESSING" and task.attempts >= data.max_queue_attempts)
+                or (task.status != "PROCESSING" and task.not_before and task.not_before > claim_time)
+                or (task.status == "PROCESSING" and task.lease_expires_at and task.lease_expires_at > claim_time)
+                or (
+                    task.processing_owner and task.processing_owner != action.owner_token
+                    and task.lease_expires_at and task.lease_expires_at > claim_time
+                )
+            ):
+                continue
+            current_group = self.session.scalar(
+                select(models.RuntimeInstanceGroup)
+                .where(models.RuntimeInstanceGroup.runtime_group_id == task.runtime_group_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            targets_current_generation = bool(
+                current_group
+                and current_group.node_id == task.node_id
+                and current_group.provider_generation == task.provider_generation
+                and current_group.provider_group_id == task.provider_group_id
+            )
+            if targets_current_generation:
+                task.processing_owner = None
+                task.lease_expires_at = None
+                task.updated_at = claim_time
+                if current_group.status in {"RUNNING", "DESTROYED"}:
+                    task.status = "DONE"
+                    task.not_before = None
+                    task.error_code = task.error_message = None
+                    self._event(
+                        "runtime.orphan.cleanup_superseded", group_id=task.runtime_group_id,
+                        detail={
+                            "cleanup_task_id": task.cleanup_task_id,
+                            "node_id": task.node_id,
+                            "provider_generation": task.provider_generation,
+                            "group_status": current_group.status,
+                        },
+                    )
+                else:
+                    task.status = "WAITING"
+                    task.not_before = max(
+                        claim_time + timedelta(seconds=60),
+                        current_group.cleanup_lease_expires_at or claim_time,
+                    )
+                    task.error_code = "RUNTIME.CLEANUP_FENCED_CURRENT_GENERATION"
+                    task.error_message = "清理任务仍指向当前运行代次，已延后处理"
+                self.session.commit()
+                continue
+            node = self.session.get(models.InfraNode, task.node_id)
+            if not node:
+                task.attempts += 1
+                task.status = "FAILED" if task.attempts >= data.max_queue_attempts else "WAITING"
+                task.not_before = None if task.status == "FAILED" else claim_time + timedelta(seconds=60)
+                task.processing_owner = None
+                task.lease_expires_at = None
+                task.error_code = "RUNTIME.NODE_NOT_FOUND"
+                task.error_message = "孤儿资源所属计算节点不存在"
+                task.updated_at = claim_time
+                expiry_results.append({
+                    "runtime_group_id": task.runtime_group_id,
+                    "status": "FAILED" if task.status == "FAILED" else "DESTROYING",
+                    "error_code": task.error_code,
+                    "cleanup_intent": task.intent,
+                })
+                self.session.commit()
+                continue
+            task.status = "PROCESSING"
+            task.attempts += 1
+            task.processing_owner = action.owner_token
+            task.lease_expires_at = claim_time + timedelta(seconds=QUEUE_LEASE_SECONDS)
+            task.not_before = task.lease_expires_at
+            task.updated_at = claim_time
+            node_url = node.agent_url
+            provider_group_id = task.provider_group_id
+            runtime_group_id = task.runtime_group_id
+            cleanup_intent = task.intent
+            self.session.commit()
+            try:
+                cleanup_result = await self.agent_factory(node_url).destroy(provider_group_id)
+                self._validate_destroy_result(cleanup_result, provider_group_id)
+                action = self._renew_admin_action(action)
+                finished = now()
+                task = self.session.scalar(
+                    select(models.RuntimeCleanupTask)
+                    .where(models.RuntimeCleanupTask.cleanup_task_id == cleanup_task_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                if (
+                    not task or task.status != "PROCESSING" or task.processing_owner != action.owner_token
+                    or not task.lease_expires_at or task.lease_expires_at <= finished
+                ):
+                    raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "孤儿资源清理执行权已失效", 409)
+                task.status = "DONE"
+                task.not_before = None
+                task.processing_owner = None
+                task.lease_expires_at = None
+                task.error_code = task.error_message = None
+                task.updated_at = finished
+                self._event(
+                    "runtime.orphan.cleanup_completed", group_id=runtime_group_id,
+                    detail={"cleanup_task_id": cleanup_task_id, "node_id": task.node_id, "intent": cleanup_intent, "provider_generation": task.provider_generation},
+                )
+                expiry_results.append({
+                    "runtime_group_id": runtime_group_id,
+                    "status": "ORPHAN_CLEANED",
+                    "cleanup_intent": cleanup_intent,
+                })
+            except (ApiError, KeyError, TypeError, ValueError) as raw_error:
+                if isinstance(raw_error, ApiError) and raw_error.code in LEASE_ERROR_CODES:
+                    raise
+                error = raw_error if isinstance(raw_error, ApiError) else ApiError(
+                    "RUNTIME.ORPHAN_CLEANUP_FAILED", "节点代理孤儿资源清理响应无效", 503
+                )
+                action = self._renew_admin_action(action)
+                failed = now()
+                task = self.session.scalar(
+                    select(models.RuntimeCleanupTask)
+                    .where(models.RuntimeCleanupTask.cleanup_task_id == cleanup_task_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                if (
+                    not task or task.status != "PROCESSING" or task.processing_owner != action.owner_token
+                    or not task.lease_expires_at or task.lease_expires_at <= failed
+                ):
+                    raise ApiError("RUNTIME.RECOVERY_LEASE_LOST", "孤儿资源清理执行权已失效", 409)
+                task.status = "FAILED" if task.attempts >= data.max_queue_attempts else "WAITING"
+                task.not_before = None if task.status == "FAILED" else failed + timedelta(seconds=min(300, 5 * (2 ** min(task.attempts, 6))))
+                task.processing_owner = None
+                task.lease_expires_at = None
+                task.error_code = "RUNTIME.ORPHAN_CLEANUP_FAILED"
+                task.error_message = error.message
+                task.updated_at = failed
+                expiry_results.append({
+                    "runtime_group_id": runtime_group_id,
+                    "status": "FAILED" if task.status == "FAILED" else "DESTROYING",
+                    "error_code": task.error_code,
+                    "cleanup_intent": cleanup_intent,
+                })
+            self.session.commit()
+
+        eligible_queue_ids = list(self.session.scalars(
+            select(models.RuntimeQueue.queue_id).where(
+                models.RuntimeQueue.status == "WAITING",
+                models.RuntimeQueue.attempts < data.max_queue_attempts,
+                (models.RuntimeQueue.not_before.is_(None)) | (models.RuntimeQueue.not_before <= now()),
+            ).order_by(desc(models.RuntimeQueue.priority), models.RuntimeQueue.enqueued_at).limit(data.retry_limit)
+        ))
+        queue_results = []
+        for queue_id in eligible_queue_ids:
+            action = self._renew_admin_action(action)
+            try:
+                retried = await self.retry_queue(
+                    queue_id,
+                    f"maintenance:{action.action_id}:{queue_id}",
+                    max_attempts=data.max_queue_attempts,
+                    parent_action=action,
+                )
+                action = self._renew_admin_action(action)
+                queue_results.append({"queue_id": queue_id, "status": retried["status"]})
+            except ApiError as error:
+                if error.code in LEASE_ERROR_CODES:
+                    raise
+                action = self._renew_admin_action(action)
+                queue_results.append({"queue_id": queue_id, "status": "FAILED", "error_code": error.code})
+        result = {
+            "status": "COMPLETED_WITH_ERRORS" if any(item.get("status") in {"FAILED", "DESTROYING"} for item in [*processing_results, *expiry_results, *queue_results]) else "COMPLETED",
+            "automatic": False,
+            "node_timeouts": [node.node_id for node in stale_nodes],
+            "processing_recovered": recovered_processing,
+            "processing_results": processing_results,
+            "expiry_results": expiry_results,
+            "queue_results": queue_results,
+            "completed_at": now().isoformat(),
+            "idempotent_replay": False,
+        }
+        self._event("runtime.maintenance.completed", detail={"action_id": action.action_id, "request": data.model_dump(), "result": result})
+        self._complete_admin_action(action, result)
+        self.session.commit()
+        return result
 
     def images(self) -> list[dict]:
         self._permission("infrastructure.read")

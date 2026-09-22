@@ -1649,6 +1649,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/infrastructure/nodes/{node_id}/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh Node Heartbeat */
+        post: operations["refresh_node_heartbeat_api_v1_infrastructure_nodes__node_id__heartbeat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/infrastructure/images": {
         parameters: {
             query?: never;
@@ -1678,6 +1695,40 @@ export interface paths {
         get: operations["list_queue_api_v1_infrastructure_queue_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/infrastructure/queue/{queue_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Queue Item */
+        post: operations["retry_queue_item_api_v1_infrastructure_queue__queue_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/infrastructure/maintenance/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Runtime Maintenance */
+        post: operations["run_runtime_maintenance_api_v1_infrastructure_maintenance_run_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3724,6 +3775,17 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** RuntimeExpiryResult */
+        RuntimeExpiryResult: {
+            /** Runtime Group Id */
+            runtime_group_id: string;
+            /** Status */
+            status: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Cleanup Intent */
+            cleanup_intent?: string | null;
+        };
         /** RuntimeExtend */
         RuntimeExtend: {
             /** Minutes */
@@ -3740,12 +3802,154 @@ export interface components {
             /** Mode */
             mode?: ("STUDENT" | "ASSIST") | null;
         };
+        /** RuntimeHeartbeatResult */
+        RuntimeHeartbeatResult: {
+            /** Node Id */
+            node_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "READY";
+            /** Observed At */
+            observed_at: string;
+            /** Cpu Available */
+            cpu_available: number;
+            /** Memory Available Mb */
+            memory_available_mb: number;
+            /** Running Groups */
+            running_groups: number;
+            /** Idempotent Replay */
+            idempotent_replay: boolean;
+        };
+        /** RuntimeMaintenanceQueueResult */
+        RuntimeMaintenanceQueueResult: {
+            /** Queue Id */
+            queue_id: string;
+            /** Status */
+            status: string;
+            /** Error Code */
+            error_code?: string | null;
+        };
+        /** RuntimeMaintenanceResult */
+        RuntimeMaintenanceResult: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "COMPLETED" | "COMPLETED_WITH_ERRORS";
+            /** Automatic */
+            automatic: boolean;
+            /** Node Timeouts */
+            node_timeouts: string[];
+            /** Processing Recovered */
+            processing_recovered: string[];
+            /** Processing Results */
+            processing_results: components["schemas"]["RuntimeProcessingResult"][];
+            /** Expiry Results */
+            expiry_results: components["schemas"]["RuntimeExpiryResult"][];
+            /** Queue Results */
+            queue_results: components["schemas"]["RuntimeMaintenanceQueueResult"][];
+            /** Completed At */
+            completed_at: string;
+            /** Idempotent Replay */
+            idempotent_replay: boolean;
+        };
+        /** RuntimeMaintenanceRun */
+        RuntimeMaintenanceRun: {
+            /**
+             * Node Timeout Seconds
+             * @default 90
+             */
+            node_timeout_seconds: number;
+            /**
+             * Processing Timeout Seconds
+             * @default 120
+             */
+            processing_timeout_seconds: number;
+            /**
+             * Retry Limit
+             * @default 20
+             */
+            retry_limit: number;
+            /**
+             * Expiry Limit
+             * @default 20
+             */
+            expiry_limit: number;
+            /**
+             * Max Queue Attempts
+             * @default 5
+             */
+            max_queue_attempts: number;
+        };
         /** RuntimePolicy */
         RuntimePolicy: {
             /** Max Attempts */
             max_attempts: number;
             /** Timeout Minutes */
             timeout_minutes: number;
+        };
+        /** RuntimeProcessingResult */
+        RuntimeProcessingResult: {
+            /** Queue Id */
+            queue_id: string;
+            /** Status */
+            status: string;
+            /** Error Code */
+            error_code?: string | null;
+        };
+        /** RuntimeQueueRetryResult */
+        RuntimeQueueRetryResult: {
+            /** Runtime Request Id */
+            runtime_request_id: string;
+            /** Queue Id */
+            queue_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Course Id */
+            course_id: string | null;
+            /** Class Id */
+            class_id: string | null;
+            /** Mode */
+            mode: string;
+            /** Student Id */
+            student_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "QUEUED" | "SCHEDULING" | "STARTING" | "RUNNING" | "FAILED" | "CANCELED";
+            /** Display Status */
+            display_status: string;
+            error: components["schemas"]["RuntimeRequestError"] | null;
+            /** Runtime Group Id */
+            runtime_group_id: string | null;
+            /** Instance Ids */
+            instance_ids: string[];
+            /** Submission Status */
+            submission_status: string;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Last Activity At */
+            last_activity_at: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Idempotent Replay */
+            idempotent_replay: boolean;
+        };
+        /** RuntimeRequestError */
+        RuntimeRequestError: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
         };
         /** RuntimeStart */
         RuntimeStart: {
@@ -10267,6 +10471,64 @@ export interface operations {
             };
         };
     };
+    refresh_node_heartbeat_api_v1_infrastructure_nodes__node_id__heartbeat_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeHeartbeatResult"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     list_images_api_v1_infrastructure_images_get: {
         parameters: {
             query?: never;
@@ -10405,6 +10667,124 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    retry_queue_item_api_v1_infrastructure_queue__queue_id__retry_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                queue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeQueueRetryResult"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    run_runtime_maintenance_api_v1_infrastructure_maintenance_run_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuntimeMaintenanceRun"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeMaintenanceResult"];
                 };
             };
             /** @description 标准错误信封 */

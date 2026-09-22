@@ -16,6 +16,7 @@ EXPECTED_FOREIGN_KEYS = {
     "runtime_container": {"fk_runtime_container_instance": "CASCADE"},
     "runtime_network": {"fk_runtime_network_group": "CASCADE"},
     "runtime_event": {"fk_runtime_event_instance": "SET NULL", "fk_runtime_event_group": "SET NULL"},
+    "runtime_cleanup_task": {"fk_runtime_cleanup_node": "RESTRICT"},
     "runtime_resource_usage": {"fk_runtime_usage_instance": "CASCADE"},
     "runtime_terminal_session": {"fk_runtime_terminal_instance": "CASCADE"},
     "runtime_artifact": {"fk_runtime_artifact_instance": "RESTRICT"},
@@ -23,9 +24,46 @@ EXPECTED_FOREIGN_KEYS = {
 }
 
 EXPECTED_UNIQUES = {
+    "runtime_admin_action": {"uq_runtime_admin_action_actor_key"},
+    "runtime_cleanup_task": {"uq_runtime_cleanup_target"},
+    "runtime_queue": {"uq_runtime_queue_request"},
     "runtime_instance": {"uq_runtime_instance_group_node"},
     "runtime_container": {"uq_runtime_provider_container", "uq_runtime_container_instance"},
     "runtime_network": {"uq_runtime_network_key", "uq_runtime_provider_network"},
+}
+
+EXPECTED_RECOVERY_COLUMNS = {
+    "runtime_request": {"provision_owner", "provision_lease_expires_at"},
+    "runtime_queue": {"processing_owner", "lease_expires_at"},
+    "runtime_instance_group": {
+        "provider_generation",
+        "cleanup_attempts",
+        "cleanup_not_before",
+        "cleanup_intent",
+        "cleanup_owner",
+        "cleanup_lease_expires_at",
+        "cleanup_error_code",
+        "cleanup_error_message",
+    },
+    "runtime_admin_action": {
+        "owner_token",
+        "generation",
+        "lease_expires_at",
+        "error_details_json",
+    },
+    "runtime_cleanup_task": {
+        "runtime_group_id",
+        "provider_group_id",
+        "provider_generation",
+        "intent",
+        "status",
+        "attempts",
+        "not_before",
+        "processing_owner",
+        "lease_expires_at",
+        "error_code",
+        "error_message",
+    },
 }
 
 
@@ -47,6 +85,8 @@ def test_runtime_models_declare_fact_ownership_and_identity_constraints():
         assert expected.items() <= actual.items()
     for table_name, expected in EXPECTED_UNIQUES.items():
         assert expected <= _metadata_constraint_names(table_name, "UniqueConstraint")
+    for table_name, expected in EXPECTED_RECOVERY_COLUMNS.items():
+        assert expected <= set(Base.metadata.tables[table_name].columns.keys())
 
     assert "ix_runtime_group_node_status" in {
         index.name for index in Base.metadata.tables["runtime_instance_group"].indexes
@@ -69,6 +109,9 @@ def test_mysql_runtime_fact_constraints_match_models():
             assert expected.items() <= actual.items()
         for table_name, expected in EXPECTED_UNIQUES.items():
             actual = {item["name"] for item in database.get_unique_constraints(table_name)}
+            assert expected <= actual
+        for table_name, expected in EXPECTED_RECOVERY_COLUMNS.items():
+            actual = {item["name"] for item in database.get_columns(table_name)}
             assert expected <= actual
         assert "ix_runtime_group_node_status" in {
             item["name"] for item in database.get_indexes("runtime_instance_group")

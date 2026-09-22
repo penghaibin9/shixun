@@ -3,7 +3,7 @@ from hashlib import sha256
 from os import getenv
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Header, Path, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,12 +15,13 @@ from app.labs.database import create_session_factory, get_session
 
 from . import models
 from .catalog import LabCatalogClient
-from .schemas import ImageRegister, NodeRegister, ReleaseContextInput, ReleaseStudentInput, RuntimeAction, RuntimeExtend, RuntimeFacadeAction, RuntimeStart, TerminalTokenInput
+from .schemas import ImageRegister, NodeRegister, ReleaseContextInput, ReleaseStudentInput, RuntimeAction, RuntimeExtend, RuntimeFacadeAction, RuntimeHeartbeatResult, RuntimeMaintenanceResult, RuntimeMaintenanceRun, RuntimeQueueRetryResult, RuntimeStart, TerminalTokenInput
 from .service import RuntimeService, new_id, now
 
 router = APIRouter(prefix="/api/v1", tags=["实验运行时"])
 DbSession = Annotated[Session, Depends(get_session)]
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=255)]
+RuntimeId = Annotated[str, Path(min_length=1, max_length=36)]
 
 
 def service(request: Request, session: Session, user: UserContext) -> RuntimeService:
@@ -138,6 +139,11 @@ async def register_node(data: NodeRegister, request: Request, session: DbSession
     return await service(request, session, user).register_node(data)
 
 
+@router.post("/infrastructure/nodes/{node_id}/heartbeat", response_model=RuntimeHeartbeatResult)
+async def refresh_node_heartbeat(node_id: RuntimeId, request: Request, session: DbSession, user: CurrentUser, idempotency_key: IdempotencyKey):
+    return await service(request, session, user).refresh_node_heartbeat(node_id, idempotency_key)
+
+
 @router.get("/infrastructure/images")
 def list_images(request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).images()
@@ -153,6 +159,16 @@ def register_image(data: ImageRegister, request: Request, session: DbSession, us
 def list_queue(request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).queue()
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
+
+
+@router.post("/infrastructure/queue/{queue_id}/retry", response_model=RuntimeQueueRetryResult)
+async def retry_queue_item(queue_id: RuntimeId, request: Request, session: DbSession, user: CurrentUser, idempotency_key: IdempotencyKey):
+    return await service(request, session, user).retry_queue(queue_id, idempotency_key)
+
+
+@router.post("/infrastructure/maintenance/run", response_model=RuntimeMaintenanceResult, response_model_exclude_none=True)
+async def run_runtime_maintenance(data: RuntimeMaintenanceRun, request: Request, session: DbSession, user: CurrentUser, idempotency_key: IdempotencyKey):
+    return await service(request, session, user).run_maintenance(data, idempotency_key)
 
 
 @router.get("/infrastructure/overview")

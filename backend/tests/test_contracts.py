@@ -45,6 +45,26 @@ def test_question_import_contract_requires_bounded_idempotency_and_binary_xlsx()
         assert content[media_type]["schema"] == {"type": "string", "format": "binary"}
 
 
+def test_runtime_recovery_contract_is_typed_and_requires_idempotency():
+    contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    expected = {
+        "/api/v1/infrastructure/nodes/{node_id}/heartbeat": "RuntimeHeartbeatResult",
+        "/api/v1/infrastructure/queue/{queue_id}/retry": "RuntimeQueueRetryResult",
+        "/api/v1/infrastructure/maintenance/run": "RuntimeMaintenanceResult",
+    }
+    for path, response_schema in expected.items():
+        operation = contract["paths"][path]["post"]
+        idempotency = next(item for item in operation["parameters"] if item["name"] == "Idempotency-Key")
+        assert idempotency["required"] is True
+        assert idempotency["schema"]["minLength"] == 8
+        assert idempotency["schema"]["maxLength"] == 255
+        response = operation["responses"]["200"]["content"]["application/json"]["schema"]
+        assert response["$ref"].endswith(f"/{response_schema}")
+    maintenance_body = contract["paths"]["/api/v1/infrastructure/maintenance/run"]["post"]["requestBody"]
+    assert maintenance_body["required"] is True
+    assert maintenance_body["content"]["application/json"]["schema"]["$ref"].endswith("/RuntimeMaintenanceRun")
+
+
 def test_database_tables_have_exactly_one_frozen_owner():
     contract = json.loads((ROOT / "docs/contracts/database-ownership-v1.json").read_text(encoding="utf-8"))
     claimed = [table for tables in contract["owners"].values() for table in tables]

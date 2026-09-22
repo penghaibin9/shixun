@@ -87,6 +87,8 @@ class RuntimeRequest(Base):
     spec_snapshot_json: Mapped[dict] = mapped_column(JSON)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    provision_owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    provision_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     submission_status: Mapped[str] = mapped_column(String(24), default="DRAFT")
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -118,6 +120,8 @@ class RuntimeQueue(Base):
     priority: Mapped[int] = mapped_column(Integer)
     attempts: Mapped[int] = mapped_column(Integer)
     not_before: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    processing_owner: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     enqueued_at: Mapped[datetime] = mapped_column(DateTime)
     request = relationship("RuntimeRequest")
 
@@ -137,12 +141,20 @@ class RuntimeInstanceGroup(Base):
         String(36), ForeignKey("infra_node.node_id", name="fk_runtime_group_node", ondelete="RESTRICT")
     )
     provider_group_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    provider_generation: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(24))
     scheduler_score: Mapped[float] = mapped_column(Float)
     scheduler_reason: Mapped[str] = mapped_column(String(512))
     scheduled_at: Mapped[datetime] = mapped_column(DateTime)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     destroyed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cleanup_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    cleanup_not_before: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cleanup_intent: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cleanup_owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cleanup_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cleanup_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cleanup_error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
     request = relationship("RuntimeRequest")
     node = relationship("InfraNode")
 
@@ -226,6 +238,57 @@ class RuntimeEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime)
     instance = relationship("RuntimeInstance", foreign_keys=[runtime_instance_id])
     group = relationship("RuntimeInstanceGroup", foreign_keys=[runtime_group_id])
+
+
+class RuntimeAdminAction(Base):
+    __tablename__ = "runtime_admin_action"
+    __table_args__ = (
+        UniqueConstraint("actor_user_id", "idempotency_key", name="uq_runtime_admin_action_actor_key"),
+        Index("ix_runtime_admin_action_type_status", "action_type", "status", "updated_at"),
+    )
+    action_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    actor_user_id: Mapped[str] = mapped_column(String(36))
+    idempotency_key: Mapped[str] = mapped_column(String(255))
+    action_type: Mapped[str] = mapped_column(String(64))
+    target_id: Mapped[str] = mapped_column(String(128))
+    request_json: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(24))
+    owner_token: Mapped[str] = mapped_column(String(64))
+    generation: Mapped[int] = mapped_column(Integer)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime)
+    result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    error_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_details_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class RuntimeCleanupTask(Base):
+    __tablename__ = "runtime_cleanup_task"
+    __table_args__ = (
+        UniqueConstraint("node_id", "provider_group_id", "intent", name="uq_runtime_cleanup_target"),
+        Index("ix_runtime_cleanup_status_due", "status", "not_before"),
+    )
+    cleanup_task_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    runtime_group_id: Mapped[str] = mapped_column(String(36))
+    node_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("infra_node.node_id", name="fk_runtime_cleanup_node", ondelete="RESTRICT")
+    )
+    provider_group_id: Mapped[str] = mapped_column(String(128))
+    provider_generation: Mapped[int] = mapped_column(Integer)
+    intent: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(24))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    not_before: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    processing_owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+    node = relationship("InfraNode")
 
 
 class RuntimeResourceUsage(Base):
