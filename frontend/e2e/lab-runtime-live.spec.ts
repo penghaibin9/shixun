@@ -85,6 +85,15 @@ test('真实浏览器启动容器并通过网页终端执行命令', async ({ pa
       localStorage.setItem('yk-class-id', values.classId)
       localStorage.setItem('yk-student-id', values.studentId)
       localStorage.setItem('yk-release-id', values.releaseId)
+      const NativeWebSocket = window.WebSocket
+      class TrackedWebSocket extends NativeWebSocket {
+        constructor(url: string | URL, protocols?: string | string[]) {
+          super(url, protocols)
+          const sockets = ((window as any).__ykTerminalSockets ||= []) as WebSocket[]
+          sockets.push(this)
+        }
+      }
+      Object.defineProperty(window, 'WebSocket', { configurable: true, value: TrackedWebSocket })
     }, context)
     await page.goto('/student-lab')
     await expect(page.getByRole('button', { name: '启动实验' })).toBeVisible()
@@ -95,6 +104,20 @@ test('真实浏览器启动容器并通过网页终端执行命令', async ({ pa
     await page.keyboard.type('echo BROWSER_TERMINAL_OK')
     await page.keyboard.press('Enter')
     await expect(terminal).toContainText('BROWSER_TERMINAL_OK', { timeout: 15_000 })
+    const socketCount = await page.evaluate(() => ((window as any).__ykTerminalSockets as WebSocket[]).length)
+    await page.evaluate(() => {
+      const sockets = (window as any).__ykTerminalSockets as WebSocket[]
+      sockets.at(-1)?.close(4001, 'runtime browser reconnect gate')
+    })
+    await expect.poll(
+      () => page.evaluate(() => ((window as any).__ykTerminalSockets as WebSocket[]).length),
+      { timeout: 15_000, message: '终端断开后应使用新令牌自动重连' },
+    ).toBeGreaterThan(socketCount)
+    await expect(page.getByText('交互终端 · 已连接')).toBeVisible({ timeout: 15_000 })
+    await terminal.focus()
+    await page.keyboard.type('echo BROWSER_RECONNECT_OK')
+    await page.keyboard.press('Enter')
+    await expect(terminal).toContainText('BROWSER_RECONNECT_OK', { timeout: 15_000 })
     const students = await checked<any>(await request.get(`${apiBase}/api/v1/runtime/lab-releases/${context.releaseId}/students`, { headers: studentRuntimeHeaders }))
     runtimeInstanceId = students.items[0].runtime_instance_id
     expect(runtimeInstanceId).toBeTruthy()
