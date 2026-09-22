@@ -32806,14 +32806,20 @@
         "properties": {
           "course_id": {
             "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Course Id"
           },
           "class_id": {
             "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Class Id"
           },
           "lab_release_id": {
             "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Lab Release Id"
           },
           "distribution_type": {
@@ -32837,7 +32843,9 @@
           },
           "target_student_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 36,
+              "minLength": 1
             },
             "type": "array",
             "maxItems": 200,
@@ -34738,6 +34746,8 @@
         "properties": {
           "event_id": {
             "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Event Id"
           },
           "event_type": {
@@ -34754,10 +34764,14 @@
           },
           "aggregate_id": {
             "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Aggregate Id"
           },
           "actor_user_id": {
             "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Actor User Id"
           },
           "occurred_at": {
@@ -34767,6 +34781,8 @@
           },
           "idempotency_key": {
             "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
             "title": "Idempotency Key"
           },
           "payload": {

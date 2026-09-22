@@ -39,6 +39,7 @@ def main() -> None:
         session.execute(delete(runtime.RuntimeInstanceGroup).where(runtime.RuntimeInstanceGroup.runtime_group_id.in_(group_ids)))
         session.execute(delete(runtime.RuntimeRequest).where(runtime.RuntimeRequest.runtime_request_id.in_(request_ids)))
         session.execute(delete(runtime.RuntimeReleaseReadModel).where(runtime.RuntimeReleaseReadModel.lab_release_id == RELEASE_ID))
+        session.execute(delete(runtime.InfraNode).where(runtime.InfraNode.node_id == "node_g7_gate"))
         session.execute(delete(teaching.ClassMembership).where(teaching.ClassMembership.class_id == CLASS_ID))
         session.execute(delete(teaching.TeachingTeacherAssignment).where(teaching.TeachingTeacherAssignment.class_id == CLASS_ID))
         session.execute(delete(teaching.ClassCourse).where(teaching.ClassCourse.class_id == CLASS_ID))
@@ -52,6 +53,8 @@ def main() -> None:
         session.add(teaching.TeachingTeacherAssignment(assignment_id="tta_g7_gate", teacher_id="teacher-user", class_id=CLASS_ID, course_id=COURSE_ID))
         for number in range(1, 44):
             session.add(teaching.ClassMembership(class_membership_id=f"cm_g7_{number:03d}", class_id=CLASS_ID, student_id=f"student_g7_{number:03d}", student_number=f"2026{number:03d}", student_name=f"验收学生{number}", phone=None, email=None, status="ACTIVE", joined_at=stamp))
+        session.add(runtime.InfraNode(node_id="node_g7_gate", name="G7 课堂门禁计算节点", agent_url="http://g7-node.invalid", status="READY", scheduling_paused=False, weight=100, labels_json={"gate": "G7"}, cpu_total=64, memory_total_mb=131072, last_seen_at=stamp, created_at=stamp))
+        session.flush()
         session.add(runtime.RuntimeReleaseReadModel(lab_release_id=RELEASE_ID, lab_version_id=VERSION_ID, course_id=COURSE_ID, class_id=CLASS_ID, status="OPEN", spec_snapshot_json=spec, published_at=stamp, updated_at=stamp))
         for number in range(1, 31):
             submitted = number <= 10
