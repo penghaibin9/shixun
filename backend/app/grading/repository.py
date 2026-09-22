@@ -32,9 +32,10 @@ class GradingRepository:
         query = select(GradebookItem).where(GradebookItem.gradebook_id == gradebook_id)
         if student_id: query = query.where(GradebookItem.student_id == student_id)
         return list(self.session.scalars(query.order_by(GradebookItem.student_id, GradebookItem.component)))
-    def audit_events(self, *, course_id=None, action=None, result=None) -> list[AuditEvent]:
+    def audit_events(self, *, course_id=None, course_ids=None, action=None, result=None) -> list[AuditEvent]:
         query = select(AuditEvent)
         if course_id: query = query.where(AuditEvent.course_id == course_id)
+        elif course_ids is not None: query = query.where(AuditEvent.course_id.in_(course_ids))
         if action: query = query.where(AuditEvent.action == action)
         if result: query = query.where(AuditEvent.result == result)
         return list(self.session.scalars(query.order_by(AuditEvent.occurred_at.desc()).limit(1000)))

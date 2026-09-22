@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from openpyxl import Workbook
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.context import UserContext
@@ -106,11 +107,20 @@ class GradingService:
 
     def ingest_audit(self, data) -> dict:
         self.require_internal_service("audit:ingest")
+        limits={"source_event_id":64,"actor_user_id":36,"actor_role":16,"action":64,"resource_type":64,"resource_id":36,"course_id":36,"class_id":36,"student_id":36,"result":16}
+        invalid=[field for field,limit in limits.items() if (value:=getattr(data,field)) is not None and (not isinstance(value,str) or not value.strip() or len(value)>limit)]
+        if invalid:raise ApiError("AUDIT.EVENT_INVALID","审计事件标识或状态字段无效",422,{"invalid":invalid})
         if data.actor_role not in {"teacher","student","admin","service"}: raise ApiError("AUDIT.ACTOR_ROLE_INVALID", "审计操作者角色无效", 422)
         existing=self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id==data.source_event_id))
         if existing:return {"status":"DUPLICATE","audit_event_id":existing.audit_event_id}
         row=AuditEvent(audit_event_id=str(uuid4()),source_event_id=data.source_event_id,actor_user_id=data.actor_user_id,actor_role=data.actor_role,action=data.action,resource_type=data.resource_type,resource_id=data.resource_id,course_id=data.course_id,class_id=data.class_id,student_id=data.student_id,request_id=self.request_id,ip=self.ip,result=data.result,reason=data.reason,occurred_at=data.occurred_at.replace(tzinfo=None),details_json=data.details)
-        self.repo.add(row);self.session.commit();return {"status":"RECORDED","audit_event_id":row.audit_event_id}
+        self.repo.add(row)
+        try:self.session.commit()
+        except IntegrityError:
+            self.session.rollback();existing=self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id==data.source_event_id))
+            if existing:return {"status":"DUPLICATE","audit_event_id":existing.audit_event_id}
+            raise
+        return {"status":"RECORDED","audit_event_id":row.audit_event_id}
 
     def get_policy(self, course_id: str) -> dict:
         self.authorize(course_id, "grading:read")
@@ -140,6 +150,9 @@ class GradingService:
 
     def consume(self, envelope) -> dict:
         self.require_internal_service("grading:consume")
+        envelope_limits={"event_id":64,"event_type":64,"aggregate_type":64,"aggregate_id":36,"actor_user_id":36,"idempotency_key":128}
+        invalid_envelope=[field for field,limit in envelope_limits.items() if not isinstance((value:=getattr(envelope,field)),str) or not value.strip() or len(value)>limit]
+        if invalid_envelope:raise ApiError("GRADING.EVENT_ENVELOPE_INVALID","上游事件信封字段无效",422,{"invalid":invalid_envelope})
         existing = self.session.scalar(select(GradeEvent).where(GradeEvent.event_id == envelope.event_id))
         if existing: return {"status": "DUPLICATE", "grade_event_id": existing.grade_event_id, "event_id": envelope.event_id}
         rejected=self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id==envelope.event_id,AuditEvent.action=="GRADE_EVENT_REJECTED"))
@@ -155,33 +168,66 @@ class GradingService:
                 existing_audit=self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id==envelope.event_id))
                 if existing_audit:return {"status":"DUPLICATE","event_id":envelope.event_id}
                 self.repo.add(AuditEvent(audit_event_id=str(uuid4()),source_event_id=envelope.event_id,actor_user_id=envelope.actor_user_id,actor_role="service",action=action,resource_type=envelope.aggregate_type,resource_id=envelope.aggregate_id,course_id=frozen_payload["course_id"],class_id=frozen_payload.get("class_id"),student_id=None,request_id=self.request_id,ip=self.ip,result="SUCCESS",reason=None,occurred_at=envelope.occurred_at.replace(tzinfo=None),details_json={"payload":frozen_payload}))
-                self.session.commit(); return {"status": "RECORDED", "event_id": envelope.event_id}
+                try:
+                    self.session.commit()
+                except IntegrityError:
+                    self.session.rollback()
+                    if self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == envelope.event_id)):
+                        return {"status": "DUPLICATE", "event_id": envelope.event_id}
+                    raise
+                return {"status": "RECORDED", "event_id": envelope.event_id}
             self.reject_envelope(envelope,"GRADING.EVENT_TYPE_UNSUPPORTED","该事件不属于成绩事实来源",{})
         required = ["course_id", "class_id", "student_id", "source_id", "raw_score", "max_score"]
         missing = [key for key in required if payload.get(key) is None]
         if envelope.event_type == "lab.submitted" and not payload.get("lab_release_id"): missing.append("lab_release_id")
         if missing:self.reject_envelope(envelope,"GRADING.EVENT_PAYLOAD_INVALID","上游事件缺少成绩字段",{"missing":missing})
-        raw, maximum = Decimal(str(payload["raw_score"])), Decimal(str(payload["max_score"]))
-        if maximum <= 0 or raw < 0 or raw > maximum:self.reject_envelope(envelope,"GRADING.SCORE_INVALID","原始分数必须在有效范围内",{})
+        invalid_ids = [key for key in ["course_id", "class_id", "student_id", "source_id", "lesson_id"] if payload.get(key) is not None and (not isinstance(payload[key], str) or not payload[key].strip() or len(payload[key]) > 36)]
+        if envelope.event_type == "lab.submitted" and (not isinstance(payload.get("lab_release_id"), str) or len(payload["lab_release_id"]) > 36): invalid_ids.append("lab_release_id")
+        if invalid_ids:self.reject_envelope(envelope,"GRADING.EVENT_PAYLOAD_INVALID","上游事件标识字段无效",{"invalid":sorted(set(invalid_ids))})
+        if len(envelope.event_id) > 36:self.reject_envelope(envelope,"GRADING.EVENT_PAYLOAD_INVALID","成绩事件标识超过存储上限",{"invalid":["event_id"]})
+        try:
+            raw, maximum = Decimal(str(payload["raw_score"])), Decimal(str(payload["max_score"]))
+        except (InvalidOperation, ValueError):
+            self.reject_envelope(envelope,"GRADING.SCORE_INVALID","原始分数必须为有限数值",{})
+        if not raw.is_finite() or not maximum.is_finite():self.reject_envelope(envelope,"GRADING.SCORE_INVALID","原始分数必须为有限数值",{})
+        manual_adjustment=envelope.event_type=="grade.manual.adjusted"
+        if maximum <= 0 or maximum > Decimal("999999.99") or raw > maximum or (raw < 0 and (not manual_adjustment or raw < -maximum)):
+            self.reject_envelope(envelope,"GRADING.SCORE_INVALID","原始分数必须在有效范围内",{})
         # All fact-window transitions use the latest gradebook row as their
         # scope lock. If posting wins, this event becomes LATE; if ingestion
         # wins, posting observes the new fact and rejects a stale snapshot.
         book = self.repo.gradebook(payload["course_id"], payload["class_id"], lock=True)
         archive = self.repo.archive(payload["course_id"], payload["class_id"], lock=True)
         fact_window_closed = bool(book and book.status in {"POSTED", "LOCKED"}) or bool(archive and archive.status == "ARCHIVED")
-        grade = GradeEvent(grade_event_id=str(uuid4()), course_id=payload["course_id"], class_id=payload["class_id"], lesson_id=payload.get("lesson_id"), student_id=payload["student_id"], source_type=EVENT_TYPES[envelope.event_type], source_id=payload["source_id"], raw_score=raw, max_score=maximum, normalized_score=(raw/maximum*100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), occurred_at=envelope.occurred_at.replace(tzinfo=None), event_id=envelope.event_id, status="LATE" if fact_window_closed else "CONSUMED", payload_json={**payload,"source_event_type":envelope.event_type})
+        grade = GradeEvent(grade_event_id=str(uuid4()), course_id=payload["course_id"], class_id=payload["class_id"], lesson_id=payload.get("lesson_id"), student_id=payload["student_id"], source_type=EVENT_TYPES[envelope.event_type], source_id=payload["source_id"], raw_score=raw, max_score=maximum, normalized_score=(raw/maximum*100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), occurred_at=envelope.occurred_at.replace(tzinfo=None), event_id=envelope.event_id, status="LATE" if fact_window_closed else "CONSUMED", payload_json={**payload,"source_event_type":envelope.event_type,"source_occurred_at":envelope.occurred_at.isoformat()})
         self.repo.add(grade)
         if fact_window_closed:
             self.audit("GRADE_EVENT_LATE_IGNORED", "grade_event", grade.grade_event_id, result="BLOCKED", reason="成绩事实窗口已关闭", course_id=grade.course_id, class_id=grade.class_id, student_id=grade.student_id, details={"source_id": grade.source_id, "event_id": grade.event_id, "gradebook_status": book.status if book else None, "archive_status": archive.status if archive else None})
             self.session.commit(); return {"status": "LATE_IGNORED", "grade_event_id": grade.grade_event_id, "event_id": envelope.event_id}
         if grade.source_type == "MANUAL_ADJUSTMENT": self.audit("GRADE_MANUAL_ADJUSTMENT", "grade_event", grade.grade_event_id, course_id=grade.course_id, class_id=grade.class_id, student_id=grade.student_id, details={"source_id": grade.source_id, "normalized_score": number(grade.normalized_score)})
         enqueue_event(self.session, event_type="grade.event.created", aggregate_type="grade_event", aggregate_id=grade.grade_event_id, actor_user_id=self.user.user_id, idempotency_key=f"grade-event:{envelope.event_id}", payload={"course_id":grade.course_id,"class_id":grade.class_id,"student_id":grade.student_id,"source_type":grade.source_type})
-        self.session.commit(); return {"status": "CONSUMED", "grade_event_id": grade.grade_event_id, "event_id": envelope.event_id}
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            existing = self.session.scalar(select(GradeEvent).where(GradeEvent.event_id == envelope.event_id))
+            if existing:
+                return {"status": "DUPLICATE", "grade_event_id": existing.grade_event_id, "event_id": envelope.event_id}
+            raise
+        return {"status": "CONSUMED", "grade_event_id": grade.grade_event_id, "event_id": envelope.event_id}
 
     def reject_envelope(self,envelope,code,message,details):
         payload=envelope.payload
         self.repo.add(AuditEvent(audit_event_id=str(uuid4()),source_event_id=envelope.event_id,actor_user_id=envelope.actor_user_id,actor_role="service",action="GRADE_EVENT_REJECTED",resource_type=envelope.aggregate_type,resource_id=envelope.aggregate_id,course_id=payload.get("course_id"),class_id=payload.get("class_id"),student_id=payload.get("student_id"),request_id=self.request_id,ip=self.ip,result="ERROR",reason=message,occurred_at=utcnow(),details_json={"code":code,"details":details,"event_type":envelope.event_type}))
-        self.session.commit();raise ApiError(code,message,422,details)
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            rejected=self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id==envelope.event_id,AuditEvent.action=="GRADE_EVENT_REJECTED"))
+            if rejected:
+                raise ApiError(rejected.details_json["code"],rejected.reason or message,422,rejected.details_json.get("details",{}))
+            raise
+        raise ApiError(code,message,422,details)
 
     def recalculate(self, course_id: str, class_id: str) -> dict:
         self.authorize(course_id, "grading:recalculate", class_id)
@@ -301,6 +347,8 @@ class GradingService:
         self.authorize(course_id,"grading:read",class_id,student_id)
         book=self.repo.gradebook(course_id,class_id)
         if not book:return {"course_id":course_id,"status":"PENDING","items":[]}
+        if self.user.role == "student" and book.status not in {"POSTED", "LOCKED"}:
+            return {"course_id":course_id,"class_id":class_id,"status":"PENDING","reason":"成绩尚未正式入账","items":[]}
         scores=self.repo.scores(book.gradebook_id)
         if student_id:scores=[x for x in scores if x.student_id==student_id]
         return {**self.gradebook_dict(book),"items":[{"student_id":x.student_id,"total_score":number(x.total_score),"completeness":x.completeness} for x in scores]}
@@ -308,9 +356,16 @@ class GradingService:
     def trace(self, course_id: str, class_id: str, student_id: str) -> dict:
         self.authorize(course_id,"grading:read",class_id,student_id=student_id);book=self.repo.gradebook(course_id,class_id)
         if not book:return {"status":"PENDING","student_id":student_id,"sources":[]}
+        if self.user.role == "student" and book.status not in {"POSTED", "LOCKED"}:return {"status":"PENDING","student_id":student_id,"sources":[]}
         score=next((x for x in self.repo.scores(book.gradebook_id) if x.student_id==student_id),None)
-        events=self.repo.grade_events(course_id,class_id,student_id); items=self.repo.items(book.gradebook_id,student_id)
-        return {"status":book.status,"student_id":student_id,"total_score":number(score.total_score) if score else None,"policy_version":book.policy_version,"components":[{"component":x.component,"score":number(x.component_score),"weight_percent":number(x.weight_percent),"weighted_score":number(x.weighted_score),"sources":[self.event_dict(e) for e in events if self.component(e.source_type)==x.component]} for x in items]}
+        summary=self.repo.course_summary(book.gradebook_id);snapshot_ids=set((summary.summary_json or {}).get("source_event_ids",[])) if summary else set()
+        events=[event for event in self.repo.grade_events(course_id,class_id,student_id) if event.event_id in snapshot_ids];items=self.repo.items(book.gradebook_id,student_id)
+        components=[{"component":x.component,"score":number(x.component_score),"weight_percent":number(x.weight_percent),"weighted_score":number(x.weighted_score),"sources":[self.event_dict(e) for e in events if self.component(e.source_type)==x.component]} for x in items]
+        adjustments=[event for event in events if event.source_type=="MANUAL_ADJUSTMENT"]
+        if adjustments:
+            adjustment=sum((Decimal(event.normalized_score) for event in adjustments),Decimal("0"))
+            components.append({"component":"MANUAL_ADJUSTMENT","score":number(adjustment),"weight_percent":None,"weighted_score":number(adjustment),"sources":[self.event_dict(event) for event in adjustments]})
+        return {"status":book.status,"student_id":student_id,"total_score":number(score.total_score) if score else None,"policy_version":book.policy_version,"source_snapshot_event_ids":sorted(snapshot_ids),"components":components}
 
     def overview(self,course_id,class_id):
         self.authorize(course_id,"analytics:class",class_id);book=self.repo.gradebook(course_id,class_id)
@@ -465,10 +520,20 @@ class GradingService:
         return {"status":"PENDING"} if not row else {"status":row.status,"precheck":row.precheck_json,"manifest":row.manifest_json}
     def audit_list(self,course_id=None,action=None,result=None):
         if "audit:read" not in self.user.permissions:raise ApiError("AUTH.PERMISSION_DENIED","缺少审计读取权限",403)
-        rows=self.repo.audit_events(course_id=course_id,action=action,result=result);return {"items":[self.audit_dict(x) for x in rows],"page":1,"page_size":len(rows),"total":len(rows)}
+        unrestricted="grading:all-courses" in self.user.permissions
+        if course_id and not unrestricted and course_id not in self.user.course_ids:raise ApiError("AUDIT.COURSE_SCOPE_DENIED","无权读取该课程审计",403)
+        course_ids=None if unrestricted else sorted(self.user.course_ids)
+        rows=self.repo.audit_events(course_id=course_id,course_ids=course_ids,action=action,result=result);return {"items":[self.audit_dict(x) for x in rows],"page":1,"page_size":len(rows),"total":len(rows)}
 
     def gradebook_xlsx(self,course_id,class_id):
-        data=self.gradebook(course_id,class_id);return self.make_xlsx("成绩册",["学生标识","总评","完整性"],[[x["student_id"],x["total_score"],x["completeness"]] for x in data.get("items",[])],f"{course_id}/{class_id}")
+        data=self.gradebook(course_id,class_id);book=self.repo.gradebook(course_id,class_id)
+        component_labels={"ATTENDANCE":"签到","ASSIGNMENT":"作业","QUIZ":"测验","LAB":"实验","INTERACTION":"互动"};rows=[]
+        for score in data.get("items",[]):
+            values={item.component:number(item.component_score) for item in self.repo.items(book.gradebook_id,score["student_id"])} if book else {}
+            trace=self.trace(course_id,class_id,score["student_id"]) if book else {"components":[]}
+            adjustment=next((item["score"] for item in trace.get("components",[]) if item["component"]=="MANUAL_ADJUSTMENT"),0)
+            rows.append([score["student_id"],*[values.get(component,0) for component in COMPONENTS],adjustment,score["total_score"],score["completeness"],book.policy_version if book else None,book.status if book else "PENDING"])
+        return self.make_xlsx("成绩册",["学生标识",*[component_labels[x] for x in COMPONENTS],"人工调整","总评","完整性","规则版本","成绩状态"],rows,f"{course_id}/{class_id}")
     def analytics_xlsx(self,course_id,class_id):
         overview=self.overview(course_id,class_id);gradebook=self.repo.gradebook(course_id,class_id);book=Workbook();sheet=book.active;sheet.title="课程总览";sheet.append(["课程标识",course_id]);sheet.append(["班级标识",class_id]);sheet.append(["生成时间",utcnow().isoformat()+"Z"]);sheet.append(["作业平均",overview.get("avg_assignment")]);sheet.append(["测验平均",overview.get("avg_quiz")]);sheet.append(["平均到课率",overview.get("attendance_rate")]);sheet.append(["课程平均",overview.get("course_average")])
         section_items=[]
@@ -476,17 +541,18 @@ class GradingService:
             for row in self.repo.section_summaries(gradebook.gradebook_id):
                 summary=row.summary_json
                 for rank in summary.get("ranking",[]):section_items.append([row.lesson_id,summary.get("average"),rank.get("student_id"),rank.get("score")])
-        worksheets=[("小节成绩",["课时","平均成绩","学生标识","学生成绩"],section_items),("学生实验完成",["学生标识","实验总分","已提交","未提交"],[[x["student_id"],x["sum_lab_score"],x["submitted_count"],x["unsubmitted_count"]] for x in self.labs_by_student(course_id,class_id)["items"]]),("实验完成统计",["实验发布标识","满分","已提交人数","未提交人数","平均分"],[[x["lab_release_id"],x["max_score"],x["submitted_students"],x["unsubmitted_students"],x["avg_score"]] for x in self.labs_by_lab(course_id,class_id)["items"]])]
+        worksheets=[("课程排行",["名次","学生标识","总评","完整性"],[[index,item["student_id"],item["total_score"],item["completeness"]] for index,item in enumerate(overview.get("ranking",[]),1)]),("小节成绩",["课时","平均成绩","学生标识","学生成绩"],section_items),("学生实验完成",["学生标识","实验总分","已提交","未提交"],[[x["student_id"],x["sum_lab_score"],x["submitted_count"],x["unsubmitted_count"]] for x in self.labs_by_student(course_id,class_id)["items"]]),("实验完成统计",["实验发布标识","满分","已提交人数","未提交人数","平均分"],[[x["lab_release_id"],x["max_score"],x["submitted_students"],x["unsubmitted_students"],x["avg_score"]] for x in self.labs_by_lab(course_id,class_id)["items"]]),("风险依据",["学生标识","风险类型","事实依据"],[[x["student_id"],x["risk_type"],json.dumps(x["evidence"],ensure_ascii=False,sort_keys=True)] for x in self.risks(course_id,class_id)["items"]])]
         for title,headers,items in worksheets:
             ws=book.create_sheet(title);ws.append(["课程标识",course_id]);ws.append(["班级标识",class_id]);ws.append(["生成时间",utcnow().isoformat()+"Z"]);ws.append([]);ws.append(headers)
             for x in items:ws.append(x)
         output=BytesIO();book.save(output);return output.getvalue()
     def audit_xlsx(self,course_id=None):
-        rows=self.audit_list(course_id)["items"];return self.make_xlsx("审计",["时间","操作者","角色","动作","对象类型","对象标识","结果","原因"],[[x["occurred_at"],x["actor_user_id"],x["actor_role"],x["action"],x["resource_type"],x["resource_id"],x["result"],x["reason"]] for x in rows],course_id or "全部")
+        rows=self.audit_list(course_id)["items"];headers=["时间","操作者","角色","动作","对象类型","对象标识","课程标识","班级标识","学生标识","请求标识","来源地址","结果","原因","详情"]
+        return self.make_xlsx("审计",headers,[[x["occurred_at"],x["actor_user_id"],x["actor_role"],x["action"],x["resource_type"],x["resource_id"],x["course_id"],x["class_id"],x["student_id"],x["request_id"],x["ip"],x["result"],x["reason"],json.dumps(x["details"],ensure_ascii=False,sort_keys=True)] for x in rows],course_id or "授权范围")
     def audit_csv(self,course_id=None):
         import csv
-        output=BytesIO();text=__import__('io').StringIO();writer=csv.writer(text);writer.writerow(["时间","操作者","角色","动作","对象类型","对象标识","结果","原因"])
-        for x in self.audit_list(course_id)["items"]:writer.writerow([x[k] for k in ["occurred_at","actor_user_id","actor_role","action","resource_type","resource_id","result","reason"]])
+        text=__import__('io').StringIO();writer=csv.writer(text);writer.writerow(["时间","操作者","角色","动作","对象类型","对象标识","课程标识","班级标识","学生标识","请求标识","来源地址","结果","原因","详情"])
+        for x in self.audit_list(course_id)["items"]:writer.writerow([x[k] for k in ["occurred_at","actor_user_id","actor_role","action","resource_type","resource_id","course_id","class_id","student_id","request_id","ip","result","reason"]]+[json.dumps(x["details"],ensure_ascii=False,sort_keys=True)])
         return ('\ufeff'+text.getvalue()).encode('utf-8')
 
     def authoritative_component_scores(self, events):
@@ -502,7 +568,7 @@ class GradingService:
         for rows in labs.values():
             submissions=[event for event in rows if event.source_type=="LAB_SUBMISSION"]
             if submissions:
-                latest=max(submissions,key=lambda event:(event.occurred_at,event.grade_event_id))
+                latest=max(submissions,key=self.event_order)
                 grouped["LAB"].append(Decimal(latest.normalized_score))
         return grouped
 
@@ -512,9 +578,14 @@ class GradingService:
         if total<60:risks.append(("LOW_TOTAL_SCORE",{"total_score":float(total),"threshold":60}))
         missing=[x for x in COMPONENTS if x not in present]
         if missing:risks.append(("MISSING_FACTS",{"missing_components":missing}))
-        checkpoint_failures=[x for x in student_events if x.payload_json.get("source_event_type")=="lab.checkpoint.failed"]
-        if len(checkpoint_failures)>=2:risks.append(("CONSECUTIVE_CHECKPOINT_FAILURES",{"failure_count":len(checkpoint_failures),"source_ids":[x.source_id for x in checkpoint_failures]}))
-        available_labs={x.payload_json["lab_release_id"] for x in all_events if x.source_type=="LAB_SUBMISSION"};submitted_labs={x.payload_json["lab_release_id"] for x in student_events if x.source_type=="LAB_SUBMISSION"};missing_labs=sorted(available_labs-submitted_labs)
+        checkpoint_streak=[];longest_streak=[]
+        for event in sorted((x for x in student_events if x.source_type=="LAB_CHECKPOINT"),key=self.event_order):
+            if event.payload_json.get("source_event_type")=="lab.checkpoint.failed":
+                checkpoint_streak.append(event)
+                if len(checkpoint_streak)>len(longest_streak):longest_streak=list(checkpoint_streak)
+            else:checkpoint_streak=[]
+        if len(longest_streak)>=2:risks.append(("CONSECUTIVE_CHECKPOINT_FAILURES",{"failure_count":len(longest_streak),"source_ids":[x.source_id for x in longest_streak]}))
+        available_labs={x.payload_json.get("lab_release_id") for x in all_events if x.source_type.startswith("LAB_") and x.payload_json.get("lab_release_id")};submitted_labs={x.payload_json["lab_release_id"] for x in student_events if x.source_type=="LAB_SUBMISSION"};missing_labs=sorted(available_labs-submitted_labs)
         if len(missing_labs)>=2:risks.append(("MULTIPLE_MISSING_SUBMISSIONS",{"missing_count":len(missing_labs),"lab_release_ids":missing_labs}))
         for kind,evidence in risks:self.repo.add(StudentRiskFlag(student_risk_flag_id=str(uuid4()),gradebook_id=book.gradebook_id,course_id=book.course_id,class_id=book.class_id,student_id=student_id,risk_type=kind,evidence_json=evidence,status="OPEN",created_at=utcnow()))
     def build_section_analytics(self,book,events):
@@ -529,13 +600,22 @@ class GradingService:
             ranking=sorted([{"student_id":s,"score":float(sum(v)/len(v))} for s,v in per.items()],key=lambda x:x["score"],reverse=True)
             self.repo.add(AnalyticsSectionSummary(analytics_section_summary_id=str(uuid4()),gradebook_id=book.gradebook_id,lesson_id=lesson_id,summary_json={"status":"READY","lesson_id":lesson_id,"average":self.average(scores),"distribution":dist,"ranking":ranking}))
     def build_lab_analytics(self,book,events,student_count):
-        submissions=[e for e in events if e.source_type=="LAB_SUBMISSION"];by_student=defaultdict(list);by_lab=defaultdict(list)
-        for e in submissions:by_student[e.student_id].append(e);by_lab[e.payload_json["lab_release_id"]].append(e)
-        labs=set(by_lab)
-        for student_id,rows in by_student.items():self.repo.add(AnalyticsStudentLabSummary(analytics_student_lab_summary_id=str(uuid4()),gradebook_id=book.gradebook_id,student_id=student_id,sum_lab_score=sum((Decimal(x.normalized_score) for x in rows),Decimal("0")),submitted_count=len({x.payload_json["lab_release_id"] for x in rows}),unsubmitted_count=max(0,len(labs)-len({x.payload_json["lab_release_id"] for x in rows}))))
-        for lab_id,rows in by_lab.items():self.repo.add(AnalyticsLabSummary(analytics_lab_summary_id=str(uuid4()),gradebook_id=book.gradebook_id,lab_release_id=lab_id,max_score=max(Decimal(x.max_score) for x in rows),submitted_students=len({x.student_id for x in rows}),unsubmitted_students=max(0,student_count-len({x.student_id for x in rows})),avg_score=Decimal(str(self.average([Decimal(x.normalized_score) for x in rows])))))
+        students=sorted({event.student_id for event in events});labs=sorted({event.payload_json.get("lab_release_id") for event in events if event.source_type.startswith("LAB_") and event.payload_json.get("lab_release_id")})
+        latest={}
+        for event in (row for row in events if row.source_type=="LAB_SUBMISSION"):
+            key=(event.student_id,event.payload_json["lab_release_id"]);previous=latest.get(key)
+            if not previous or self.event_order(event)>self.event_order(previous):latest[key]=event
+        for student_id in students:
+            rows=[event for (owner,_),event in latest.items() if owner==student_id]
+            self.repo.add(AnalyticsStudentLabSummary(analytics_student_lab_summary_id=str(uuid4()),gradebook_id=book.gradebook_id,student_id=student_id,sum_lab_score=sum((Decimal(x.normalized_score) for x in rows),Decimal("0")),submitted_count=len(rows),unsubmitted_count=max(0,len(labs)-len(rows))))
+        for lab_id in labs:
+            rows=[event for (_,release),event in latest.items() if release==lab_id]
+            source_rows=[event for event in events if event.payload_json.get("lab_release_id")==lab_id]
+            self.repo.add(AnalyticsLabSummary(analytics_lab_summary_id=str(uuid4()),gradebook_id=book.gradebook_id,lab_release_id=lab_id,max_score=max((Decimal(x.max_score) for x in source_rows),default=Decimal("100")),submitted_students=len(rows),unsubmitted_students=max(0,student_count-len(rows)),avg_score=Decimal(str(self.average([Decimal(x.normalized_score) for x in rows]) or 0))))
     @staticmethod
     def component(source):return "LAB" if source.startswith("LAB_") else source
+    @staticmethod
+    def event_order(event):return ((event.payload_json or {}).get("source_occurred_at") or event.occurred_at.isoformat(),event.event_id)
     @staticmethod
     def average(values):return round(float(sum(values)/len(values)),2) if values else None
     def policy_dict(self,p):return {"course_id":p.course_id,"version_no":p.version_no,"status":p.status,"effective_at":p.effective_at.isoformat()+"Z","items":[{"component":x.component,"weight_percent":number(x.weight_percent)} for x in self.repo.policy_items(p.grading_policy_id)]}
