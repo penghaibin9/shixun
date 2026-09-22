@@ -3,8 +3,12 @@ import os
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
 from time import sleep, time
+from urllib.parse import parse_qs, urlparse
+from zipfile import ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,8 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.common.errors import ApiError
 from app.common.context import UserContext
-from app.common.models import DomainEventOutbox
-from app.common.signed_capability import sign_capability
+from app.common.models import DomainEventOutbox, FileObject
+from app.common.signed_capability import sign_capability, verify_capability
 from app.labs.database import get_session
 from app.main import app
 from app.runtime import models
@@ -123,6 +127,7 @@ def db_and_client():
     with Session(engine) as session:
         for table in CLEAN_MODELS:
             session.execute(delete(table))
+        session.execute(delete(FileObject).where(FileObject.bucket == "runtime-artifacts"))
         session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.event_type.like("runtime.%") | DomainEventOutbox.event_type.like("checkpoint.%") | DomainEventOutbox.event_type.like("infrastructure.%") | DomainEventOutbox.event_type.in_(D_EVENT_TYPES)))
         stamp = datetime.now()
         session.add(models.InfraNode(node_id="node_test", name="测试计算节点", agent_url="http://agent.test", status="READY", scheduling_paused=False, weight=100, labels_json={"zone": "test"}, cpu_total=8, memory_total_mb=8192, last_seen_at=stamp, created_at=stamp))
@@ -146,6 +151,7 @@ def db_and_client():
     with Session(engine) as session:
         for table in CLEAN_MODELS:
             session.execute(delete(table))
+        session.execute(delete(FileObject).where(FileObject.bucket == "runtime-artifacts"))
         session.execute(delete(DomainEventOutbox).where(DomainEventOutbox.event_type.like("runtime.%") | DomainEventOutbox.event_type.like("checkpoint.%") | DomainEventOutbox.event_type.like("infrastructure.%") | DomainEventOutbox.event_type.in_(D_EVENT_TYPES)))
         session.commit()
     engine.dispose()
@@ -186,23 +192,45 @@ def test_student_scope_terminal_token_and_destroy_twice(db_and_client):
     assert repeated.status_code == 200 and repeated.json()["status"] == "DESTROYED"
 
 
-def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempotent(db_and_client, monkeypatch):
+def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempotent(db_and_client, monkeypatch, tmp_path):
     engine, client, _ = db_and_client
     secret = "test-log-distribution-signing-key-32-bytes"
+    storage_secret = "test-artifact-storage-signing-key-32-bytes"
+    storage_root = tmp_path / "runtime-artifacts"
+    storage_root.mkdir()
+    artifact_bytes = b"PCAP\r\nreal-distributed-capture\x00\x01"
+    artifact_path = storage_root / "file-distributed-1"
+    artifact_path.write_bytes(artifact_bytes)
     monkeypatch.setenv("YUEKE_LOG_DISTRIBUTION_SIGNING_KEY", secret)
-    monkeypatch.setenv("YUEKE_ARTIFACT_STORAGE_SIGNING_KEY", "test-artifact-storage-signing-key-32-bytes")
-    monkeypatch.setenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL", "https://artifact.test")
+    monkeypatch.setenv("YUEKE_ARTIFACT_STORAGE_SIGNING_KEY", storage_secret)
+    monkeypatch.setenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL", "http://testserver/api/v1/artifact-storage")
+    monkeypatch.setenv("YUEKE_RUNTIME_ARTIFACT_DIR", str(storage_root))
     started = start(client, "runtime-start-distributed-artifact").json()
-    instance_id = started["instance_ids"][0]
+    instance_id = next(
+        item_id for item_id in started["instance_ids"]
+        if client.get(f"/api/v1/runtime-instances/{item_id}", headers=STUDENT).json()["role"] == "STUDENT_WORKSTATION"
+    )
     with Session(engine) as session:
+        session.add(FileObject(
+            file_id="file-distributed-1",
+            storage_provider="local",
+            bucket="runtime-artifacts",
+            object_key="file-distributed-1",
+            original_name="../../capture.pcap",
+            mime_type="application/vnd.tcpdump.pcap",
+            size_bytes=len(artifact_bytes),
+            sha256=sha256(artifact_bytes).hexdigest(),
+            created_by="service_node_agent",
+            created_at=datetime.utcnow(),
+        ))
         session.add(models.RuntimeArtifact(
             runtime_artifact_id="artifact-distributed-1",
             runtime_instance_id=instance_id,
             student_id="student_2301001",
             artifact_type="TRAFFIC",
             file_id="file-distributed-1",
-            sha256="b" * 64,
-            size_bytes=4096,
+            sha256=sha256(artifact_bytes).hexdigest(),
+            size_bytes=len(artifact_bytes),
             capture_started_at=datetime.utcnow(),
             capture_ended_at=datetime.utcnow(),
         ))
@@ -249,12 +277,136 @@ def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempote
     assert first.status_code == replay.status_code == 200
     assert first.json() == replay.json()
     assert first.json()["artifact_count"] == 1 and first.json()["status"] == "READY"
-    assert first.json()["download_url"].startswith("https://artifact.test/bundles/assignment-recipient-1?capability=")
+    assert first.json()["download_url"].startswith("http://testserver/api/v1/artifact-storage/bundles/assignment-recipient-1?capability=")
+    parsed_download = urlparse(first.json()["download_url"])
+    storage_capability = parse_qs(parsed_download.query)["capability"][0]
+    downloaded = client.get(f"{parsed_download.path}?{parsed_download.query}", headers=recipient)
+    downloaded_again = client.get(f"{parsed_download.path}?{parsed_download.query}", headers=recipient)
+    assert downloaded.status_code == downloaded_again.status_code == 200
+    assert downloaded.headers["content-type"] == "application/zip"
+    assert downloaded.headers["cache-control"] == "no-store"
+    with ZipFile(BytesIO(downloaded.content)) as archive:
+        assert len(archive.namelist()) == 1
+        entry_name = archive.namelist()[0]
+        assert ".." not in entry_name and "/" not in entry_name and "\\" not in entry_name
+        assert archive.read(entry_name) == artifact_bytes
     with Session(engine) as session:
         assert session.scalar(select(func.count()).select_from(DomainEventOutbox).where(
             DomainEventOutbox.event_type == "runtime.artifact.distribution_download_authorized",
             DomainEventOutbox.idempotency_key == "assignment-recipient-1:nonce-distribution-download-1",
         )) == 1
+        assert session.scalar(select(func.count()).select_from(DomainEventOutbox).where(
+            DomainEventOutbox.event_type == "runtime.artifact.distribution_bundle_downloaded",
+            DomainEventOutbox.idempotency_key == "assignment-recipient-1:nonce-distribution-download-1",
+        )) == 1
+
+    wrong_assignment = client.get(
+        f"/api/v1/artifact-storage/bundles/assignment-other?capability={storage_capability}",
+        headers=recipient,
+    )
+    assert wrong_assignment.status_code == 403 and wrong_assignment.json()["code"] == "RUNTIME.ARTIFACT_ASSIGNMENT_MISMATCH"
+
+    storage_claims = verify_capability(storage_capability, storage_secret)
+    expired_storage_claims = {**storage_claims, "issued_at": issued_at - 120, "expires_at": issued_at - 60}
+    expired_storage = client.get(
+        f"/api/v1/artifact-storage/bundles/assignment-recipient-1?capability={sign_capability(expired_storage_claims, storage_secret)}",
+        headers=recipient,
+    )
+    assert expired_storage.status_code == 403 and expired_storage.json()["code"] == "RUNTIME.ARTIFACT_STORAGE_CAPABILITY_EXPIRED"
+
+    wrong_audience_claims = {**storage_claims, "audience": "lab-runtime"}
+    wrong_audience = client.get(
+        f"/api/v1/artifact-storage/bundles/assignment-recipient-1?capability={sign_capability(wrong_audience_claims, storage_secret)}",
+        headers=recipient,
+    )
+    assert wrong_audience.status_code == 403 and wrong_audience.json()["code"] == "RUNTIME.ARTIFACT_STORAGE_CAPABILITY_INVALID"
+
+    wrong_reference_digest_claims = {**storage_claims, "reference_digest": "0" * 64}
+    wrong_reference_digest = client.get(
+        f"/api/v1/artifact-storage/bundles/assignment-recipient-1?capability={sign_capability(wrong_reference_digest_claims, storage_secret)}",
+        headers=recipient,
+    )
+    assert wrong_reference_digest.status_code == 403 and wrong_reference_digest.json()["code"] == "RUNTIME.ARTIFACT_REFERENCE_SET_INVALID"
+
+    encoded_storage, storage_signature = storage_capability.split(".", 1)
+    tampered_storage_payload = json.loads(urlsafe_b64decode(encoded_storage + "=" * (-len(encoded_storage) % 4)))
+    tampered_storage_payload["assignment_id"] = "assignment-other"
+    tampered_storage_encoded = urlsafe_b64encode(json.dumps(tampered_storage_payload, separators=(",", ":"), sort_keys=True).encode()).rstrip(b"=").decode()
+    tampered_storage = client.get(
+        f"/api/v1/artifact-storage/bundles/assignment-other?capability={tampered_storage_encoded}.{storage_signature}",
+        headers=recipient,
+    )
+    assert tampered_storage.status_code == 403 and tampered_storage.json()["code"] == "RUNTIME.ARTIFACT_STORAGE_CAPABILITY_INVALID"
+
+    artifact_path.write_bytes(b"X" * len(artifact_bytes))
+    corrupt = client.get(f"{parsed_download.path}?{parsed_download.query}", headers=recipient)
+    assert corrupt.status_code == 409 and corrupt.json()["code"] == "RUNTIME.ARTIFACT_INTEGRITY_FAILED"
+    artifact_path.write_bytes(artifact_bytes)
+
+    outside_path = tmp_path / "outside.pcap"
+    outside_path.write_bytes(artifact_bytes)
+    with Session(engine) as session:
+        file_object = session.get(FileObject, "file-distributed-1")
+        file_object.object_key = str(outside_path)
+        session.commit()
+    escaped_path = client.get(f"{parsed_download.path}?{parsed_download.query}", headers=recipient)
+    assert escaped_path.status_code == 409 and escaped_path.json()["code"] == "RUNTIME.ARTIFACT_PATH_INVALID"
+    with Session(engine) as session:
+        file_object = session.get(FileObject, "file-distributed-1")
+        file_object.object_key = "file-distributed-1"
+        session.commit()
+
+    artifact_path.unlink()
+    missing_file = client.get(f"{parsed_download.path}?{parsed_download.query}", headers=recipient)
+    assert missing_file.status_code == 404 and missing_file.json()["code"] == "RUNTIME.ARTIFACT_FILE_MISSING"
+    artifact_path.write_bytes(artifact_bytes)
+
+    direct_owner = client.post(
+        "/api/v1/runtime/log-artifacts/bundle-url",
+        headers=STUDENT,
+        json={"artifact_ids": ["artifact-distributed-1"]},
+    )
+    assert direct_owner.status_code == 200
+    assert direct_owner.json()["status"] == "READY" and "/bundles/pending" not in direct_owner.json()["download_url"]
+    direct_url = urlparse(direct_owner.json()["download_url"])
+    direct_download = client.get(f"{direct_url.path}?{direct_url.query}", headers=STUDENT)
+    assert direct_download.status_code == 200
+    with ZipFile(BytesIO(direct_download.content)) as archive:
+        assert archive.read(archive.namelist()[0]) == artifact_bytes
+    direct_other = client.get(f"{direct_url.path}?{direct_url.query}", headers={**STUDENT, "X-User-Id": "user_other", "X-Student-Id": "student_other"})
+    assert direct_other.status_code == 403
+    other_class_teacher = client.post(
+        "/api/v1/runtime/log-artifacts/bundle-url",
+        headers={**TEACHER, "X-Class-Ids": "class_other"},
+        json={"artifact_ids": ["artifact-distributed-1"]},
+    )
+    assert other_class_teacher.status_code == 403 and other_class_teacher.json()["code"] == "AUTH.CLASS_SCOPE_DENIED"
+
+    single_owner = client.post(
+        "/api/v1/runtime/log-artifacts/artifact-distributed-1/download-url",
+        headers=STUDENT,
+    )
+    assert single_owner.status_code == 200 and single_owner.json()["status"] == "READY"
+
+    with Session(engine) as session:
+        session.execute(delete(FileObject).where(FileObject.file_id == "file-distributed-1"))
+        session.commit()
+    missing_registration = client.get(f"{parsed_download.path}?{parsed_download.query}", headers=recipient)
+    assert missing_registration.status_code == 409 and missing_registration.json()["code"] == "RUNTIME.ARTIFACT_FILE_OBJECT_MISSING"
+    with Session(engine) as session:
+        session.add(FileObject(
+            file_id="file-distributed-1",
+            storage_provider="local",
+            bucket="runtime-artifacts",
+            object_key="file-distributed-1",
+            original_name="../../capture.pcap",
+            mime_type="application/vnd.tcpdump.pcap",
+            size_bytes=len(artifact_bytes),
+            sha256=sha256(artifact_bytes).hexdigest(),
+            created_by="service_node_agent",
+            created_at=datetime.utcnow(),
+        ))
+        session.commit()
 
     # The ordinary artifact API still enforces ownership and cannot be used as
     # a blanket escape hatch by a distribution recipient.
@@ -272,6 +424,8 @@ def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempote
         json={"authorization": authorization},
     )
     assert crossed.status_code == 403 and crossed.json()["code"] == "AUTH.STUDENT_SCOPE_DENIED"
+    crossed_download = client.get(f"{parsed_download.path}?{parsed_download.query}", headers=other_student)
+    assert crossed_download.status_code == 403 and crossed_download.json()["code"] == "AUTH.STUDENT_SCOPE_DENIED"
 
     # Rebinding the signed assignment/distribution payload or artifact set
     # invalidates the signature, so another distribution cannot borrow it.
@@ -333,6 +487,13 @@ def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempote
     )
     assert audit_download.status_code == 200
     assert audit_download.json()["artifact_count"] == 1 and audit_download.json()["status"] == "READY"
+    audit_url = urlparse(audit_download.json()["download_url"])
+    audit_bundle = client.get(f"{audit_url.path}?{audit_url.query}", headers=recipient)
+    assert audit_bundle.status_code == 200
+    with ZipFile(BytesIO(audit_bundle.content)) as archive:
+        audit_payload = json.loads(archive.read(archive.namelist()[0]))
+        assert audit_payload["event_id"] == event_id
+        assert audit_payload["class_id"] == "class_netsec_2301"
 
 
 def test_rsa_five_checkpoints_score_and_e_read_models(db_and_client):

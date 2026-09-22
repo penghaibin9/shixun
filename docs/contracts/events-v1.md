@@ -21,3 +21,5 @@ F 消费 `attendance.completed`、`assignment.submitted`、`quiz.completed`、`l
 `course.roster.frozen` 还必须携带 `member_count`、`snapshot_hash` 和 `frozen_at`；A 冻结后拒绝任何名单增删和再次导入。
 
 D 在成功验证 E 的日志分发授权并签发存储能力时，追加 `runtime.artifact.distribution_download_authorized`。事件聚合标识使用 `student_log_assignment`，载荷只记录分发、学生、课程、班级、实验发布、日志类型、引用标识和过期时间，不记录签名密钥、授权字符串、存储能力或日志原文；同一 `assignment_id + nonce` 必须幂等。
+
+D 在真实 ZIP（压缩包）完成逐项完整性校验并开始响应前追加 `runtime.artifact.distribution_bundle_downloaded`；普通所有权下载分别追加 `runtime.artifact.direct_download_authorized` 与 `runtime.artifact.direct_bundle_downloaded`。下载事件只记录授权类型、账号/学生范围和引用标识，不记录能力、签名密钥或日志内容；同一能力的重复消费按包标识与随机数组合幂等。

@@ -1,5 +1,6 @@
 import re
 import os
+import json
 from urllib.parse import quote
 from time import time
 from datetime import datetime, timedelta, timezone
@@ -14,14 +15,15 @@ from sqlalchemy.orm import Session
 
 from app.common.context import UserContext
 from app.common.errors import ApiError
-from app.common.models import DomainEventOutbox
+from app.common.models import DomainEventOutbox, FileObject
 from app.common.outbox import enqueue_event
 from app.common.signed_capability import sign_capability, verify_capability
 
 from . import models
+from .artifact_storage import BundleEntry, build_bundle
 from .catalog import LabCatalogClient
 from .provider import NodeAgentClient
-from .schemas import DistributionDownloadClaims, ImageRegister, NodeRegister, RuntimeExtend, RuntimeMaintenanceRun, RuntimeStart
+from .schemas import ArtifactStorageClaims, DistributionDownloadClaims, ImageRegister, NodeRegister, RuntimeExtend, RuntimeMaintenanceRun, RuntimeStart
 
 
 def now() -> datetime:
@@ -30,6 +32,14 @@ def now() -> datetime:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:24]}"
+
+
+def _canonical_json_bytes(value: dict) -> bytes:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True, default=str).encode("utf-8")
+
+
+def _reference_digest(references: list[dict]) -> str:
+    return sha256(_canonical_json_bytes({"references": references})).hexdigest()
 
 
 ALLOWED_TRANSITIONS = {
@@ -1373,7 +1383,18 @@ class RuntimeService:
                 if not source:
                     raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_NOT_FOUND", "分发的流量日志制品不存在", 404, {"reference_id": reference_id})
                 artifact, request = source
-                storage_references.append({"reference_id": reference_id, "file_id": artifact.file_id, "sha256": artifact.sha256})
+                file_object = self.session.get(FileObject, artifact.file_id)
+                if not file_object:
+                    raise ApiError("RUNTIME.ARTIFACT_FILE_OBJECT_MISSING", "流量日志制品未登记文件对象", 409, {"reference_id": reference_id, "file_id": artifact.file_id})
+                if file_object.sha256 != artifact.sha256 or file_object.size_bytes != artifact.size_bytes:
+                    raise ApiError("RUNTIME.ARTIFACT_REGISTRATION_MISMATCH", "流量日志制品与文件对象登记信息不一致", 409, {"reference_id": reference_id, "file_id": artifact.file_id})
+                storage_references.append({
+                    "reference_id": reference_id,
+                    "file_id": artifact.file_id,
+                    "sha256": artifact.sha256,
+                    "size_bytes": artifact.size_bytes,
+                    "original_name": file_object.original_name,
+                })
             else:
                 source = self.session.execute(
                     select(models.RuntimeEvent, models.RuntimeRequest)
@@ -1384,7 +1405,14 @@ class RuntimeService:
                 if not source:
                     raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_NOT_FOUND", "分发的审计日志不存在", 404, {"reference_id": reference_id})
                 event, request = source
-                storage_references.append({"reference_id": reference_id, "event_type": event.event_type})
+                content = self._audit_log_content(event, request)
+                storage_references.append({
+                    "reference_id": reference_id,
+                    "file_id": None,
+                    "sha256": sha256(content).hexdigest(),
+                    "size_bytes": len(content),
+                    "original_name": f"audit-{reference_id}.json",
+                })
             if (
                 request.course_id != claims.course_id
                 or request.class_id != claims.class_id
@@ -1392,15 +1420,17 @@ class RuntimeService:
             ):
                 raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_SCOPE_MISMATCH", "分发日志来源超出授权实验范围", 403, {"reference_id": reference_id})
 
-        base = os.getenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL", "")
-        if not base:
-            raise ApiError("RUNTIME.ARTIFACT_STORAGE_UNAVAILABLE", "制品存储下载服务尚未配置", 503)
-        reference_digest = sha256("\n".join(claims.reference_ids).encode("utf-8")).hexdigest()
+        base = os.getenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL", "/api/v1/artifact-storage")
+        reference_digest = _reference_digest(storage_references)
         storage_claims = {
             "version": 1, "issuer": "lab-runtime", "audience": "artifact-storage",
+            "grant_type": "DISTRIBUTION",
             "assignment_id": claims.assignment_id, "distribution_id": claims.distribution_id,
-            "student_id": claims.student_id, "reference_digest": reference_digest,
-            "nonce": claims.nonce, "expires_at": claims.expires_at,
+            "distribution_type": claims.distribution_type, "student_id": claims.student_id,
+            "subject_user_id": self.user.user_id, "subject_role": self.user.role,
+            "course_id": claims.course_id, "class_id": claims.class_id, "lab_release_id": claims.lab_release_id,
+            "references": storage_references, "reference_digest": reference_digest,
+            "nonce": claims.nonce, "issued_at": claims.issued_at, "expires_at": claims.expires_at,
         }
         capability = sign_capability(storage_claims, self._artifact_storage_signing_key())
         download_url = f"{base.rstrip('/')}/bundles/{claims.assignment_id}?capability={quote(capability, safe='')}"
@@ -1445,10 +1475,200 @@ class RuntimeService:
                     raise
         return {
             "download_url": download_url,
-            "expires_in": max(0, claims.expires_at - epoch),
+            "expires_in": claims.expires_at - claims.issued_at,
             "artifact_count": len(storage_references),
             "status": "READY",
         }
+
+    def direct_artifact_bundle(self, artifact_ids: list[str]) -> dict:
+        self._permission("runtime.read")
+        if not artifact_ids or len(artifact_ids) > 200 or len(artifact_ids) != len(set(artifact_ids)):
+            raise ApiError("RUNTIME.INVALID_ARTIFACT_BUNDLE", "制品列表不能为空、不能重复且最多 200 项", 422)
+        references: list[dict] = []
+        for artifact_id in artifact_ids:
+            artifact = self.session.get(models.RuntimeArtifact, artifact_id)
+            if not artifact:
+                raise ApiError("RUNTIME.ARTIFACT_NOT_FOUND", "日志制品不存在", 404, {"artifact_id": artifact_id})
+            instance = self.session.get(models.RuntimeInstance, artifact.runtime_instance_id)
+            if not instance:
+                raise ApiError("RUNTIME.NOT_FOUND", "实验实例不存在", 404)
+            self._instance_scope(instance)
+            file_object = self.session.get(FileObject, artifact.file_id)
+            if not file_object:
+                raise ApiError("RUNTIME.ARTIFACT_FILE_OBJECT_MISSING", "流量日志制品未登记文件对象", 409, {"reference_id": artifact_id, "file_id": artifact.file_id})
+            if file_object.sha256 != artifact.sha256 or file_object.size_bytes != artifact.size_bytes:
+                raise ApiError("RUNTIME.ARTIFACT_REGISTRATION_MISMATCH", "流量日志制品与文件对象登记信息不一致", 409, {"reference_id": artifact_id, "file_id": artifact.file_id})
+            references.append({
+                "reference_id": artifact_id,
+                "file_id": artifact.file_id,
+                "sha256": artifact.sha256,
+                "size_bytes": artifact.size_bytes,
+                "original_name": file_object.original_name,
+            })
+        epoch = int(time())
+        bundle_id = f"direct_{uuid4().hex[:24]}"
+        nonce = uuid4().hex
+        storage_claims = {
+            "version": 1,
+            "issuer": "lab-runtime",
+            "audience": "artifact-storage",
+            "grant_type": "DIRECT",
+            "assignment_id": bundle_id,
+            "distribution_id": None,
+            "distribution_type": "TRAFFIC",
+            "subject_user_id": self.user.user_id,
+            "subject_role": self.user.role,
+            "student_id": self.user.student_id,
+            "course_id": None,
+            "class_id": None,
+            "lab_release_id": None,
+            "references": references,
+            "reference_digest": _reference_digest(references),
+            "nonce": nonce,
+            "issued_at": epoch,
+            "expires_at": epoch + 60,
+        }
+        capability = sign_capability(storage_claims, self._artifact_storage_signing_key())
+        base = os.getenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL", "/api/v1/artifact-storage")
+        enqueue_event(
+            self.session,
+            event_type="runtime.artifact.direct_download_authorized",
+            aggregate_type="runtime_artifact_bundle",
+            aggregate_id=bundle_id,
+            actor_user_id=self.user.user_id,
+            idempotency_key=f"{bundle_id}:{nonce}",
+            payload={"reference_ids": artifact_ids, "reference_count": len(artifact_ids), "expires_at": epoch + 60},
+        )
+        self.session.commit()
+        return {
+            "download_url": f"{base.rstrip('/')}/bundles/{bundle_id}?capability={quote(capability, safe='')}",
+            "expires_in": 60,
+            "artifact_count": len(references),
+            "status": "READY",
+        }
+
+    @staticmethod
+    def _audit_log_content(event: models.RuntimeEvent, request: models.RuntimeRequest) -> bytes:
+        return _canonical_json_bytes({
+            "event_id": event.runtime_event_id,
+            "event_type": event.event_type,
+            "runtime_instance_id": event.runtime_instance_id,
+            "runtime_group_id": event.runtime_group_id,
+            "actor_user_id": event.actor_user_id,
+            "occurred_at": event.occurred_at.isoformat(),
+            "detail": event.detail_json,
+            "lab_release_id": request.lab_release_id,
+            "course_id": request.course_id,
+            "class_id": request.class_id,
+            "student_id": request.student_id,
+        })
+
+    def download_artifact_bundle(self, assignment_id: str, capability: str):
+        try:
+            claims = ArtifactStorageClaims.model_validate(verify_capability(capability, self._artifact_storage_signing_key()))
+        except ValueError as exc:
+            raise ApiError("RUNTIME.ARTIFACT_STORAGE_CAPABILITY_INVALID", "制品存储下载能力无效", 403) from exc
+        epoch = int(time())
+        if claims.issued_at > epoch + 30 or claims.expires_at <= epoch:
+            raise ApiError("RUNTIME.ARTIFACT_STORAGE_CAPABILITY_EXPIRED", "制品存储下载能力已过期", 403)
+        if claims.assignment_id != assignment_id:
+            raise ApiError("RUNTIME.ARTIFACT_ASSIGNMENT_MISMATCH", "下载地址与日志任务不一致", 403)
+        if claims.grant_type == "DISTRIBUTION":
+            if self.user.role != "student" or not self.user.student_id or claims.student_id != self.user.student_id:
+                raise ApiError("AUTH.STUDENT_SCOPE_DENIED", "不能下载他人的日志任务", 403)
+            if claims.subject_user_id != self.user.user_id or claims.subject_role != self.user.role:
+                raise ApiError("AUTH.SCOPE_DENIED", "制品下载能力不属于当前账号", 403)
+            if claims.class_id not in self.user.class_ids or claims.course_id not in self.user.course_ids:
+                raise ApiError("AUTH.SCOPE_DENIED", "日志任务已超出当前课程或班级范围", 403)
+        else:
+            if claims.subject_user_id != self.user.user_id or claims.subject_role != self.user.role:
+                raise ApiError("AUTH.SCOPE_DENIED", "制品下载能力不属于当前账号", 403)
+            self._permission("runtime.read")
+        signed_references = [item.model_dump(mode="json") for item in claims.references]
+        if _reference_digest(signed_references) != claims.reference_digest:
+            raise ApiError("RUNTIME.ARTIFACT_REFERENCE_SET_INVALID", "日志制品引用集合校验失败", 403)
+
+        entries: list[BundleEntry] = []
+        for reference in claims.references:
+            if claims.distribution_type == "TRAFFIC":
+                source = self.session.execute(
+                    select(models.RuntimeArtifact, models.RuntimeRequest)
+                    .join(models.RuntimeInstance, models.RuntimeInstance.runtime_instance_id == models.RuntimeArtifact.runtime_instance_id)
+                    .join(models.RuntimeInstanceGroup, models.RuntimeInstanceGroup.runtime_group_id == models.RuntimeInstance.runtime_group_id)
+                    .join(models.RuntimeRequest, models.RuntimeRequest.runtime_request_id == models.RuntimeInstanceGroup.runtime_request_id)
+                    .where(models.RuntimeArtifact.runtime_artifact_id == reference.reference_id, models.RuntimeArtifact.artifact_type == "TRAFFIC")
+                ).one_or_none()
+                if not source:
+                    raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_NOT_FOUND", "分发的流量日志制品不存在", 404, {"reference_id": reference.reference_id})
+                artifact, request = source
+                if artifact.file_id != reference.file_id or artifact.sha256 != reference.sha256 or artifact.size_bytes != reference.size_bytes:
+                    raise ApiError("RUNTIME.ARTIFACT_REFERENCE_MISMATCH", "流量日志制品引用已变化", 409, {"reference_id": reference.reference_id})
+                file_object = self.session.get(FileObject, reference.file_id)
+                if not file_object:
+                    raise ApiError("RUNTIME.ARTIFACT_FILE_OBJECT_MISSING", "流量日志制品未登记文件对象", 409, {"reference_id": reference.reference_id, "file_id": reference.file_id})
+                if file_object.sha256 != reference.sha256 or file_object.size_bytes != reference.size_bytes or file_object.original_name != reference.original_name:
+                    raise ApiError("RUNTIME.ARTIFACT_REGISTRATION_MISMATCH", "流量日志制品与文件对象登记信息不一致", 409, {"reference_id": reference.reference_id, "file_id": reference.file_id})
+                if claims.grant_type == "DIRECT":
+                    instance = self.session.get(models.RuntimeInstance, artifact.runtime_instance_id)
+                    if not instance:
+                        raise ApiError("RUNTIME.NOT_FOUND", "实验实例不存在", 404)
+                    self._instance_scope(instance)
+                entries.append(BundleEntry(reference.reference_id, reference.original_name, reference.sha256, reference.size_bytes, file_object=file_object))
+            else:
+                source = self.session.execute(
+                    select(models.RuntimeEvent, models.RuntimeRequest)
+                    .join(models.RuntimeInstanceGroup, models.RuntimeInstanceGroup.runtime_group_id == models.RuntimeEvent.runtime_group_id)
+                    .join(models.RuntimeRequest, models.RuntimeRequest.runtime_request_id == models.RuntimeInstanceGroup.runtime_request_id)
+                    .where(models.RuntimeEvent.runtime_event_id == reference.reference_id)
+                ).one_or_none()
+                if not source:
+                    raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_NOT_FOUND", "分发的审计日志不存在", 404, {"reference_id": reference.reference_id})
+                event, request = source
+                content = self._audit_log_content(event, request)
+                entries.append(BundleEntry(reference.reference_id, reference.original_name, reference.sha256, reference.size_bytes, content=content))
+            if claims.grant_type == "DISTRIBUTION" and (request.course_id != claims.course_id or request.class_id != claims.class_id or request.lab_release_id != claims.lab_release_id):
+                raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_SCOPE_MISMATCH", "分发日志来源超出授权实验范围", 403, {"reference_id": reference.reference_id})
+
+        bundle_path = build_bundle(entries, assignment_id)
+        event_key = f"{assignment_id}:{claims.nonce}"
+        download_event_type = "runtime.artifact.distribution_bundle_downloaded" if claims.grant_type == "DISTRIBUTION" else "runtime.artifact.direct_bundle_downloaded"
+        try:
+            if not self.session.scalar(select(DomainEventOutbox.event_id).where(
+                DomainEventOutbox.event_type == download_event_type,
+                DomainEventOutbox.idempotency_key == event_key,
+            )):
+                enqueue_event(
+                    self.session,
+                    event_type=download_event_type,
+                    aggregate_type="student_log_assignment" if claims.grant_type == "DISTRIBUTION" else "runtime_artifact_bundle",
+                    aggregate_id=assignment_id,
+                    actor_user_id=self.user.user_id,
+                    idempotency_key=event_key,
+                    payload={
+                        "distribution_id": claims.distribution_id,
+                        "grant_type": claims.grant_type,
+                        "student_id": claims.student_id,
+                        "course_id": claims.course_id,
+                        "class_id": claims.class_id,
+                        "lab_release_id": claims.lab_release_id,
+                        "distribution_type": claims.distribution_type,
+                        "reference_ids": [item.reference_id for item in claims.references],
+                        "reference_count": len(claims.references),
+                    },
+                )
+                try:
+                    self.session.commit()
+                except IntegrityError:
+                    self.session.rollback()
+                    if not self.session.scalar(select(DomainEventOutbox.event_id).where(
+                        DomainEventOutbox.event_type == download_event_type,
+                        DomainEventOutbox.idempotency_key == event_key,
+                    )):
+                        raise
+            return bundle_path
+        except Exception:
+            bundle_path.unlink(missing_ok=True)
+            raise
 
     def nodes(self) -> list[dict]:
         self._permission("infrastructure.read")
