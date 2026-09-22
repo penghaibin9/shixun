@@ -24,7 +24,7 @@ import StudentLogView from '../modules/lab-classroom/StudentLogView.vue'
 import GradingView from './views/GradingView.vue'
 
 export default createRouter({ history: createWebHistory(), routes: [
-  { path: '/', redirect: '/teacher-dashboard' },
+  { path: '/', redirect: '/lifecycle' },
   { path: '/teacher-dashboard', component: TeacherDashboard },
   { path: '/student-home', component: StudentHome },
   { path: '/lifecycle', component: LifecycleView },

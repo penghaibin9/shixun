@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import isfinite
 from os import getenv
 from time import time
 from uuid import uuid4
@@ -60,42 +61,108 @@ class ClassroomService:
     def _classroom_status(runtime: dict | None) -> str:
         if not runtime:
             return "NOT_STARTED"
-        if runtime.get("submission_status") == "SUBMITTED" or runtime.get("status") in {"SUBMITTED", "COMPLETED"}:
+        if runtime.get("submission_status") == "SUBMITTED":
             return "SUBMITTED"
-        if runtime.get("status") in {"FAILED", "CANCELED", "DESTROYED"}:
-            return "FAILED"
-        return "RUNNING"
+        status = str(runtime.get("status") or "").upper()
+        return status if status in {
+            "QUEUED", "SCHEDULING", "STARTING", "CREATED", "RUNNING", "STOPPING",
+            "SUBMITTED", "COMPLETED", "FAILED", "CANCELED", "DESTROYED",
+        } else "UNKNOWN"
+
+    @staticmethod
+    def _runtime_int(runtime: dict, field: str) -> int | None:
+        value = runtime.get(field)
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回的课堂进度无效", 502, {"field": field})
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回的课堂进度无效", 502, {"field": field}) from exc
+        if not isfinite(numeric_value) or not numeric_value.is_integer() or numeric_value < 0:
+            raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回的课堂进度无效", 502, {"field": field})
+        return int(numeric_value)
+
+    @staticmethod
+    def _runtime_score(runtime: dict, field: str) -> float | None:
+        value = runtime.get(field)
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回的课堂得分无效", 502, {"field": field})
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回的课堂得分无效", 502, {"field": field}) from exc
+        if not isfinite(number) or number < 0:
+            raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回的课堂得分无效", 502, {"field": field})
+        return number
+
+    @staticmethod
+    def _validated_runtime_fact(row: object, context: dict, release_id: str, expected_student_id: str | None = None) -> tuple[str, dict]:
+        if not isinstance(row, dict) or not str(row.get("student_id") or "").strip():
+            raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回的学生运行事实无效", 502)
+        for field, expected in {
+            "lab_release_id": release_id,
+            "course_id": context["course_id"],
+            "class_id": context["class_id"],
+        }.items():
+            actual = row.get(field)
+            if actual is not None and actual != expected:
+                raise ApiError(
+                    "CLASSROOM.RUNTIME_SCOPE_MISMATCH",
+                    "运行服务返回的课堂事实超出当前实验发布范围",
+                    502,
+                    {"field": field, "expected": expected},
+                )
+        student_id = str(row["student_id"]).strip()
+        if expected_student_id and student_id != expected_student_id:
+            raise ApiError("CLASSROOM.RUNTIME_SCOPE_MISMATCH", "运行服务返回了其他学生的课堂事实", 502)
+        return student_id, row
 
     def _release_snapshot(self, release_id: str) -> tuple[dict, list[dict]]:
         context = self._release_context(release_id)
         runtime_result = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/students", self.user)
-        runtime_by_student = {row["student_id"]: row for row in runtime_result.get("items", []) if row.get("student_id")}
-        for projection in self.repo.projections(release_id):
-            runtime_by_student[projection.student_id] = {
-                **runtime_by_student.get(projection.student_id, {}),
-                "student_id": projection.student_id,
-                "runtime_instance_id": projection.runtime_instance_id,
-                "status": projection.status,
-                "current_step": projection.current_step,
-                "total_steps": projection.total_steps,
-                "raw_score": float(projection.raw_score),
-                "max_score": float(projection.max_score),
-            }
         roster = self._class_members(context["class_id"])
-        default_steps = max((int(row.get("total_steps") or 0) for row in runtime_by_student.values()), default=0)
-        items = []
+        runtime_by_student: dict[str, dict] = {}
+        for row in runtime_result.get("items", []):
+            student_id, runtime = self._validated_runtime_fact(row, context, release_id)
+            if student_id in runtime_by_student:
+                raise ApiError("CLASSROOM.RUNTIME_FACT_INVALID", "运行服务返回了重复的学生运行事实", 502, {"student_id": student_id})
+            runtime_by_student[student_id] = runtime
+
+        roster_by_student: dict[str, dict] = {}
         for member in roster:
-            runtime = runtime_by_student.get(member["student_id"])
+            student_id = str(member.get("student_id") or "").strip()
+            if not student_id or student_id in roster_by_student:
+                raise ApiError("CLASSROOM.ROSTER_FACT_INVALID", "教学核心返回的有效名单无效", 502)
+            roster_by_student[student_id] = member
+        unexpected_students = sorted(set(runtime_by_student) - set(roster_by_student))
+        if unexpected_students:
+            raise ApiError(
+                "CLASSROOM.RUNTIME_ROSTER_MISMATCH",
+                "运行服务中的学生不在当前班级有效名单中",
+                502,
+                {"student_count": len(unexpected_students)},
+            )
+
+        items = []
+        for student_id, member in roster_by_student.items():
+            runtime = runtime_by_student.get(student_id)
             items.append({
                 **(runtime or {}),
-                "student_id": member["student_id"],
-                "student_name": member.get("student_name") or member["student_id"],
+                "student_id": student_id,
+                "student_name": member.get("student_name") or student_id,
                 "student_no": member.get("student_number") or "",
                 "status": self._classroom_status(runtime),
-                "current_step": int((runtime or {}).get("current_step") or 0),
-                "total_steps": int((runtime or {}).get("total_steps") or default_steps),
-                "raw_score": int((runtime or {}).get("raw_score") or 0),
-                "max_score": int((runtime or {}).get("max_score") or 100),
+                # D 的 release read-model 是教师课堂运行字段的唯一事实源；本地事件投影
+                # 只服务学习汇总与 SSE 刷新通知，不能覆盖这里的状态、进度或得分。
+                "runtime_fact_source": "D_RUNTIME_RELEASE_READ_MODEL",
+                "current_step": self._runtime_int(runtime, "current_step") if runtime else None,
+                "total_steps": self._runtime_int(runtime, "total_steps") if runtime else None,
+                "raw_score": self._runtime_score(runtime, "raw_score") if runtime else None,
+                "max_score": self._runtime_score(runtime, "max_score") if runtime else None,
                 "runtime_instance_id": (runtime or {}).get("runtime_instance_id"),
             })
         return context, items
@@ -103,23 +170,42 @@ class ClassroomService:
     def release_summary(self, release_id: str):
         self.require("classroom.release.read")
         context, items = self._release_snapshot(release_id)
-        counts = {status: sum(row["status"] == status for row in items) for status in ("NOT_STARTED", "RUNNING", "SUBMITTED", "FAILED")}
+        counts = {
+            status: sum(row["status"] == status for row in items)
+            for status in (
+                "NOT_STARTED", "QUEUED", "SCHEDULING", "STARTING", "CREATED", "RUNNING", "STOPPING",
+                "SUBMITTED", "COMPLETED", "FAILED", "CANCELED", "DESTROYED", "UNKNOWN",
+            )
+        }
         return {
             **context,
             "student_count": len(items),
             "started": len(items) - counts["NOT_STARTED"],
-            "completed": counts["SUBMITTED"],
+            "completed": counts["SUBMITTED"] + counts["COMPLETED"],
             "running": counts["RUNNING"],
             "failed": counts["FAILED"],
             "not_started": counts["NOT_STARTED"],
             "status_counts": counts,
             "runtime_student_count": int(context.get("student_count", 0)),
+            "runtime_fact_source": "D_RUNTIME_RELEASE_READ_MODEL",
+            "data_status": "EMPTY" if not items else "READY",
         }
 
     def release_students(self, release_id: str):
         self.require("classroom.release.read")
         summary, items = self._release_snapshot(release_id)
-        return {"items": items, "page": 1, "page_size": len(items), "total": len(items), "lab_release_id": release_id, "course_id": summary["course_id"], "class_id": summary["class_id"], "dependency": "A+D"}
+        return {
+            "items": items,
+            "page": 1,
+            "page_size": len(items),
+            "total": len(items),
+            "lab_release_id": release_id,
+            "course_id": summary["course_id"],
+            "class_id": summary["class_id"],
+            "dependency": "A+D",
+            "runtime_fact_source": "D_RUNTIME_RELEASE_READ_MODEL",
+            "data_status": "EMPTY" if not items else "READY",
+        }
 
     def release_student(self, release_id: str, student_id: str):
         self.require("classroom.release.read")
@@ -156,6 +242,8 @@ class ClassroomService:
             if exc.code != "RUNTIME.STUDENT_NOT_STARTED":
                 raise
             runtime = None
+        if runtime:
+            self._validated_runtime_fact(runtime, context, release_id, student_id)
         return {
             **(runtime or {}),
             "lab_release_id": release_id,
@@ -165,10 +253,11 @@ class ClassroomService:
             "student_name": member.get("student_name") or student_id,
             "student_no": member.get("student_number") or "",
             "status": self._classroom_status(runtime),
-            "current_step": int((runtime or {}).get("current_step") or 0),
-            "total_steps": int((runtime or {}).get("total_steps") or 0),
-            "raw_score": int((runtime or {}).get("raw_score") or 0),
-            "max_score": int((runtime or {}).get("max_score") or 100),
+            "runtime_fact_source": "D_RUNTIME_RELEASE_READ_MODEL",
+            "current_step": self._runtime_int(runtime, "current_step") if runtime else None,
+            "total_steps": self._runtime_int(runtime, "total_steps") if runtime else None,
+            "raw_score": self._runtime_score(runtime, "raw_score") if runtime else None,
+            "max_score": self._runtime_score(runtime, "max_score") if runtime else None,
             "runtime_instance_id": (runtime or {}).get("runtime_instance_id"),
         }
     def student_submit(self, release_id: str):
