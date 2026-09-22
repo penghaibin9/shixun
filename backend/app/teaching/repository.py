@@ -1,6 +1,8 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.resources.models import Question, QuestionBank, QuestionLessonMap, QuestionOption
+
 from . import models as m
 
 
@@ -98,3 +100,34 @@ class TeachingRepository:
 
     def attempt(self, quiz_id: str, student_id: str):
         return self.session.scalar(select(m.QuizAttempt).where(m.QuizAttempt.quiz_id == quiz_id, m.QuizAttempt.student_id == student_id))
+
+    def published_questions_for_freeze(self, course_id: str, question_ids: list[str]):
+        """Read and lock the B-owned question facts A is allowed to freeze.
+
+        No client snapshot, version or score travels through this boundary.
+        PUBLISHED questions are immutable in B's application state machine; the
+        lock additionally prevents a concurrent legacy write from racing the
+        snapshot transaction.
+        """
+
+        stmt = (
+            select(Question, QuestionLessonMap.lesson_id)
+            .join(QuestionBank, QuestionBank.question_bank_id == Question.question_bank_id)
+            .join(QuestionLessonMap, QuestionLessonMap.question_id == Question.question_id)
+            .where(
+                Question.question_id.in_(question_ids),
+                Question.status == "PUBLISHED",
+                QuestionBank.course_id == course_id,
+            )
+            .with_for_update()
+        )
+        return list(self.session.execute(stmt))
+
+    def question_options_for_freeze(self, question_id: str):
+        return list(
+            self.session.scalars(
+                select(QuestionOption)
+                .where(QuestionOption.question_id == question_id)
+                .order_by(QuestionOption.option_key, QuestionOption.question_option_id)
+            )
+        )

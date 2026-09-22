@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 from io import BytesIO
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,10 +11,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.common.models import Base, DomainEventOutbox
+from app.common.errors import ApiError
 from app.database import get_session
 from app.main import app
-from app.teaching.models import ClassMembership, ImportJob
+from app.resources.models import Question, QuestionBank, QuestionLessonMap, QuestionOption
+from app.teaching.models import AssignmentQuestionRef, AssignmentSubmission, ClassMembership, CourseLesson, ImportJob, TeachingScoreProof
 from app.teaching.repository import TeachingRepository
+from app.teaching.service import score_payload_sha256, sha256_json, verify_teaching_score_proof
 from app.teaching.xlsx import HEADERS
 from backend.tests.auth_profiles import seed_student_profile, seed_student_profiles
 
@@ -64,6 +69,42 @@ def build_course_class(client: TestClient):
     created_class = client.post("/api/v1/classes", headers=headers("teaching.class.write", course_id=course_id), json={"name": "网络安全 2301 班", "term": "2026 秋季", "course_id": course_id})
     assert created_class.status_code == 201, created_class.text
     return course_id, created_class.json()["class_id"]
+
+
+def seed_published_question(sessions, course_id: str, *, question_id: str = "question-b-1", lesson_id: str | None = None, question_type: str = "SINGLE", answer: list | None = None):
+    """Create a B-owned, independently reviewed question for A to freeze."""
+
+    with sessions() as db:
+        lesson_id = lesson_id or db.scalar(select(CourseLesson.lesson_id).where(CourseLesson.course_id == course_id).order_by(CourseLesson.sequence))
+        bank = db.scalar(select(QuestionBank).where(QuestionBank.course_id == course_id))
+        if not bank:
+            bank = QuestionBank(question_bank_id=str(uuid4()), course_id=course_id, name="课程统一题库", status="PUBLISHED", created_by="resource-author", created_at=datetime.utcnow())
+            db.add(bank)
+            db.flush()
+        values = answer or ["A"]
+        db.add(
+            Question(
+                question_id=question_id,
+                question_bank_id=bank.question_bank_id,
+                import_job_id=None,
+                source_row_number=None,
+                question_type=question_type,
+                stem="RSA 中公开的是哪一类密钥？",
+                answer_json=values,
+                status="PUBLISHED",
+                created_by="resource-author",
+                created_at=datetime.utcnow(),
+                submitted_at=datetime.utcnow(),
+                reviewed_by="resource-reviewer",
+                reviewed_at=datetime.utcnow(),
+            )
+        )
+        db.add(QuestionLessonMap(question_lesson_map_id=str(uuid4()), question_id=question_id, lesson_id=lesson_id))
+        if question_type in {"SINGLE", "MULTIPLE", "TRUE_FALSE"}:
+            db.add(QuestionOption(question_option_id=str(uuid4()), question_id=question_id, option_key="A", option_text="公钥", is_correct=True))
+            db.add(QuestionOption(question_option_id=str(uuid4()), question_id=question_id, option_key="B", option_text="私钥", is_correct=False))
+        db.commit()
+    return question_id
 
 
 def test_course_creation_builds_authoritative_49_lesson_catalog_and_rejects_cross_course_lesson(test_context):
@@ -278,7 +319,7 @@ def test_removed_member_cannot_use_attendance_poll_assignment_or_quiz(test_conte
     poll = client.post("/api/v1/polls", headers=teacher, json={"course_id": course_id, "class_id": class_id, "poll_type": "UNDERSTANDING", "title": "成员状态校验", "options": ["掌握", "未掌握"]}).json()
     client.post(f"/api/v1/polls/{poll['poll_id']}/publish", headers=teacher)
     due = (datetime.utcnow() + timedelta(hours=1)).isoformat()
-    question = {"question_id": "question-b-1", "question_version": "v1", "question_snapshot": {"stem": "公钥用途"}, "max_score": 10}
+    question = {"question_id": seed_published_question(sessions, course_id)}
     assignment = client.post("/api/v1/assignments", headers=teacher, json={"course_id": course_id, "class_id": class_id, "title": "成员状态校验", "due_at": due, "questions": [question]}).json()
     client.post(f"/api/v1/assignments/{assignment['assignment_id']}/publish", headers=teacher)
     quiz = client.post("/api/v1/quizzes", headers=teacher, json={"course_id": course_id, "class_id": class_id, "title": "成员状态校验", "time_limit_minutes": 30, "questions": [question]}).json()
@@ -294,9 +335,9 @@ def test_removed_member_cannot_use_attendance_poll_assignment_or_quiz(test_conte
         client.post(f"/api/v1/attendance/sign-links/{token}/sign", headers=student),
         client.post(f"/api/v1/attendance/{task['task_id']}/sign", headers=student, params={"token": token}),
         client.post(f"/api/v1/polls/{poll['poll_id']}/answers", headers=student, json={"option_id": poll["options"][0]["option_id"]}),
-        client.post(f"/api/v1/assignments/{assignment['assignment_id']}/submit", headers=student, json={"answers": {}, "raw_score": 0, "max_score": 10}),
+        client.post(f"/api/v1/assignments/{assignment['assignment_id']}/submit", headers=student, json={"answers": {}}),
         client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts", headers=student),
-        client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts/{attempt['attempt_id']}/submit", headers=student, json={"answers": {}, "raw_score": 0, "max_score": 10}),
+        client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts/{attempt['attempt_id']}/submit", headers=student, json={"answers": {}}),
     ]
     assert all(response.status_code == 403 and response.json()["code"] == "AUTH.SCOPE_DENIED" for response in requests)
     read_model = client.get("/api/v1/teaching/student-read-model", headers=student)
@@ -326,21 +367,208 @@ def test_assignment_quiz_events_and_cross_student_isolation(test_context):
     client.post(f"/api/v1/classes/{class_id}/members/import", headers={**teacher, "Idempotency-Key": "students"}, files={"file": ("two.xlsx", workbook_bytes([["1", "甲", "", "", ""], ["2", "乙", "", "", ""]]))})
     with sessions() as db: students = list(db.scalars(select(ClassMembership.student_id).order_by(ClassMembership.student_number)))
     due = (datetime.utcnow() + timedelta(hours=1)).isoformat()
-    question = {"question_id": "question-b-1", "question_version": "v1", "question_snapshot": {"stem": "公钥用途"}, "max_score": 10}
+    question_id = seed_published_question(sessions, course_id)
+    question = {"question_id": question_id}
     assignment = client.post("/api/v1/assignments", headers=teacher, json={"course_id": course_id, "class_id": class_id, "title": "RSA 作业", "due_at": due, "questions": [question]}).json()
     client.post(f"/api/v1/assignments/{assignment['assignment_id']}/publish", headers=teacher)
     student = headers("teaching.assignment.submit", "teaching.quiz.submit", student_id=students[0], teacher_id="", course_id=course_id, class_id=class_id)
-    assert client.post(f"/api/v1/assignments/{assignment['assignment_id']}/submit", headers=student, json={"answers": {"question-b-1": "公钥"}, "raw_score": 10, "max_score": 10}).status_code == 201
+    assignment_submission = client.post(f"/api/v1/assignments/{assignment['assignment_id']}/submit", headers=student, json={"answers": {question_id: "A"}})
+    assert assignment_submission.status_code == 201
+    assert assignment_submission.json()["raw_score"] == assignment_submission.json()["max_score"] == 10
     quiz = client.post("/api/v1/quizzes", headers=teacher, json={"course_id": course_id, "class_id": class_id, "title": "课堂小测", "time_limit_minutes": 10, "questions": [question]}).json()
     client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/publish", headers=teacher)
     attempt = client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts", headers=student).json()
     other = headers("teaching.quiz.submit", student_id=students[1], teacher_id="", course_id=course_id, class_id=class_id)
-    denied = client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts/{attempt['attempt_id']}/submit", headers=other, json={"answers": {}, "raw_score": 0, "max_score": 10})
+    denied = client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts/{attempt['attempt_id']}/submit", headers=other, json={"answers": {}})
     assert denied.status_code == 403
-    assert client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts/{attempt['attempt_id']}/submit", headers=student, json={"answers": {}, "raw_score": 8, "max_score": 10}).status_code == 200
+    quiz_submission = client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/attempts/{attempt['attempt_id']}/submit", headers=student, json={"answers": {question_id: "A"}})
+    assert quiz_submission.status_code == 200
+    assert quiz_submission.json()["raw_score"] == quiz_submission.json()["max_score"] == 10
     with sessions() as db:
         event_types = set(db.scalars(select(DomainEventOutbox.event_type)))
-    assert {"assignment.submitted", "quiz.completed", "teaching.audit"} <= event_types
+        proofs = list(db.scalars(select(TeachingScoreProof).order_by(TeachingScoreProof.source_type)))
+        assert [proof.source_type for proof in proofs] == ["assignment_submission", "quiz_attempt"]
+        for proof in proofs:
+            verify_teaching_score_proof(db, proof.proof_id)
+            proof_event = db.get(DomainEventOutbox, proof.score_proof_event_id)
+            score_event = db.get(DomainEventOutbox, proof.score_event_id)
+            assert proof_event.occurred_at < score_event.occurred_at
+            assert score_event.payload_json["score_proof_event_id"] == proof_event.event_id
+    assert {"assignment.submitted", "quiz.completed", "grading.score.proof.frozen", "teaching.audit"} <= event_types
+
+
+def test_server_scored_submission_freezes_question_and_emits_paired_proof_events(test_context):
+    client, sessions = test_context
+    course_id, class_id = build_course_class(client)
+    teacher = headers("teaching.members.import", "teaching.assignment.write", course_id=course_id, class_id=class_id)
+    client.post(
+        f"/api/v1/classes/{class_id}/members/import",
+        headers={**teacher, "Idempotency-Key": "score-proof-student"},
+        files={"file": ("one.xlsx", workbook_bytes([["2301001", "张三", "", "", ""]]))},
+    )
+    with sessions() as db:
+        student_id = db.scalar(select(ClassMembership.student_id))
+    question_id = seed_published_question(sessions, course_id)
+    due_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
+    unsupported_answer_question = seed_published_question(
+        sessions,
+        course_id,
+        question_id="question-b-invalid-answer",
+        answer=[{"not": "a scoreable answer"}],
+    )
+    invalid_source = client.post(
+        "/api/v1/assignments",
+        headers=teacher,
+        json={
+            "course_id": course_id,
+            "class_id": class_id,
+            "title": "不可判分的题库事实",
+            "due_at": due_at,
+            "questions": [{"question_id": unsupported_answer_question}],
+        },
+    )
+    assert invalid_source.status_code == 422
+    assert invalid_source.json()["code"] == "QUESTION.FROZEN_ANSWER_INVALID"
+
+    forged_task = client.post(
+        "/api/v1/assignments",
+        headers=teacher,
+        json={
+            "course_id": course_id,
+            "class_id": class_id,
+            "title": "伪造快照作业",
+            "due_at": due_at,
+            "questions": [{"question_id": question_id, "question_version": "browser-v1", "question_snapshot": {"answer": ["B"]}, "max_score": 999}],
+        },
+    )
+    assert forged_task.status_code == 422
+
+    assignment = client.post(
+        "/api/v1/assignments",
+        headers=teacher,
+        json={"course_id": course_id, "class_id": class_id, "title": "服务端评分作业", "due_at": due_at, "questions": [{"question_id": question_id}]},
+    )
+    assert assignment.status_code == 201, assignment.text
+    assignment_id = assignment.json()["assignment_id"]
+    with sessions() as db:
+        frozen_ref = db.scalar(select(AssignmentQuestionRef).where(AssignmentQuestionRef.assignment_id == assignment_id))
+        original_snapshot = dict(frozen_ref.question_snapshot)
+        assert frozen_ref.question_id == question_id
+        assert len(frozen_ref.question_version) == 64
+        assert frozen_ref.question_snapshot["contract"] == "teaching-frozen-question/v1"
+        assert frozen_ref.question_snapshot["max_score"] == 10
+    assert client.post(f"/api/v1/assignments/{assignment_id}/publish", headers=teacher).status_code == 200
+    student = headers("teaching.assignment.submit", student_id=student_id, teacher_id="", course_id=course_id, class_id=class_id)
+
+    forged_submission = client.post(
+        f"/api/v1/assignments/{assignment_id}/submit",
+        headers=student,
+        json={"answers": {question_id: "A"}, "raw_score": 100, "max_score": 100, "source_proof": {"issuer": "browser"}},
+    )
+    assert forged_submission.status_code == 422
+    with sessions() as db:
+        assert not list(db.scalars(select(TeachingScoreProof)))
+
+        # The submission path must also distrust a database-side edit of the
+        # frozen answer/snapshot when its version hash no longer matches.
+        frozen_ref = db.scalar(select(AssignmentQuestionRef).where(AssignmentQuestionRef.assignment_id == assignment_id))
+        frozen_ref.question_snapshot = {**frozen_ref.question_snapshot, "answer": ["B"]}
+        db.commit()
+
+    tampered_snapshot = client.post(
+        f"/api/v1/assignments/{assignment_id}/submit",
+        headers=student,
+        json={"answers": {question_id: "A"}},
+    )
+    assert tampered_snapshot.status_code == 409
+    assert tampered_snapshot.json()["code"] == "TEACHING.FROZEN_QUESTION_INVALID"
+    with sessions() as db:
+        frozen_ref = db.scalar(select(AssignmentQuestionRef).where(AssignmentQuestionRef.assignment_id == assignment_id))
+        frozen_ref.question_snapshot = original_snapshot
+        db.commit()
+
+    submitted = client.post(f"/api/v1/assignments/{assignment_id}/submit", headers=student, json={"answers": {question_id: "A"}})
+    assert submitted.status_code == 201, submitted.text
+    assert submitted.json()["raw_score"] == submitted.json()["max_score"] == 10
+    with sessions() as db:
+        proof_row = db.scalar(select(TeachingScoreProof))
+        verify_teaching_score_proof(db, proof_row.proof_id)
+        proof_event = db.get(DomainEventOutbox, proof_row.score_proof_event_id)
+        score_event = db.get(DomainEventOutbox, proof_row.score_event_id)
+        assert proof_event.event_type == "grading.score.proof.frozen"
+        assert proof_event.actor_user_id == "service_teaching_score_prover"
+        assert (proof_event.aggregate_type, proof_event.aggregate_id) == ("assignment_submission", submitted.json()["submission_id"])
+        assert score_event.event_type == "assignment.submitted"
+        assert proof_event.occurred_at + timedelta(seconds=1) == score_event.occurred_at
+        assert score_event.payload_json["score_proof_event_id"] == proof_event.event_id
+        assert "source_proof" not in score_event.payload_json
+        proof = proof_event.payload_json["source_proof"]
+        assert proof["contract"] == "grading-score-proof/v1"
+        assert proof["issuer"] == "teaching-core"
+        assert proof["origin"] == "SERVER_GRADED"
+        assert proof["evidence_type"] == "ASSIGNMENT_FROZEN_QUESTION_SET"
+        assert proof["source_event_id"] == score_event.event_id
+        assert proof["source_fact_id"] == submitted.json()["submission_id"]
+        assert proof["frozen_question_sha256"] == sha256_json(proof_row.frozen_question_evidence_json)
+        assert proof["answer_evidence_sha256"] == sha256_json(proof_row.answer_evidence_json)
+        assert proof["scoring_evidence_sha256"] == sha256_json(proof_row.scoring_evidence_json)
+        assert proof["score_payload_sha256"] == score_payload_sha256(
+            event_id=score_event.event_id,
+            event_type="assignment.submitted",
+            aggregate_id=assignment_id,
+            payload=score_event.payload_json,
+            proof=proof,
+            raw=Decimal(str(score_event.payload_json["raw_score"])),
+            maximum=Decimal(str(score_event.payload_json["max_score"])),
+        )
+
+        source_submission = db.get(AssignmentSubmission, submitted.json()["submission_id"])
+        original_answers = dict(source_submission.answers_json)
+        source_submission.answers_json = {proof_row.answer_evidence_json[0]["question_ref_id"]: "B"}
+        db.commit()
+        with pytest.raises(ApiError) as tampered_saved_answer:
+            verify_teaching_score_proof(db, proof_row.proof_id)
+        assert tampered_saved_answer.value.code == "TEACHING.SCORE_PROOF_TAMPERED"
+
+        source_submission.answers_json = original_answers
+        db.commit()
+
+        original_hash = proof_row.answer_evidence_sha256
+        proof_row.answer_evidence_sha256 = "0" * 64
+        db.commit()
+        with pytest.raises(ApiError) as tampered_proof:
+            verify_teaching_score_proof(db, proof_row.proof_id)
+        assert tampered_proof.value.code == "TEACHING.SCORE_PROOF_TAMPERED"
+
+        proof_row.answer_evidence_sha256 = original_hash
+        original_proof_payload = proof_event.payload_json
+        proof_event.payload_json = {**proof_event.payload_json, "course_id": "tampered-course"}
+        db.commit()
+        with pytest.raises(ApiError) as tampered_proof_event:
+            verify_teaching_score_proof(db, proof_row.proof_id)
+        assert tampered_proof_event.value.code == "TEACHING.SCORE_PROOF_TAMPERED"
+
+        proof_event.payload_json = original_proof_payload
+        score_event.payload_json = {**score_event.payload_json, "raw_score": 0.0}
+        db.commit()
+        with pytest.raises(ApiError) as tampered_outbox:
+            verify_teaching_score_proof(db, proof_row.proof_id)
+        assert tampered_outbox.value.code == "TEACHING.SCORE_PROOF_TAMPERED"
+
+        # A retry must not turn a legacy/no-proof submission back into an
+        # accepted client-visible score.  This is the fail-closed migration
+        # boundary for old insecure submission rows.
+        db.delete(proof_row)
+        db.commit()
+
+    legacy_replay = client.post(
+        f"/api/v1/assignments/{assignment_id}/submit",
+        headers=student,
+        json={"answers": {question_id: "A"}},
+    )
+    assert legacy_replay.status_code == 409
+    assert legacy_replay.json()["code"] == "TEACHING.LEGACY_SCORE_UNVERIFIED"
 
 
 def test_teacher_cannot_access_another_class_and_student_cannot_publish(test_context):

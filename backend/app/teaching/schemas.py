@@ -60,13 +60,20 @@ class PollAnswerIn(BaseModel):
 
 
 class QuestionRefIn(BaseModel):
-    question_id: str
-    question_version: str = Field(max_length=40)
-    question_snapshot: dict[str, Any]
-    max_score: int = Field(gt=0, le=1000)
+    """Only lets a teacher select an already published B question.
+
+    Version, snapshot and points are frozen from the server-side question bank
+    by A.  Letting a browser provide them would make a grading proof circular.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: str = Field(min_length=1, max_length=36)
 
 
 class AssignmentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     course_id: str
     class_id: str
     lesson_id: str | None = None
@@ -77,12 +84,14 @@ class AssignmentCreate(BaseModel):
 
 
 class SubmissionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     answers: dict[str, Any]
-    raw_score: float = Field(ge=0)
-    max_score: float = Field(gt=0)
 
 
 class QuizCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     course_id: str
     class_id: str
     lesson_id: str | None = None
@@ -93,6 +102,6 @@ class QuizCreate(BaseModel):
 
 
 class QuizSubmitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     answers: dict[str, Any]
-    raw_score: float = Field(ge=0)
-    max_score: float = Field(gt=0)

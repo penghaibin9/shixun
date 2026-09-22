@@ -12638,6 +12638,7 @@
             "title": "Questions"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "course_id",
@@ -14425,33 +14426,18 @@
         "properties": {
           "question_id": {
             "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Question Id"
-          },
-          "question_version": {
-            "type": "string",
-            "maxLength": 40,
-            "title": "Question Version"
-          },
-          "question_snapshot": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Question Snapshot"
-          },
-          "max_score": {
-            "type": "integer",
-            "maximum": 1000.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Max Score"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "question_id",
-          "question_version",
-          "question_snapshot",
-          "max_score"
+          "question_id"
         ],
-        "title": "QuestionRefIn"
+        "title": "QuestionRefIn",
+        "description": "Only lets a teacher select an already published B question.\n\nVersion, snapshot and points are frozen from the server-side question bank\nby A.  Letting a browser provide them would make a grading proof circular."
       },
       "QuestionResponse": {
         "properties": {
@@ -14885,6 +14871,7 @@
             "title": "Questions"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "course_id",
@@ -14901,23 +14888,12 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Answers"
-          },
-          "raw_score": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Raw Score"
-          },
-          "max_score": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
-            "title": "Max Score"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "answers",
-          "raw_score",
-          "max_score"
+          "answers"
         ],
         "title": "QuizSubmitIn"
       },
@@ -16038,23 +16014,12 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Answers"
-          },
-          "raw_score": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Raw Score"
-          },
-          "max_score": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
-            "title": "Max Score"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "answers",
-          "raw_score",
-          "max_score"
+          "answers"
         ],
         "title": "SubmissionIn"
       },

@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "authority_contracts": {
     "curriculum": {
       "owner": "A",
@@ -33,6 +33,13 @@
       "proof_fact_table": "grade_score_proof",
       "proof_producer_actor_user_id": "service_teaching_score_prover",
       "rule": "F 只把与同一不可变 domain_event_outbox 逐字段相符且通过事件类型范围校验的事实计入成绩册；作业和测验还必须引用由固定服务端生产者 service_teaching_score_prover 的独立 grading.score.proof.frozen 事件创建的持久化证明事实，校验冻结题目、答题与判分摘要。旧的未证明事实保留可追溯，但不参与重算。"
+    },
+    "teaching_score_provenance": {
+      "owner": "A",
+      "table": "teaching_score_proof",
+      "proof_event_type": "grading.score.proof.frozen",
+      "proof_producer_actor_user_id": "service_teaching_score_prover",
+      "rule": "A 只从 B 的独立审核且已发布题目冻结服务端题目版本、分值和判分依据；作业或测验提交只接受作答，A 将提交/作答、冻结题集、答题与判分证据、独立证明事件和最终成绩事件同事务写入。无证明或摘要不一致的历史提交不作为可复核成绩重放。"
     }
   },
   "owners": {
@@ -68,6 +75,7 @@
       "quiz_attempt",
       "quiz_question_ref",
       "teaching_import_job",
+      "teaching_score_proof",
       "teaching_teacher_assignment"
     ],
     "B": [

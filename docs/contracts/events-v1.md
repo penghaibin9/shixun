@@ -16,6 +16,12 @@ C 线新增事件：`lab.definition.created`、`lab.version.cloned`、`lab.versi
 
 `lab.release.published` 必须携带 `lab_version_id`、`course_id`、`class_id`、`status` 和发布时的 `spec_snapshot`（规范快照）；D 使用该快照登记 `runtime_release_read_model`，不得在事件消费时读取 C 的业务表。
 
+## A 作业与测验服务端评分事实（冻结）
+
+A 创建作业或测验只接受 B 题库中独立审核、已发布题目的 `question_id`（题目标识）。题目版本、快照、标准答案、选项和每题分值都在 A 服务端冻结；浏览器给出的快照、版本、分数或评分证明固定拒绝。提交只保存作答，A 从冻结题集和已保存作答计算原始分与满分，并在同一事务写入 A 自有的 `teaching_score_proof`（教学评分证明事实）、独立证明事件与最终成绩事件。
+
+`grading.score.proof.frozen` 的 `actor_user_id`（操作者标识）固定为 `service_teaching_score_prover`，聚合类型为 `assignment_submission`（作业提交）或 `quiz_attempt`（测验作答），聚合标识等于 `source_fact_id`（来源事实标识）。其载荷固定携带 `score_event_id`、`score_event_type`、`score_aggregate_id`、`source_fact_id`、课程/班级/课时/学生、服务端 `raw_score`（原始分）/`max_score`（满分）和 `source_proof`（来源证明）。`source_proof` 使用 `grading-score-proof/v1`，包含题目数、冻结题集/答题/判分摘要以及绑定最终事件和分数范围的 `score_payload_sha256`（评分载荷校验值）。证明事件发生时间固定早于同事务的最终成绩事件一秒；最终 `assignment.submitted` 或 `quiz.completed` 在正常成绩范围字段之外只携带 `score_proof_event_id`（评分证明事件标识）作为证明引用，不重复携带证明。完整字段与摘要计算规则见 `teaching-score-proof-v1.md`。
+
 F 消费 `attendance.completed`、`assignment.submitted`、`quiz.completed`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted`、`poll.completed`、`grading.score.proof.frozen`，并输出 `grade.event.created`、`gradebook.posted`、`course.archived`。`lab.submitted` 的 `source_id` 固定为提交事实标识，`lab_release_id` 固定为实验发布标识。归档门禁还记录 `course.roster.frozen` 和 `resource.delivery.frozen` 的只读证据，不复制 A/B 业务事实；名单冻结证据必须同时匹配 `course_id` 与 `class_id`。
 
 ## F 成绩来源证明（冻结）

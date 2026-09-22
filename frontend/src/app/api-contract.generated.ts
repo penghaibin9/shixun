@@ -3684,18 +3684,16 @@ export interface components {
             /** Explanation */
             explanation?: string | null;
         };
-        /** QuestionRefIn */
+        /**
+         * QuestionRefIn
+         * @description Only lets a teacher select an already published B question.
+         *
+         *     Version, snapshot and points are frozen from the server-side question bank
+         *     by A.  Letting a browser provide them would make a grading proof circular.
+         */
         QuestionRefIn: {
             /** Question Id */
             question_id: string;
-            /** Question Version */
-            question_version: string;
-            /** Question Snapshot */
-            question_snapshot: {
-                [key: string]: unknown;
-            };
-            /** Max Score */
-            max_score: number;
         };
         /** QuestionResponse */
         QuestionResponse: {
@@ -3836,10 +3834,6 @@ export interface components {
             answers: {
                 [key: string]: unknown;
             };
-            /** Raw Score */
-            raw_score: number;
-            /** Max Score */
-            max_score: number;
         };
         /** RecalculateInput */
         RecalculateInput: {
@@ -4225,10 +4219,6 @@ export interface components {
             answers: {
                 [key: string]: unknown;
             };
-            /** Raw Score */
-            raw_score: number;
-            /** Max Score */
-            max_score: number;
         };
         /** TemplateCreate */
         TemplateCreate: {

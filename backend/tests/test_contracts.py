@@ -109,6 +109,35 @@ def test_grade_event_provenance_is_frozen_in_database_and_openapi_contracts():
     assert "service_teaching_score_prover" in description
 
 
+def test_teaching_score_proof_and_request_boundaries_are_frozen():
+    ownership = json.loads((ROOT / "docs/contracts/database-ownership-v1.json").read_text(encoding="utf-8"))
+    provenance = ownership["authority_contracts"]["teaching_score_provenance"]
+    assert provenance["owner"] == "A"
+    assert provenance["table"] == "teaching_score_proof"
+    assert provenance["proof_event_type"] == "grading.score.proof.frozen"
+    assert provenance["proof_producer_actor_user_id"] == "service_teaching_score_prover"
+
+    proof_table = Base.metadata.tables["teaching_score_proof"]
+    assert {
+        "source_fact_id", "score_event_id", "score_proof_event_id",
+        "frozen_question_evidence_json", "answer_evidence_json", "scoring_evidence_json",
+        "score_payload_sha256",
+    } <= set(proof_table.columns.keys())
+    assert "ix_teaching_score_proof_scope" in {index.name for index in proof_table.indexes}
+    assert Base.metadata.tables["assignment_question_ref"].columns["question_version"].type.length == 64
+    assert Base.metadata.tables["quiz_question_ref"].columns["question_version"].type.length == 64
+
+    openapi = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    schemas = openapi["components"]["schemas"]
+    question_ref = schemas["QuestionRefIn"]
+    assert question_ref["additionalProperties"] is False
+    assert set(question_ref["properties"]) == {"question_id"}
+    for schema_name in ("AssignmentCreate", "QuizCreate", "SubmissionIn", "QuizSubmitIn"):
+        assert schemas[schema_name]["additionalProperties"] is False
+    assert set(schemas["SubmissionIn"]["properties"]) == {"answers"}
+    assert set(schemas["QuizSubmitIn"]["properties"]) == {"answers"}
+
+
 def test_lesson_resource_is_only_a_resource_extension_of_a_curriculum():
     columns = set(Base.metadata.tables["lesson_resource"].columns.keys())
     assert {"course_id", "lesson_id", "purpose", "environment", "principle", "steps_summary"} <= columns

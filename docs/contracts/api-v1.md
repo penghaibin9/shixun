@@ -44,6 +44,12 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 
 新增成员和 XLSX（电子表格）导入只接受学号与姓名，服务端按已有、启用的 `student_profile` 解析全局 `student_id`；客户端不得提交学生标识。未知/停用学号、姓名冲突和历史身份冲突会保留在导入任务逐行错误中，并写入可审计身份核对事项；同一学号加入不同班级时必须复用同一 `student_id`。
 
+## A 作业、测验与服务端评分
+
+`POST /api/v1/assignments` 与 `POST /api/v1/quizzes` 的每个题目选择只接受已发布题目的 `question_id`（题目标识）。客户端传入 `question_version`（题目版本）、`question_snapshot`（题目快照）、`max_score`（满分）或其他未知字段固定返回 422（请求内容不合法）；A 从 B 的独立审核、已发布题目冻结版本、题目快照、分值和判分依据。未发布、跨课程、课时不匹配、重复、未独立审核或不可自动判分的题目均不创建教学任务。
+
+`POST /api/v1/assignments/{assignment_id}/submit` 与 `POST /api/v1/quizzes/{quiz_id}/attempts/{attempt_id}/submit` 只接受 `answers`（作答）。`raw_score`（原始分）、`max_score`（满分）、`source_proof`（来源证明）和其他未知字段固定拒绝；服务端基于冻结题集和保存的作答重新计算分数，创建 A 自有 `teaching_score_proof`（教学评分证明事实）及配对的事务事件箱记录。作业或测验的历史提交如果没有服务端证明，重放固定返回 `TEACHING.LEGACY_SCORE_UNVERIFIED`（历史评分不可复核），不会将旧的客户端评分作为安全成绩返回。详细事件字段与可复核摘要规则见 `docs/contracts/teaching-score-proof-v1.md`。
+
 ## 总控事件投递接口
 
 `POST /api/v1/integration/outbox/dispatch` 仅允许 `service_` 前缀的管理员服务身份并要求 `integration:dispatch` 权限。投递器从 `domain_event_outbox` 读取未发布事件：D 运行事件写入 E 课堂投影并送入 F 成绩事实，A/B 冻结事件送入 F 归档证据，C 的 `lab.release.published` 携带不可变实验规范快照写入 D 发布上下文。任一目标失败时事件保持未发布，可安全重试；各消费者按 `event_id` 幂等。

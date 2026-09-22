@@ -189,7 +189,9 @@ class AssignmentQuestionRef(Base):
     ref_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     assignment_id: Mapped[str] = mapped_column(ForeignKey("assignment.assignment_id", ondelete="CASCADE"), index=True)
     question_id: Mapped[str] = mapped_column(String(36))
-    question_version: Mapped[str] = mapped_column(String(40))
+    # This is a server-derived SHA256 of the frozen B question content, not a
+    # version supplied by the browser when the assignment is created.
+    question_version: Mapped[str] = mapped_column(String(64))
     question_snapshot: Mapped[dict] = mapped_column(JSON)
     max_score: Mapped[int] = mapped_column(Integer)
 
@@ -225,7 +227,9 @@ class QuizQuestionRef(Base):
     ref_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     quiz_id: Mapped[str] = mapped_column(ForeignKey("quiz.quiz_id", ondelete="CASCADE"), index=True)
     question_id: Mapped[str] = mapped_column(String(36))
-    question_version: Mapped[str] = mapped_column(String(40))
+    # This is a server-derived SHA256 of the frozen B question content, not a
+    # version supplied by the browser when the quiz is created.
+    question_version: Mapped[str] = mapped_column(String(64))
     question_snapshot: Mapped[dict] = mapped_column(JSON)
     max_score: Mapped[int] = mapped_column(Integer)
 
@@ -251,3 +255,47 @@ class QuizAnswer(Base):
     question_ref_id: Mapped[str] = mapped_column(ForeignKey("quiz_question_ref.ref_id"))
     answer_json: Mapped[dict] = mapped_column(JSON)
     score: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
+
+
+class TeachingScoreProof(Base):
+    """A-owned, immutable evidence for a server-calculated assignment/quiz score.
+
+    The record is deliberately separate from F's gradebook proof projection.  A
+    writes it in the same transaction as the submission/attempt and its two
+    outbox events; F consumes the proof event independently before accepting the
+    score event.
+    """
+
+    __tablename__ = "teaching_score_proof"
+    __table_args__ = (
+        UniqueConstraint("source_fact_id", name="uq_teaching_score_proof_source_fact"),
+        UniqueConstraint("score_event_id", name="uq_teaching_score_proof_score_event"),
+        UniqueConstraint("score_proof_event_id", name="uq_teaching_score_proof_event"),
+        Index("ix_teaching_score_proof_scope", "course_id", "class_id", "student_id"),
+    )
+
+    proof_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    source_type: Mapped[str] = mapped_column(String(32))
+    source_fact_id: Mapped[str] = mapped_column(String(36))
+    score_event_id: Mapped[str] = mapped_column(String(36))
+    score_proof_event_id: Mapped[str] = mapped_column(String(36))
+    score_aggregate_id: Mapped[str] = mapped_column(String(36))
+    course_id: Mapped[str] = mapped_column(String(36), index=True)
+    class_id: Mapped[str] = mapped_column(String(36), index=True)
+    lesson_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    student_id: Mapped[str] = mapped_column(String(36), index=True)
+    raw_score: Mapped[float] = mapped_column(Numeric(8, 2))
+    max_score: Mapped[float] = mapped_column(Numeric(8, 2))
+    contract: Mapped[str] = mapped_column(String(64))
+    issuer: Mapped[str] = mapped_column(String(48))
+    origin: Mapped[str] = mapped_column(String(32))
+    evidence_type: Mapped[str] = mapped_column(String(64))
+    frozen_question_count: Mapped[int] = mapped_column(Integer)
+    frozen_question_sha256: Mapped[str] = mapped_column(String(64))
+    answer_evidence_sha256: Mapped[str] = mapped_column(String(64))
+    scoring_evidence_sha256: Mapped[str] = mapped_column(String(64))
+    score_payload_sha256: Mapped[str] = mapped_column(String(64))
+    frozen_question_evidence_json: Mapped[list] = mapped_column(JSON)
+    answer_evidence_json: Mapped[list] = mapped_column(JSON)
+    scoring_evidence_json: Mapped[list] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
