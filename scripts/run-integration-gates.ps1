@@ -106,10 +106,15 @@ try {
   Set-GateDatabase $coreDatabase
   & $python -m app.labs.seed
   if ($LASTEXITCODE -ne 0) { throw 'Canonical RSA catalog seed failed' }
+  $env:YUEKE_GATE_API_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_RUNTIME_BASE_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_TEACHING_BASE_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_GRADING_BASE_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_LAB_CATALOG_URL = 'http://127.0.0.1:18013'
   $env:E2E_REAL_API = '1'
   Push-Location (Join-Path $repoRoot 'frontend')
   try {
-    npx playwright test e2e/teaching-core.spec.ts e2e/course-resources-live.spec.ts e2e/lab-designer-g3.spec.ts --reporter=line
+    npx playwright test e2e/teaching-core.spec.ts e2e/course-resources-live.spec.ts e2e/lab-designer-g3.spec.ts --config=playwright.grading.config.ts --reporter=line
     if ($LASTEXITCODE -ne 0) { throw 'G1-G3 browser gates failed' }
   } finally {
     Pop-Location
@@ -124,18 +129,21 @@ try {
   & (Join-Path $repoRoot 'scripts/run-grading-gate.ps1') -DatabaseName $gradingDatabase
 
   $g5Status = if ($StartLocalRuntimeAgent) { 'PARTIAL' } else { 'PASS' }
+  $engineeringGateStatus = if ($g5Status -eq 'PASS') { 'PASS' } else { 'PARTIAL' }
+  $browserGates = if ($g5Status -eq 'PASS') { 'G1-G8' } else { 'G1-G4,G6-G8; G5 PARTIAL' }
+  $dockerRuntime = if ($g5Status -eq 'PASS') { 'G4-G6 PASS' } else { 'G4/G6 PASS; G5 PARTIAL' }
   [ordered]@{
-    engineering_gate_status = if ($g5Status -eq 'PASS') { 'PASS' } else { 'PARTIAL' }
+    engineering_gate_status = $engineeringGateStatus
     procurement_content_status = 'PASS_AUTOMATED'
-    procurement_content_reason = '37 份理论课件、196 道题、12 套实验文件包和 49 个真实讲解视频已通过自动化内容门禁；外部教研专家人工抽检不在本次工程验收内。'
+    procurement_content_reason = 'Automated corpus gates passed; external teaching-expert review was not run.'
     production_acceptance = 'NOT_RUN'
     run_id = $RunId
     backend_regression = 'PASS'
     frontend_contracts = 'PASS'
     frontend_unit_tests = 'PASS'
     frontend_build = 'PASS'
-    browser_gates = if ($g5Status -eq 'PASS') { 'G1-G8' } else { 'G1-G4,G6-G8; G5 PARTIAL' }
-    docker_runtime = if ($g5Status -eq 'PASS') { 'G4-G6 PASS' } else { 'G4/G6 PASS; G5 PARTIAL' }
+    browser_gates = $browserGates
+    docker_runtime = $dockerRuntime
     g5_terminal = $g5Status
     runtime_agent_url = $RuntimeAgentUrl
     runtime_agent_started_locally = $StartLocalRuntimeAgent

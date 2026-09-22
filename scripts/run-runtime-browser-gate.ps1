@@ -50,11 +50,11 @@ try {
   $env:YUEKE_GATE_NODE_AGENT_URL = $agentUrlNormalized
   $env:YUEKE_INTERNAL_RUNTIME_TOKEN = [guid]::NewGuid().ToString('N')
   $env:YUEKE_LAB_CATALOG_TOKEN = [guid]::NewGuid().ToString('N')
-  $env:YUEKE_LAB_CATALOG_URL = 'http://127.0.0.1:18003'
-  $env:YUEKE_RUNTIME_BASE_URL = 'http://127.0.0.1:18003'
-  $env:YUEKE_TEACHING_BASE_URL = 'http://127.0.0.1:18003'
-  $env:YUEKE_GRADING_BASE_URL = 'http://127.0.0.1:18003'
-  $env:YUEKE_GATE_API_URL = 'http://127.0.0.1:18003'
+  $env:YUEKE_LAB_CATALOG_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_RUNTIME_BASE_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_TEACHING_BASE_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_GRADING_BASE_URL = 'http://127.0.0.1:18013'
+  $env:YUEKE_GATE_API_URL = 'http://127.0.0.1:18013'
   $env:E2E_REAL_RUNTIME = '1'
   $imageId = docker image inspect python:3.11-bookworm --format '{{.Id}}'
   if (-not $imageId.StartsWith('sha256:')) { throw 'Pinned Python OpenSSL image is missing' }
@@ -75,9 +75,9 @@ try {
   Push-Location (Join-Path $repoRoot 'frontend')
   try {
     # 学生真实启动/终端用例会留下管理员页所需的镜像、节点和已销毁实例事实，必须先串行完成。
-    npx playwright test e2e/lab-runtime-live.spec.ts --reporter=line
+    npx playwright test e2e/lab-runtime-live.spec.ts --config=playwright.grading.config.ts --reporter=line
     if ($LASTEXITCODE -ne 0) { throw 'Student runtime browser gate failed' }
-    npx playwright test e2e/lab-runtime-admin.spec.ts --reporter=line
+    npx playwright test e2e/lab-runtime-admin.spec.ts --config=playwright.grading.config.ts --reporter=line
     if ($LASTEXITCODE -ne 0) { throw 'Administrator runtime browser gate failed' }
   } finally {
     Pop-Location
