@@ -26,6 +26,8 @@ class ClassroomService:
         if permission not in self.user.permissions: raise ApiError("AUTH.FORBIDDEN", "没有执行此操作的权限", 403)
     def require_class(self, class_id: str):
         if class_id not in self.user.class_ids: raise ApiError("AUTH.SCOPE_DENIED", "无权访问该班级", 403)
+    def require_course(self, course_id: str):
+        if course_id not in self.user.course_ids: raise ApiError("AUTH.SCOPE_DENIED", "无权访问该课程", 403)
     def require_student(self) -> str:
         if not self.user.student_id: raise ApiError("AUTH.STUDENT_REQUIRED", "当前身份没有关联学生", 403)
         return self.user.student_id
@@ -35,6 +37,7 @@ class ClassroomService:
     def _release_context(self, release_id: str) -> dict:
         data = self.gateways.runtime.request("GET", f"/api/v1/runtime/lab-releases/{release_id}/summary", self.user)
         self.require_class(data["class_id"])
+        self.require_course(data["course_id"])
         return data
 
     def _class_members(self, class_id: str) -> list[dict]:
@@ -180,6 +183,7 @@ class ClassroomService:
 
     def audit_logs(self, params: dict):
         self.require("classroom.logs.read")
+        self._validate_log_scope(params)
         runtime_items, f_items, pending = [], [], []
         try: runtime_items = self.gateways.runtime.request("GET", "/api/v1/runtime/logs/audit", self.user, params=params).get("items", [])
         except ApiError as exc:
@@ -193,17 +197,49 @@ class ClassroomService:
         items = runtime_items + f_items
         return {"items": items, "page": 1, "page_size": len(items), "total": len(items), "dependencies": {name: ("PENDING" if name in pending else "READY") for name in ("D", "F")}}
     def traffic_logs(self, params: dict):
-        self.require("classroom.logs.read"); return self.gateways.runtime.request("GET", "/api/v1/runtime/logs/traffic", self.user, params=params)
+        self.require("classroom.logs.read"); self._validate_log_scope(params)
+        return self.gateways.runtime.request("GET", "/api/v1/runtime/logs/traffic", self.user, params=params)
+
+    def _validate_log_scope(self, params: dict) -> None:
+        class_id = str(params.get("class_id") or "").strip()
+        release_id = str(params.get("lab_release_id") or "").strip()
+        if not class_id or not release_id:
+            raise ApiError("LOG_QUERY.SCOPE_REQUIRED", "查看教学日志必须指定班级和实验发布", 422)
+        self.require_class(class_id)
+        context = self._release_context(release_id)
+        if context["class_id"] != class_id:
+            raise ApiError("LOG_QUERY.RELEASE_SCOPE_MISMATCH", "实验发布不属于所选班级", 422)
     def artifact_download(self, artifact_id: str):
         self.require("classroom.logs.download")
         artifact = self.gateways.runtime.request("GET", f"/api/v1/runtime/log-artifacts/{artifact_id}", self.user); self.require_class(artifact["class_id"])
         return self.gateways.runtime.request("POST", f"/api/v1/runtime/log-artifacts/{artifact_id}/download-url", self.user)
 
     def create_distribution(self, body: DistributionCreate, key: str):
-        self.require("classroom.logs.distribute"); self.require_class(body.class_id)
+        self.require("classroom.logs.distribute"); self.require_class(body.class_id); self.require_course(body.course_id)
         if not key: raise ApiError("REQUEST.IDEMPOTENCY_REQUIRED", "日志分发必须提供 Idempotency-Key", 400)
+        if len(key) > 128: raise ApiError("REQUEST.IDEMPOTENCY_INVALID", "幂等键最多 128 个字符", 422)
+        if len(set(body.target_student_ids)) != len(body.target_student_ids):
+            raise ApiError("LOG_DISTRIBUTION.DUPLICATE_TARGET", "目标学生不能重复", 422)
         previous = self.repo.distribution_by_key(body.class_id, key)
-        if previous: return self.distribution(previous.distribution_id)
+        if previous:
+            assignments = self.repo.distribution_assignments(previous.distribution_id)
+            same_request = (
+                previous.course_id == body.course_id
+                and previous.lab_release_id == body.lab_release_id
+                and previous.distribution_type == body.distribution_type
+                and previous.source_filter_json == body.source_filter
+                and previous.requested_count == body.requested_count
+                and previous.title == body.title
+                and previous.instruction == body.instruction
+                and previous.due_at == (body.due_at.replace(tzinfo=None) if body.due_at and body.due_at.tzinfo else body.due_at)
+                and {item.student_id for item in assignments} == set(body.target_student_ids)
+            )
+            if not same_request:
+                raise ApiError("REQUEST.IDEMPOTENCY_CONFLICT", "同一幂等键不能用于不同的日志分发请求", 409)
+            return self.distribution(previous.distribution_id)
+        context = self._release_context(body.lab_release_id)
+        if context["class_id"] != body.class_id or context["course_id"] != body.course_id:
+            raise ApiError("LOG_DISTRIBUTION.RELEASE_SCOPE_MISMATCH", "实验发布与所选课程或班级不一致", 422)
         member_ids, page = set(), 1
         while True:
             members = self.gateways.teaching.request("GET", f"/api/v1/classes/{body.class_id}/members", self.user, params={"page": page, "page_size": 100})
@@ -213,12 +249,21 @@ class ClassroomService:
         if not set(body.target_student_ids) <= member_ids: raise ApiError("LOG_DISTRIBUTION.TARGET_FORBIDDEN", "目标学生不属于本人任课班级", 403)
         endpoint = "/api/v1/runtime/logs/traffic" if body.distribution_type == "TRAFFIC" else "/api/v1/runtime/logs/audit"
         available = self.gateways.runtime.request("GET", endpoint, self.user, params={**body.source_filter, "class_id": body.class_id, "lab_release_id": body.lab_release_id, "page_size": body.requested_count})
-        artifacts = [item for item in available.get("items", []) if item.get("artifact_id")]
+        reference_key = "artifact_id" if body.distribution_type == "TRAFFIC" else "event_id"
+        artifacts, seen = [], set()
+        for item in available.get("items", []):
+            reference_id = item.get(reference_key)
+            if not reference_id or reference_id in seen:
+                continue
+            if item.get("class_id") != body.class_id or item.get("course_id") != body.course_id or item.get("lab_release_id") != body.lab_release_id:
+                raise ApiError("LOG_DISTRIBUTION.SOURCE_SCOPE_MISMATCH", "日志来源超出所选实验发布范围", 502)
+            seen.add(reference_id)
+            artifacts.append(item)
         if len(artifacts) < body.requested_count: raise ApiError("LOG_DISTRIBUTION.INSUFFICIENT_ARTIFACTS", "可用日志数量不足", 422, {"available": len(artifacts), "requested": body.requested_count})
         task = self.repo.add(m.TeachingLogDistributionTask(distribution_id=str(uuid4()), course_id=body.course_id, class_id=body.class_id, lab_release_id=body.lab_release_id, distribution_type=body.distribution_type, source_filter_json=body.source_filter, requested_count=body.requested_count, title=body.title, instruction=body.instruction, due_at=body.due_at, status="ASSIGNED", idempotency_key=key, created_by=self.user.user_id, created_at=now()))
-        for artifact in artifacts[:body.requested_count]: self.repo.add(m.TeachingLogDistributionItem(item_id=str(uuid4()), distribution_id=task.distribution_id, artifact_id=artifact["artifact_id"], source_system="D", source_student_id=artifact.get("student_id"), artifact_type=body.distribution_type, artifact_meta_json={k: artifact.get(k) for k in ("name", "size_bytes", "occurred_at")}))
+        for artifact in artifacts[:body.requested_count]: self.repo.add(m.TeachingLogDistributionItem(item_id=str(uuid4()), distribution_id=task.distribution_id, artifact_id=artifact[reference_key], source_system="D", source_student_id=artifact.get("student_id"), artifact_type=body.distribution_type, artifact_meta_json={k: artifact.get(k) for k in ("name", "event_type", "size_bytes", "occurred_at")}))
         for student_id in body.target_student_ids: self.repo.add(m.StudentLogAssignment(assignment_id=str(uuid4()), distribution_id=task.distribution_id, class_id=body.class_id, student_id=student_id, status="ASSIGNED", assigned_at=now(), downloaded_at=None))
-        enqueue_event(self.session, event_type="teaching.log.distributed", aggregate_type="teaching_log_distribution", aggregate_id=task.distribution_id, actor_user_id=self.user.user_id, idempotency_key=key, payload={"course_id": body.course_id, "class_id": body.class_id, "lab_release_id": body.lab_release_id, "target_student_ids": body.target_student_ids, "artifact_ids": [x["artifact_id"] for x in artifacts[:body.requested_count]]})
+        enqueue_event(self.session, event_type="teaching.log.distributed", aggregate_type="teaching_log_distribution", aggregate_id=task.distribution_id, actor_user_id=self.user.user_id, idempotency_key=key, payload={"course_id": body.course_id, "class_id": body.class_id, "lab_release_id": body.lab_release_id, "target_student_ids": body.target_student_ids, "source_reference_ids": [x[reference_key] for x in artifacts[:body.requested_count]]})
         self.audit("logs.distributed", task.distribution_id, {"course_id": body.course_id, "class_id": body.class_id, "lab_release_id": body.lab_release_id, "target_count": len(body.target_student_ids), "artifact_count": body.requested_count})
         self.session.commit(); return self.distribution(task.distribution_id)
     def distributions(self):

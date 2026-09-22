@@ -8,10 +8,36 @@ from app.common.context import UserContext
 from app.common.errors import ApiError
 
 
+# E exposes business permissions while D/A/F enforce their own frozen permissions.
+# Translate only the capability that the already-authorized E operation needs; never
+# forward a blanket service/admin permission to a downstream service.
+DOWNSTREAM_PERMISSION_MAP: dict[str, frozenset[str]] = {
+    "classroom.release.read": frozenset({"runtime.read", "teaching.members.read"}),
+    "classroom.runtime.remind": frozenset({"runtime.read", "runtime.remind"}),
+    "classroom.runtime.rejudge": frozenset({"runtime.read", "runtime.rejudge"}),
+    "classroom.runtime.extend": frozenset({"runtime.read", "runtime.extend"}),
+    "classroom.runtime.unlock": frozenset({"runtime.read", "runtime.unlock"}),
+    "classroom.runtime.rebuild": frozenset({"runtime.read", "runtime.rebuild"}),
+    "classroom.runtime.destroy": frozenset({"runtime.read", "runtime.destroy"}),
+    "classroom.release.extend-all": frozenset({"runtime.read", "runtime.extend"}),
+    "classroom.release.remind-idle": frozenset({"runtime.read", "runtime.remind"}),
+    "classroom.lab.start": frozenset({"runtime.read", "runtime.start", "teaching.members.read"}),
+    "classroom.lab.read": frozenset({"runtime.read", "teaching.members.read"}),
+    "classroom.lab.submit": frozenset({"runtime.read", "runtime.submit", "teaching.members.read"}),
+    "classroom.terminal.use": frozenset({"runtime.read", "runtime.terminal"}),
+    "classroom.terminal.assist": frozenset({"runtime.read", "runtime.terminal"}),
+    "classroom.logs.read": frozenset({"runtime.read", "audit:read"}),
+    "classroom.logs.download": frozenset({"runtime.read"}),
+    "classroom.logs.distribute": frozenset({"runtime.read", "teaching.members.read"}),
+    "classroom.logs.assignment.download": frozenset({"runtime.read"}),
+    "classroom.readmodel.read": frozenset({"teaching.members.read", "grading:read"}),
+}
+
+
 def downstream_headers(user: UserContext) -> dict[str, str]:
     permissions = set(user.permissions)
-    if permissions.intersection({"classroom.release.read", "classroom.lab.read", "classroom.logs.distribute", "classroom.readmodel.read"}):
-        permissions.add("teaching.members.read")
+    for permission in user.permissions:
+        permissions.update(DOWNSTREAM_PERMISSION_MAP.get(permission, ()))
     return {
         "X-User-Id": user.user_id,
         "X-Role": user.role,

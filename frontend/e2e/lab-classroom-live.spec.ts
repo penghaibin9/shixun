@@ -26,9 +26,10 @@ test('真实 MySQL 的 43 人课堂聚合、实时更新与教师处置', async 
   await expect(page.getByText('共 43 名学生')).toBeVisible()
   const kpis = page.locator('.kpi')
   await expect(kpis.nth(0)).toContainText('30')
-  await expect(kpis.nth(1)).toContainText('18')
-  await expect(kpis.nth(2)).toContainText('10')
-  await expect(kpis.nth(3)).toContainText('2 / 13')
+  await expect(kpis.nth(1)).toContainText('10')
+  await expect(kpis.nth(2)).toContainText('18')
+  await expect(kpis.nth(3)).toContainText('2')
+  await expect(kpis.nth(4)).toContainText('13')
   await expect(page.getByRole('row', { name: /验收学生43/ })).toContainText('未开始')
 
   const row = page.getByRole('row', { name: /验收学生11/ })
