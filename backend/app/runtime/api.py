@@ -3,10 +3,11 @@ from hashlib import sha256
 from os import getenv
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Path, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Header, Path, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 import websockets
 
 from app.common.context import CurrentUser, UserContext
@@ -15,7 +16,7 @@ from app.labs.database import create_session_factory, get_session
 
 from . import models
 from .catalog import LabCatalogClient
-from .schemas import DistributionBundleAuthorization, ImageRegister, NodeRegister, ReleaseContextInput, ReleaseStudentInput, RuntimeAction, RuntimeExtend, RuntimeFacadeAction, RuntimeHeartbeatResult, RuntimeMaintenanceResult, RuntimeMaintenanceRun, RuntimeQueueRetryResult, RuntimeStart, TerminalTokenInput
+from .schemas import ArtifactBundleRequest, DistributionBundleAuthorization, ImageRegister, NodeRegister, ReleaseContextInput, ReleaseStudentInput, RuntimeAction, RuntimeExtend, RuntimeFacadeAction, RuntimeHeartbeatResult, RuntimeMaintenanceResult, RuntimeMaintenanceRun, RuntimeQueueRetryResult, RuntimeStart, TerminalTokenInput
 from .service import RuntimeService, new_id, now
 
 router = APIRouter(prefix="/api/v1", tags=["实验运行时"])
@@ -297,26 +298,13 @@ def artifact_detail(artifact_id: str, request: Request, session: DbSession, user
 
 @router.post("/runtime/log-artifacts/{artifact_id}/download-url")
 def artifact_download_url(artifact_id: str, request: Request, session: DbSession, user: CurrentUser):
-    detail = artifact_detail(artifact_id, request, session, user)
-    base = getenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL")
-    if not base:
-        raise ApiError("RUNTIME.ARTIFACT_STORAGE_UNAVAILABLE", "制品存储下载服务尚未配置", 503, {"artifact_id": artifact_id})
-    return {"artifact_id": artifact_id, "download_url": f"{base.rstrip('/')}/{detail['file_id']}", "expires_in": 300}
+    result = service(request, session, user).direct_artifact_bundle([artifact_id])
+    return {"artifact_id": artifact_id, **result}
 
 
 @router.post("/runtime/log-artifacts/bundle-url")
-def artifact_bundle_url(data: dict, request: Request, session: DbSession, user: CurrentUser):
-    runtime = service(request, session, user)
-    runtime._permission("runtime.read")
-    base = getenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL")
-    if not base:
-        raise ApiError("RUNTIME.ARTIFACT_STORAGE_UNAVAILABLE", "制品打包下载服务尚未配置", 503)
-    artifact_ids = data.get("artifact_ids", [])
-    if not artifact_ids or len(artifact_ids) > 200:
-        raise ApiError("RUNTIME.INVALID_ARTIFACT_BUNDLE", "制品列表不能为空且最多 200 项", 422)
-    for artifact_id in artifact_ids:
-        artifact_detail(str(artifact_id), request, session, user)
-    return {"download_url": f"{base.rstrip('/')}/bundles/pending", "expires_in": 300, "artifact_count": len(artifact_ids), "status": "PENDING"}
+def artifact_bundle_url(data: ArtifactBundleRequest, request: Request, session: DbSession, user: CurrentUser):
+    return service(request, session, user).direct_artifact_bundle(data.artifact_ids)
 
 
 @router.post("/runtime/log-artifacts/distribution-bundle-url")
@@ -330,6 +318,28 @@ def distribution_artifact_bundle_url(
     if service_origin != "lab-classroom":
         raise ApiError("AUTH.SERVICE_ORIGIN_REQUIRED", "日志分发下载只接受实验课堂服务调用", 403)
     return service(request, session, user).distribution_artifact_bundle(data.authorization)
+
+
+@router.get(
+    "/artifact-storage/bundles/{assignment_id}",
+    response_class=FileResponse,
+    responses={200: {"description": "日志任务 ZIP 压缩包", "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}}}},
+)
+def download_artifact_bundle(
+    assignment_id: str,
+    request: Request,
+    session: DbSession,
+    user: CurrentUser,
+    capability: Annotated[str, Query(min_length=40, max_length=32768)],
+):
+    path = service(request, session, user).download_artifact_bundle(assignment_id, capability)
+    return FileResponse(
+        path,
+        media_type="application/zip",
+        filename=f"logs-{assignment_id}.zip",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        background=BackgroundTask(path.unlink, missing_ok=True),
+    )
 
 
 @router.websocket("/runtime-instances/{instance_id}/terminal")

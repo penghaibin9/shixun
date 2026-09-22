@@ -8,7 +8,7 @@
 | `/courses`、`/classes`、`/students`、`/attendance`、`/polls`、`/assignments`、`/quizzes` | A |
 | `/resources`、`/questions` | B |
 | `/labs`、`/lab-versions`、`/lab-releases` | C |
-| `/runtime`、`/runtime-instances`、`/infrastructure` | D |
+| `/runtime`、`/runtime-instances`、`/infrastructure`、`/artifact-storage` | D |
 | `/classroom`、`/teaching-logs` | E |
 | `/grading`、`/gradebook`、`/analytics`、`/audit`、`/archives` | F |
 
@@ -51,6 +51,12 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 学生通过 E 的 `GET /api/v1/teaching-logs/my-assignments/{assignment_id}/download` 请求本人日志任务。E 校验分配事实、学生身份、课程、班级和实验发布后，向 D 的内部接口 `POST /api/v1/runtime/log-artifacts/distribution-bundle-url` 提交最长 60 秒的签名授权。授权精确绑定 `assignment_id`、`distribution_id`、日志类型、学生、课程、班级、实验发布、引用集合和随机数；D 重新验证签名、有效期、学生范围以及每个运行日志源事实后，才换取独立的短期存储能力。
 
 该授权只使用 `runtime.distributed-artifact.download` 窄权限，不改变普通制品接口的实例所有权规则。跨学生、跨班级、跨实验发布、篡改引用和过期授权固定拒绝；同一授权重放返回相同能力并只追加一条 `runtime.artifact.distribution_download_authorized` 审计事件。E 与 D 共享的分发签名密钥和 D 与制品服务共享的存储签名密钥必须分离。
+
+D 签发的存储能力固定使用 `issuer=lab-runtime`、`audience=artifact-storage`，绑定下载账号、授权类型、任务或下载包标识、完整引用集合、每项 `file_id + sha256 + size_bytes`、随机数及不超过 120 秒的签发/过期时间。`GET /api/v1/artifact-storage/bundles/{assignment_id}` 消费该能力并返回真实 ZIP（压缩包）；下载时重新查询 D 源事实和公共 `file_object`（文件对象），逐项流式计算大小与 SHA256（文件校验值），任一登记缺失、元数据变化、文件缺失、摘要错误或路径越界即拒绝整包。同一能力重复下载只追加一条下载审计事件。审计日志分发按运行事件事实生成规范化 JSON（结构化数据）条目，不伪造 `file_object`。
+
+普通 `POST /api/v1/runtime/log-artifacts/{artifact_id}/download-url` 与 `POST /api/v1/runtime/log-artifacts/bundle-url` 使用同一存储端点和真实 ZIP（压缩包），能力绑定当前账号和精确引用集；下载端再次执行原有实例所有权校验，不能借普通下载跨学生或跨班级读取。
+
+流量采集落盘/导入契约：Node Agent（节点代理）只返回受控采集结果，控制面必须把文件导入 `YUEKE_RUNTIME_ARTIFACT_DIR` 指定的根目录（默认 `backend/var/runtime_artifacts`）并登记 `file_object`。登记固定为 `storage_provider=local`、`bucket=runtime-artifacts`，`object_key` 使用该根目录内的相对对象键（推荐直接使用 `file_id`）或解析后仍位于根目录内的绝对路径；`runtime_artifact.file_id/sha256/size_bytes` 必须逐项等于文件对象登记值。下载端不接受任意外部 URL（网址）、其他存储桶、符号链接解析后的越界路径或未登记文件。
 
 ## B 课程资源接口
 

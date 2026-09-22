@@ -65,6 +65,20 @@ def test_runtime_recovery_contract_is_typed_and_requires_idempotency():
     assert maintenance_body["content"]["application/json"]["schema"]["$ref"].endswith("/RuntimeMaintenanceRun")
 
 
+def test_artifact_storage_contract_exposes_real_zip_and_typed_bundle_request():
+    contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    download = contract["paths"]["/api/v1/artifact-storage/bundles/{assignment_id}"]["get"]
+    capability = next(item for item in download["parameters"] if item["name"] == "capability")
+    assert capability["required"] is True
+    assert capability["schema"]["minLength"] == 40
+    assert capability["schema"]["maxLength"] == 32768
+    assert download["responses"]["200"]["content"] == {
+        "application/zip": {"schema": {"type": "string", "format": "binary"}}
+    }
+    bundle_body = contract["paths"]["/api/v1/runtime/log-artifacts/bundle-url"]["post"]["requestBody"]
+    assert bundle_body["content"]["application/json"]["schema"]["$ref"].endswith("/ArtifactBundleRequest")
+
+
 def test_database_tables_have_exactly_one_frozen_owner():
     contract = json.loads((ROOT / "docs/contracts/database-ownership-v1.json").read_text(encoding="utf-8"))
     claimed = [table for tables in contract["owners"].values() for table in tables]

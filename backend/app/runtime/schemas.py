@@ -42,6 +42,18 @@ class DistributionBundleAuthorization(StrictModel):
     authorization: str = Field(min_length=40, max_length=32768)
 
 
+class ArtifactBundleRequest(StrictModel):
+    artifact_ids: list[str] = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def validate_artifact_ids(self):
+        if len(self.artifact_ids) != len(set(self.artifact_ids)):
+            raise ValueError("日志制品不能重复")
+        if any(not value or len(value) > 36 for value in self.artifact_ids):
+            raise ValueError("日志制品标识无效")
+        return self
+
+
 class DistributionDownloadClaims(StrictModel):
     version: Literal[1]
     issuer: Literal["lab-classroom"]
@@ -66,6 +78,53 @@ class DistributionDownloadClaims(StrictModel):
             raise ValueError("日志引用标识无效")
         if self.expires_at <= self.issued_at or self.expires_at - self.issued_at > 120:
             raise ValueError("日志下载授权有效期无效")
+        return self
+
+
+class ArtifactStorageReference(StrictModel):
+    reference_id: str = Field(min_length=1, max_length=36)
+    file_id: str | None = Field(default=None, min_length=1, max_length=36)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(ge=0)
+    original_name: str = Field(min_length=1, max_length=255)
+
+
+class ArtifactStorageClaims(StrictModel):
+    version: Literal[1]
+    issuer: Literal["lab-runtime"]
+    audience: Literal["artifact-storage"]
+    grant_type: Literal["DISTRIBUTION", "DIRECT"]
+    assignment_id: str = Field(min_length=1, max_length=36)
+    distribution_id: str | None = Field(default=None, min_length=1, max_length=36)
+    distribution_type: Literal["AUDIT", "TRAFFIC"]
+    subject_user_id: str = Field(min_length=1, max_length=36)
+    subject_role: Literal["teacher", "student", "admin"]
+    student_id: str | None = Field(default=None, min_length=1, max_length=36)
+    course_id: str | None = Field(default=None, min_length=1, max_length=36)
+    class_id: str | None = Field(default=None, min_length=1, max_length=36)
+    lab_release_id: str | None = Field(default=None, min_length=1, max_length=36)
+    references: list[ArtifactStorageReference] = Field(min_length=1, max_length=200)
+    reference_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    nonce: str = Field(min_length=16, max_length=64)
+    issued_at: int = Field(ge=0)
+    expires_at: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_claims(self):
+        reference_ids = [item.reference_id for item in self.references]
+        if len(reference_ids) != len(set(reference_ids)):
+            raise ValueError("日志引用不能重复")
+        if self.distribution_type == "TRAFFIC" and any(item.file_id is None for item in self.references):
+            raise ValueError("流量日志必须绑定文件对象")
+        if self.distribution_type == "AUDIT" and any(item.file_id is not None for item in self.references):
+            raise ValueError("审计日志不能冒充文件制品")
+        if self.grant_type == "DISTRIBUTION":
+            if self.subject_role != "student" or not all((self.distribution_id, self.student_id, self.course_id, self.class_id, self.lab_release_id)):
+                raise ValueError("日志分发能力范围不完整")
+        elif self.distribution_type != "TRAFFIC":
+            raise ValueError("普通制品下载仅支持文件制品")
+        if self.expires_at <= self.issued_at or self.expires_at - self.issued_at > 120:
+            raise ValueError("存储下载能力有效期无效")
         return self
 
 
