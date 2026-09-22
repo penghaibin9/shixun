@@ -5,12 +5,13 @@
 ## 单学生闭环
 
 - G4：PASS。控制面真实创建独立内部网络和双容器实例组，并可查询运行状态。
-- G5：PARTIAL。浏览器同协议 WebSocket 使用首帧短期令牌进入非 root 学生容器并真实执行 OpenSSL 命令；同一令牌重放返回 4403。当前 Node Agent（节点代理）运行在 Windows Python（解释器）进程，尚未证明 Linux POSIX/PTTY（伪终端）尺寸实际变化、浏览器真实断线重连、过期令牌和跨实例令牌拒绝。
+- G5：PARTIAL。浏览器同协议 WebSocket 使用首帧短期令牌进入非 root 学生容器并真实执行 OpenSSL 命令；令牌重放、30 秒真实过期和跨实例使用均返回 4403。当前 Node Agent（节点代理）运行在 Windows Python（解释器）进程，尚未证明 Linux POSIX/PTTY（伪终端）尺寸实际变化。
 - G6：PASS。真实生成密钥、密文、解密结果、签名和报告；5 个检查点由独立、无网络、非 root 临时判定器执行，合计 100 分并写入 MySQL 与事件发件箱。
 - 网络：`student → business mysql = DENY`、`student A → student B = DENY`、`student → same-group target/grader = ALLOW`。
 - 恢复：重复启动保持同一请求；重建保留 100 分检查点事实；重复销毁成功且最终无残留跃科容器/网络。
+- 流量采集：PASS。门禁自动构建并锁定专用抓包镜像摘要，运行组创建后启动采集，重建和销毁前停止；控制面从受鉴权接口取回并登记 3 份真实 PCAP（抓包文件），大小分别为 606、5697、606 字节，下载 ZIP（压缩包）解压后的大小、格式和 SHA256（文件校验值）逐项复核一致。抓包侧车仅增加 `NET_RAW（原始网络包）` 能力，未使用特权模式、宿主目录或 Docker Socket（容器运行接口）挂载，门禁结束后容器、镜像与临时目录均已清理。
 
-执行入口：`scripts/run-runtime-gate.ps1`。可用 `-DatabaseName` 指定专属验收库，本次最终集成使用 `yueke_final_dev`。
+执行入口：`scripts/run-runtime-gate.ps1`。可用 `-DatabaseName` 指定专属验收库，本次采集闭环使用从空库执行全部迁移的 `yueke_d_capture_gate`。
 
 ## 单节点容量阶梯
 
@@ -28,10 +29,9 @@
 
 ## 尚未通过
 
-- 流量采集器未部署，capture RPC 返回 501；制品存储基地址未配置时下载/打包返回 503。
 - Node Agent（节点代理）仍以门禁进程运行，尚未安装为系统常驻服务。
 - 当前 Docker Desktop（容器桌面环境）未启用 Ubuntu WSL（适用于 Linux 的 Windows 子系统）集成；根安全规则禁止向容器挂载宿主 Docker Socket，因此不能以不合规方式伪造 Linux Node Agent 证据。
-- G5 严格门禁仍需在独立 Linux Node Agent 上验证 `stty size` 从 24x80 变为 30x100、断线后重新取令牌连接、过期令牌、跨实例令牌和重放拒绝。
+- G5 严格门禁仍需在独立 Linux Node Agent 上验证 `stty size` 从 24x80 变为 30x100；断线重连、过期、跨实例和重放拒绝已有独立证据。
 
 ## 集成收口
 

@@ -56,7 +56,9 @@ D 签发的存储能力固定使用 `issuer=lab-runtime`、`audience=artifact-st
 
 普通 `POST /api/v1/runtime/log-artifacts/{artifact_id}/download-url` 与 `POST /api/v1/runtime/log-artifacts/bundle-url` 使用同一存储端点和真实 ZIP（压缩包），能力绑定当前账号和精确引用集；下载端再次执行原有实例所有权校验，不能借普通下载跨学生或跨班级读取。
 
-流量采集落盘/导入契约：Node Agent（节点代理）只返回受控采集结果，控制面必须把文件导入 `YUEKE_RUNTIME_ARTIFACT_DIR` 指定的根目录（默认 `backend/var/runtime_artifacts`）并登记 `file_object`。登记固定为 `storage_provider=local`、`bucket=runtime-artifacts`，`object_key` 使用该根目录内的相对对象键（推荐直接使用 `file_id`）或解析后仍位于根目录内的绝对路径；`runtime_artifact.file_id/sha256/size_bytes` 必须逐项等于文件对象登记值。下载端不接受任意外部 URL（网址）、其他存储桶、符号链接解析后的越界路径或未登记文件。
+流量采集落盘/导入契约：Node Agent（节点代理）在运行组创建成功后接受 `POST /runtime-groups/{group_id}/capture/start`，控制面必须确认固定摘要抓包侧车已经进入 `CAPTURING（采集中）` 后才能把实验报告为 `RUNNING（运行中）`；启动失败必须回滚整个运行组。销毁、重建和恢复清理前，控制面调用 `POST /runtime-groups/{group_id}/capture/stop`，再通过受控制面身份保护的 `GET /runtime-groups/{group_id}/capture/artifact` 取回真实 PCAP（抓包文件）。停止响应、下载响应头和正文的运行组/采集标识、媒体类型、大小及 SHA256（文件校验值）必须全部相符；采集结束失败只记录明确失败，不能阻止随后销毁运行组。
+
+控制面把验证后的文件原子写入 `YUEKE_RUNTIME_ARTIFACT_DIR` 指定的绝对根目录（默认 `backend/var/runtime_artifacts`），对象键固定为内容寻址的 `traffic/{sha256}.pcap`，拒绝相对根目录、符号链接、路径越界、非普通文件、空包或摘要不符。公共 `file_object` 登记固定为 `storage_provider=local`、`bucket=runtime-artifacts`，并与 `runtime_artifact.file_id/sha256/size_bytes` 逐项一致；同一实例同一摘要幂等复用，不得重复登记。Node Agent 必须配置白名单内的 `YUEKE_AGENT_CAPTURE_DIGEST` 固定镜像摘要和独立的 `YUEKE_AGENT_CAPTURE_DIR`，不得使用特权容器或挂载宿主 Docker Socket（容器运行接口）。下载端不接受任意外部 URL（网址）、其他存储桶、符号链接解析后的越界路径或未登记文件。
 
 ## B 课程资源接口
 

@@ -5,8 +5,10 @@ import os
 import re
 from datetime import datetime, timezone
 from hashlib import sha256
+from io import BytesIO
 from uuid import uuid4
 from pathlib import Path
+from zipfile import ZipFile
 
 import httpx
 import websockets
@@ -15,6 +17,7 @@ BASE = os.getenv("YUEKE_GATE_API_URL", "http://127.0.0.1:18080")
 AGENT_URL = os.getenv("YUEKE_GATE_NODE_AGENT_URL", "http://127.0.0.1:19443").rstrip("/")
 EXPECT_POSIX_PTY = os.getenv("YUEKE_GATE_EXPECT_POSIX_PTY") == "1"
 DIGEST = os.environ["YUEKE_GATE_IMAGE_DIGEST"]
+PCAP_MAGICS = {b"\xd4\xc3\xb2\xa1", b"\x4d\x3c\xb2\xa1", b"\xa1\xb2\xc3\xd4", b"\xa1\xb2\x3c\x4d"}
 RUN = uuid4().hex[:8]
 TEACHER = {"X-User-Id": "teacher_d_gate", "X-Role": "teacher", "X-Teacher-Id": "teacher_d_gate", "X-Permissions": "labs.read,labs.write,labs.publish,labs.knowledge.write,runtime.read,runtime.preview,infrastructure.read,infrastructure.write", "X-Course-Ids": "course_data_security", "X-Class-Ids": "class_netsec_2301"}
 
@@ -119,6 +122,50 @@ def seconds_until_expiry(expires_at: str) -> float:
     if expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)
     return max((expiry - datetime.now(timezone.utc)).total_seconds() + 0.5, 0)
+
+
+async def verify_traffic_artifacts(
+    client: httpx.AsyncClient,
+    instance_id: str,
+    headers: dict[str, str],
+    expected_minimum: int,
+) -> list[dict]:
+    listed = checked(await client.get(f"/api/v1/runtime-instances/{instance_id}/traffic-artifacts", headers=headers))
+    artifacts = listed["items"]
+    if len(artifacts) < expected_minimum:
+        raise RuntimeError(f"真实流量制品数量不足: expected>={expected_minimum}, actual={len(artifacts)}")
+    verified = []
+    for artifact in artifacts:
+        if (
+            artifact.get("type") != "TRAFFIC"
+            or not re.fullmatch(r"[0-9a-f]{64}", artifact.get("sha256", ""))
+            or artifact.get("size_bytes", 0) <= 24
+        ):
+            raise RuntimeError(f"流量制品登记无效: {artifact}")
+        issued = checked(await client.post(
+            f"/api/v1/runtime/log-artifacts/{artifact['artifact_id']}/download-url",
+            headers=headers,
+        ))
+        downloaded = await client.get(issued["download_url"], headers=headers)
+        if downloaded.status_code != 200 or downloaded.headers.get("content-type", "").split(";", 1)[0] != "application/zip":
+            raise RuntimeError(f"流量制品下载失败: {downloaded.status_code} {downloaded.text[:200]}")
+        with ZipFile(BytesIO(downloaded.content)) as archive:
+            names = archive.namelist()
+            if len(names) != 1:
+                raise RuntimeError(f"单项流量制品下载包内容异常: {names}")
+            content = archive.read(names[0])
+        if (
+            len(content) != artifact["size_bytes"]
+            or sha256(content).hexdigest() != artifact["sha256"]
+            or content[:4] not in PCAP_MAGICS
+        ):
+            raise RuntimeError(f"下载的 PCAP 摘要、大小或格式与登记不一致: {artifact['artifact_id']}")
+        verified.append({
+            "artifact_id": artifact["artifact_id"],
+            "sha256": artifact["sha256"],
+            "size_bytes": artifact["size_bytes"],
+        })
+    return verified
 
 
 async def run_gate(starts: list[tuple[dict, dict, dict[str, str]]]) -> None:
@@ -233,13 +280,24 @@ echo NETWORK_DONE"""
         rebuilt = checked(await client.post(f"/api/v1/runtime-instances/{first_instance['runtime_instance_id']}/rebuild", headers=first_headers, json={"reason": "门禁恢复演练"}))
         if rebuilt["score"] != 100 or rebuilt["status"] != "RUNNING":
             raise RuntimeError("重建未保留检查点成绩")
-        for _, instance, headers in starts:
+        traffic_artifacts = []
+        for index, (_, instance, headers) in enumerate(starts):
+            traffic_output = await shell(
+                instance["runtime_instance_id"], headers,
+                "python3 -c \"import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.sendto(b'capture-gate',('target-rsa',9))\"\necho CAPTURE_TRAFFIC_READY",
+                "CAPTURE_TRAFFIC_READY",
+            )
+            if "CAPTURE_TRAFFIC_READY" not in traffic_output:
+                raise RuntimeError("未能生成销毁前真实实验网络流量")
             checked(await client.post(f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy", headers=headers, json={"reason": "门禁完成回收"}))
             second = checked(await client.post(f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy", headers=headers, json={"reason": "幂等重复回收"}))
             if second["status"] != "DESTROYED":
                 raise RuntimeError("幂等销毁失败")
+            traffic_artifacts.extend(await verify_traffic_artifacts(
+                client, instance["runtime_instance_id"], headers, 2 if index == 0 else 1,
+            ))
     g5 = "PASS" if resize_evidence["status"] == "PASS" else "PARTIAL"
-    print(json.dumps({"G4": "PASS", "G5": g5, "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "judge_types_executed": ["FILE_EXISTS", "FILE_HASH", "COMMAND_EXIT", "PORT_LISTEN", "HTTP_RESPONSE"], "symlink_evidence_rejected": True, "network": sorted(required), "terminal_websocket": "PASS", "terminal_resize": resize_evidence, "single_use_terminal_token": True, "wrong_instance_token_rejected": True, "expired_token_rejected": True, "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True}, ensure_ascii=False))
+    print(json.dumps({"G4": "PASS", "G5": g5, "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "judge_types_executed": ["FILE_EXISTS", "FILE_HASH", "COMMAND_EXIT", "PORT_LISTEN", "HTTP_RESPONSE"], "symlink_evidence_rejected": True, "network": sorted(required), "terminal_websocket": "PASS", "terminal_resize": resize_evidence, "single_use_terminal_token": True, "wrong_instance_token_rejected": True, "expired_token_rejected": True, "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True, "traffic_capture": {"status": "PASS", "artifacts": traffic_artifacts, "download_sha256_verified": True}}, ensure_ascii=False))
 
 
 async def cleanup_started(starts: list[tuple[dict, dict, dict[str, str]]]) -> None:
