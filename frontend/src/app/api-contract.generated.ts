@@ -3319,7 +3319,7 @@ export interface components {
             idempotency_key: string;
             /**
              * Payload
-             * @description 冻结上游载荷。作业和测验必须引用已由 grading.score.proof.frozen 持久化的 score_proof_event_id；自带摘要不能替代受控服务端证明。
+             * @description 冻结上游载荷。作业和测验必须引用已由 grading.score.proof.frozen 持久化的 score_proof_event_id；证明事件的 actor_user_id 固定为 service_teaching_score_prover，自带摘要不能替代受控服务端证明。
              */
             payload: {
                 [key: string]: unknown;
