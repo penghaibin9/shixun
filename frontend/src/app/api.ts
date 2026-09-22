@@ -217,6 +217,15 @@ export async function classroomApi<T>(path: string, role: 'teacher' | 'student' 
   return response.json() as Promise<T>
 }
 
+export async function classroomDownload(path: string, role: 'teacher' | 'student' = 'teacher'): Promise<Blob> {
+  const response = await fetch(path, { headers: classroomHeaders(role) })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ code: 'NETWORK.ERROR', message: '文件下载失败', request_id: '', details: {} }))
+    throw error as ApiError
+  }
+  return response.blob()
+}
+
 export function subscribeClassroomEvents(
   releaseId: string,
   onEvent: (event: unknown) => void,
