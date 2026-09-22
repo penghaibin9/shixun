@@ -1,11 +1,11 @@
-# D 线本地真实运行证据（2026-09-21）
+# D 线本地真实运行证据（2026-09-22）
 
 环境：Docker Engine 29.7.2（Linux 容器）、MySQL 8.4、固定镜像 `python:3.11-bookworm@sha256:35d3a4a3d5e42e02ab916d44513a050689f12c0533d45598d229672503fe77ca`。控制面通过带身份令牌的 Node Agent 操作本机引擎，未向 Web/API 暴露 Docker Socket。
 
 ## 单学生闭环
 
 - G4：PASS。控制面真实创建独立内部网络和双容器实例组，并可查询运行状态。
-- G5：PASS。浏览器同协议 WebSocket 使用首帧短期令牌进入非 root 学生容器，真实执行 OpenSSL 命令。
+- G5：PARTIAL。浏览器同协议 WebSocket 使用首帧短期令牌进入非 root 学生容器并真实执行 OpenSSL 命令；同一令牌重放返回 4403。当前 Node Agent（节点代理）运行在 Windows Python（解释器）进程，尚未证明 Linux POSIX/PTTY（伪终端）尺寸实际变化、浏览器真实断线重连、过期令牌和跨实例令牌拒绝。
 - G6：PASS。真实生成密钥、密文、解密结果、签名和报告；5 个检查点由独立、无网络、非 root 临时判定器执行，合计 100 分并写入 MySQL 与事件发件箱。
 - 网络：`student → business mysql = DENY`、`student A → student B = DENY`、`student → same-group target/grader = ALLOW`。
 - 恢复：重复启动保持同一请求；重建保留 100 分检查点事实；重复销毁成功且最终无残留跃科容器/网络。
@@ -30,6 +30,8 @@
 
 - 流量采集器未部署，capture RPC 返回 501；制品存储基地址未配置时下载/打包返回 503。
 - Node Agent（节点代理）仍以门禁进程运行，尚未安装为系统常驻服务。
+- 当前 Docker Desktop（容器桌面环境）未启用 Ubuntu WSL（适用于 Linux 的 Windows 子系统）集成；根安全规则禁止向容器挂载宿主 Docker Socket，因此不能以不合规方式伪造 Linux Node Agent 证据。
+- G5 严格门禁仍需在独立 Linux Node Agent 上验证 `stty size` 从 24x80 变为 30x100、断线后重新取令牌连接、过期令牌、跨实例令牌和重放拒绝。
 
 ## 集成收口
 

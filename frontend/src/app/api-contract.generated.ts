@@ -2075,6 +2075,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtime/log-artifacts/distribution-bundle-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Distribution Artifact Bundle Url */
+        post: operations["distribution_artifact_bundle_url_api_v1_runtime_log_artifacts_distribution_bundle_url_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/classroom/lab-releases/{release_id}/summary": {
         parameters: {
             query?: never;
@@ -3097,6 +3114,11 @@ export interface components {
             title: string;
             /** Order No */
             order_no: number;
+        };
+        /** DistributionBundleAuthorization */
+        DistributionBundleAuthorization: {
+            /** Authorization */
+            authorization: string;
         };
         /** DistributionCreate */
         DistributionCreate: {
@@ -11940,6 +11962,66 @@ export interface operations {
                 "application/json": {
                     [key: string]: unknown;
                 };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    distribution_artifact_bundle_url_api_v1_runtime_log_artifacts_distribution_bundle_url_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Service-Origin"?: string | null;
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionBundleAuthorization"];
             };
         };
         responses: {

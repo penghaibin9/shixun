@@ -1,7 +1,9 @@
 param(
   [ValidatePattern('^[a-zA-Z0-9_]+$')]
   [string]$RunId = (Get-Date -Format 'yyyyMMddHHmmss'),
-  [switch]$IncludeCapacityProbe
+  [switch]$IncludeCapacityProbe,
+  [string]$RuntimeAgentUrl = 'http://127.0.0.1:19443',
+  [bool]$StartLocalRuntimeAgent = $true
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -113,16 +115,17 @@ try {
     Pop-Location
   }
 
-  & (Join-Path $repoRoot 'scripts/run-runtime-gate.ps1') -DatabaseName $runtimeDatabase
-  & (Join-Path $repoRoot 'scripts/run-runtime-browser-gate.ps1') -DatabaseName $runtimeDatabase
+  & (Join-Path $repoRoot 'scripts/run-runtime-gate.ps1') -DatabaseName $runtimeDatabase -AgentUrl $RuntimeAgentUrl -StartLocalAgent:$StartLocalRuntimeAgent
+  & (Join-Path $repoRoot 'scripts/run-runtime-browser-gate.ps1') -DatabaseName $runtimeDatabase -AgentUrl $RuntimeAgentUrl -StartLocalAgent:$StartLocalRuntimeAgent
   if ($IncludeCapacityProbe) {
-    & (Join-Path $repoRoot 'scripts/run-runtime-gate.ps1') -GateScript 'tests/runtime_capacity_gate.py' -DatabaseName $runtimeDatabase
+    & (Join-Path $repoRoot 'scripts/run-runtime-gate.ps1') -GateScript 'tests/runtime_capacity_gate.py' -DatabaseName $runtimeDatabase -AgentUrl $RuntimeAgentUrl -StartLocalAgent:$StartLocalRuntimeAgent
   }
   & (Join-Path $repoRoot 'scripts/run-classroom-gate.ps1') -DatabaseName $classroomDatabase
   & (Join-Path $repoRoot 'scripts/run-grading-gate.ps1') -DatabaseName $gradingDatabase
 
+  $g5Status = if ($StartLocalRuntimeAgent) { 'PARTIAL' } else { 'PASS' }
   [ordered]@{
-    engineering_gate_status = 'PASS'
+    engineering_gate_status = if ($g5Status -eq 'PASS') { 'PASS' } else { 'PARTIAL' }
     procurement_content_status = 'PASS_AUTOMATED'
     procurement_content_reason = '37 份理论课件、196 道题、12 套实验文件包和 49 个真实讲解视频已通过自动化内容门禁；外部教研专家人工抽检不在本次工程验收内。'
     production_acceptance = 'NOT_RUN'
@@ -131,8 +134,11 @@ try {
     frontend_contracts = 'PASS'
     frontend_unit_tests = 'PASS'
     frontend_build = 'PASS'
-    browser_gates = 'G1-G8'
-    docker_runtime = 'G4-G6'
+    browser_gates = if ($g5Status -eq 'PASS') { 'G1-G8' } else { 'G1-G4,G6-G8; G5 PARTIAL' }
+    docker_runtime = if ($g5Status -eq 'PASS') { 'G4-G6 PASS' } else { 'G4/G6 PASS; G5 PARTIAL' }
+    g5_terminal = $g5Status
+    runtime_agent_url = $RuntimeAgentUrl
+    runtime_agent_started_locally = $StartLocalRuntimeAgent
     classroom_students = 43
     capacity_probe = [bool]$IncludeCapacityProbe
     databases = $databaseNames

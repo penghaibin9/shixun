@@ -19,3 +19,5 @@ C 线新增事件：`lab.definition.created`、`lab.version.cloned`、`lab.versi
 F 消费 `attendance.completed`、`assignment.submitted`、`quiz.completed`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted`、`poll.completed`，并输出 `grade.event.created`、`gradebook.posted`、`course.archived`。`lab.submitted` 的 `source_id` 固定为提交事实标识，`lab_release_id` 固定为实验发布标识。归档门禁还记录 `course.roster.frozen` 和 `resource.delivery.frozen` 的只读证据，不复制 A/B 业务事实；名单冻结证据必须同时匹配 `course_id` 与 `class_id`。
 
 `course.roster.frozen` 还必须携带 `member_count`、`snapshot_hash` 和 `frozen_at`；A 冻结后拒绝任何名单增删和再次导入。
+
+D 在成功验证 E 的日志分发授权并签发存储能力时，追加 `runtime.artifact.distribution_download_authorized`。事件聚合标识使用 `student_log_assignment`，载荷只记录分发、学生、课程、班级、实验发布、日志类型、引用标识和过期时间，不记录签名密钥、授权字符串、存储能力或日志原文；同一 `assignment_id + nonce` 必须幂等。

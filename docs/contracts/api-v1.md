@@ -46,6 +46,12 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 
 `POST /api/v1/integration/outbox/dispatch` 仅允许 `service_` 前缀的管理员服务身份并要求 `integration:dispatch` 权限。投递器从 `domain_event_outbox` 读取未发布事件：D 运行事件写入 E 课堂投影并送入 F 成绩事实，A/B 冻结事件送入 F 归档证据，C 的 `lab.release.published` 携带不可变实验规范快照写入 D 发布上下文。任一目标失败时事件保持未发布，可安全重试；各消费者按 `event_id` 幂等。
 
+## D/E 日志分发下载授权
+
+学生通过 E 的 `GET /api/v1/teaching-logs/my-assignments/{assignment_id}/download` 请求本人日志任务。E 校验分配事实、学生身份、课程、班级和实验发布后，向 D 的内部接口 `POST /api/v1/runtime/log-artifacts/distribution-bundle-url` 提交最长 60 秒的签名授权。授权精确绑定 `assignment_id`、`distribution_id`、日志类型、学生、课程、班级、实验发布、引用集合和随机数；D 重新验证签名、有效期、学生范围以及每个运行日志源事实后，才换取独立的短期存储能力。
+
+该授权只使用 `runtime.distributed-artifact.download` 窄权限，不改变普通制品接口的实例所有权规则。跨学生、跨班级、跨实验发布、篡改引用和过期授权固定拒绝；同一授权重放返回相同能力并只追加一条 `runtime.artifact.distribution_download_authorized` 审计事件。E 与 D 共享的分发签名密钥和 D 与制品服务共享的存储签名密钥必须分离。
+
 ## B 课程资源接口
 
 已落地 `/resources` 与 `/questions` 全部冻结接口。资源查询支持 `course_id`、`status`、`name`、`resource_type` 三维组合过滤；写入须分别具备 `resources:write`、`resources:review`、`resources:freeze` 权限。教师课程范围来自 `UserContext`，学生只能读取 `PUBLISHED`（已发布）或 `FROZEN`（已冻结）资源。

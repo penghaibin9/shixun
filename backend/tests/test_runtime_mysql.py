@@ -304,6 +304,15 @@ def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempote
     )
     assert wrong_scope.status_code == 403 and wrong_scope.json()["code"] == "RUNTIME.DISTRIBUTION_SOURCE_SCOPE_MISMATCH"
 
+    wrong_release_claims = {**claims, "nonce": "nonce-distribution-wrong-release", "lab_release_id": "release_other"}
+    wrong_release = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=recipient,
+        json={"authorization": sign_capability(wrong_release_claims, secret)},
+    )
+    assert wrong_release.status_code == 403
+    assert wrong_release.json()["code"] == "RUNTIME.DISTRIBUTION_SOURCE_SCOPE_MISMATCH"
+
     with Session(engine) as session:
         event_id = session.scalar(select(models.RuntimeEvent.runtime_event_id).where(
             models.RuntimeEvent.runtime_group_id == started["runtime_group_id"]

@@ -23556,6 +23556,195 @@
         }
       }
     },
+    "/api/v1/runtime/log-artifacts/distribution-bundle-url": {
+      "post": {
+        "tags": [
+          "实验运行时"
+        ],
+        "summary": "Distribution Artifact Bundle Url",
+        "operationId": "distribution_artifact_bundle_url_api_v1_runtime_log_artifacts_distribution_bundle_url_post",
+        "parameters": [
+          {
+            "name": "X-Service-Origin",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Service-Origin"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-teacher-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Teacher-Id"
+            }
+          },
+          {
+            "name": "x-student-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Student-Id"
+            }
+          },
+          {
+            "name": "x-permissions",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Permissions"
+            }
+          },
+          {
+            "name": "x-course-ids",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Course-Ids"
+            }
+          },
+          {
+            "name": "x-class-ids",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Class-Ids"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DistributionBundleAuthorization"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/classroom/lab-releases/{release_id}/summary": {
       "get": {
         "summary": "Release Summary",
@@ -32801,6 +32990,22 @@
           "order_no"
         ],
         "title": "DiagramInput"
+      },
+      "DistributionBundleAuthorization": {
+        "properties": {
+          "authorization": {
+            "type": "string",
+            "maxLength": 32768,
+            "minLength": 40,
+            "title": "Authorization"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "authorization"
+        ],
+        "title": "DistributionBundleAuthorization"
       },
       "DistributionCreate": {
         "properties": {
