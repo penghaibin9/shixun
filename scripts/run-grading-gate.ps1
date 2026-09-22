@@ -30,7 +30,9 @@ $gateEnvironmentNames = @(
   'PYTHONPATH',
   'E2E_REAL_GRADING',
   'YUEKE_DATABASE_URL',
+  'YUEKE_ENV',
   'YUEKE_GRADING_BASE_URL',
+  'YUEKE_ALLOW_DEV_IDENTITY_HEADERS',
   'YUEKE_RESOURCE_UPLOAD_DIR',
   'YUEKE_RUNTIME_BASE_URL',
   'YUEKE_TEACHING_BASE_URL'
@@ -41,6 +43,8 @@ foreach ($name in $gateEnvironmentNames) {
 }
 try {
   $env:YUEKE_DATABASE_URL = "mysql+pymysql://yueke_dev:${escaped}@127.0.0.1:13384/${DatabaseName}?charset=utf8mb4"
+  $env:YUEKE_ENV = 'test'
+  $env:YUEKE_ALLOW_DEV_IDENTITY_HEADERS = '1'
   $env:YUEKE_RUNTIME_BASE_URL = 'http://127.0.0.1:18003'
   $env:YUEKE_TEACHING_BASE_URL = 'http://127.0.0.1:18003'
   $env:YUEKE_GRADING_BASE_URL = 'http://127.0.0.1:18003'

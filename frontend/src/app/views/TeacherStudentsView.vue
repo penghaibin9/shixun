@@ -61,11 +61,10 @@ async function openDetail(item: Member) {
 }
 
 async function addExisting() {
-  const studentId = prompt('请输入已有学生标识')
-  const number = studentId && prompt('请输入已有学生学号')
+  const number = prompt('请输入已有学生的学号')
   const name = number && prompt('请输入学生姓名')
-  if (!studentId || !number || !name) return
-  await api(`/api/v1/classes/${classId.value}/members`, { method: 'POST', body: JSON.stringify({ student_id: studentId, student_number: number, student_name: name }) })
+  if (!number || !name) return
+  await api(`/api/v1/classes/${classId.value}/members`, { method: 'POST', body: JSON.stringify({ student_number: number, student_name: name }) })
   message.value = '学生已加入班级'
   await load()
 }

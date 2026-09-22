@@ -34,10 +34,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export async function getCurrentContext(headers: HeadersInit = {}): Promise<UserContext> {
-  const response = await fetch('/api/v1/auth/context', { headers })
-  if (!response.ok) throw await response.json() as ApiError
-  return response.json() as Promise<UserContext>
+export function getCurrentContext(): Promise<UserContext> {
+  return api<UserContext>('/api/v1/auth/context')
 }
 
 const teacherPermissions = ['teaching.course.read','teaching.course.write','teaching.class.read','teaching.class.write','teaching.members.read','teaching.members.import','teaching.members.write','teaching.attendance.read','teaching.attendance.write','teaching.poll.read','teaching.poll.write','teaching.assignment.write','teaching.quiz.write','teaching.dashboard.read']

@@ -33,9 +33,13 @@ async function prepare(request: APIRequestContext) {
   const classroom = await checked<any>(await request.post(`${apiBase}/api/v1/classes`, { headers: teachingCourse, data: { name: `浏览器门禁班-${run}`, term: '2026 秋季', course_id: courseId } }))
   const classId = classroom.class_id as string
   const studentId = `student-browser-${run}`
+  await checked(await request.post(`${apiBase}/api/v1/auth/users`, {
+    headers: { 'X-User-Id': `runtime-admin-${run}`, 'X-Role': 'admin', 'X-Permissions': 'auth.accounts.write' },
+    data: { display_name: '浏览器终端学生', role: 'student', login_name: `runtime-student-${run}`, student_id: studentId, student_number: `B${run}` },
+  }))
   await checked(await request.post(`${apiBase}/api/v1/classes/${classId}/members`, {
     headers: identity(['teaching.members.write'], courseId, classId),
-    data: { student_id: studentId, student_number: `B${run}`, student_name: '浏览器终端学生' },
+    data: { student_number: `B${run}`, student_name: '浏览器终端学生' },
   }))
 
   const spec = JSON.parse(readFileSync(resolve(process.cwd(), '../backend/app/labs/fixtures/rsa-v1.json'), 'utf8'))

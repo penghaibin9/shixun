@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import ExcelJS from 'exceljs'
 
 
-test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page, browser }, testInfo) => {
+test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page, browser, request }, testInfo) => {
   test.skip(process.env.E2E_REAL_API !== '1', '仅在真实后端与 MySQL 验收时运行')
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('学生导入')
@@ -18,6 +18,15 @@ test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page,
   badSheet.addRow(['=2+2', '公式风险', '网络安全 2301 班', '', ''])
   const badFilePath = testInfo.outputPath('students-errors.xlsx')
   await badWorkbook.xlsx.writeFile(badFilePath)
+
+  const adminHeaders = { 'X-User-Id': `browser-roster-admin-${run}`, 'X-Role': 'admin', 'X-Permissions': 'auth.accounts.write' }
+  for (let index = 1; index <= 43; index += 1) {
+    const response = await request.post('/api/v1/auth/users', {
+      headers: adminHeaders,
+      data: { display_name: `浏览器学生${index}`, role: 'student', login_name: `browser-student-${run}-${index}`, student_number: `${run}${String(index).padStart(2, '0')}` },
+    })
+    expect(response.ok(), await response.text()).toBeTruthy()
+  }
 
   await page.goto('/courses')
   await page.evaluate(() => localStorage.clear())

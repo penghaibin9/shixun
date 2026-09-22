@@ -10,6 +10,7 @@ if BACKEND_ROOT not in sys.path:
     sys.path.insert(0, BACKEND_ROOT)
 
 from app.common.models import Base
+from app.auth import models as auth_models  # noqa: F401 - 注册总控身份表元数据
 from app.resources import models as resource_models  # noqa: F401
 from app.teaching import models as teaching_models  # noqa: F401
 from app.labs import models as lab_models  # noqa: F401 - 注册 C 线表元数据

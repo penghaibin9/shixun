@@ -57,4 +57,24 @@ describe('教师学生管理', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/import-jobs/job-errors/error-rows.xlsx', expect.any(Object))
     expect(URL.createObjectURL).toHaveBeenCalled()
   })
+
+  it('新增已有学生只提交学号和姓名，由服务端解析权威档案', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path === '/api/v1/courses') return ok({ items: [] })
+      if (path === '/api/v1/classes') return ok({ items: [{ class_id: 'class-a', name: '测试班' }] })
+      if (path.includes('/members?')) return ok({ items: [], total: 0 })
+      if (path === '/api/v1/classes/class-a/members' && init?.method === 'POST') return ok({ class_membership_id: 'member-a' })
+      throw new Error(`未模拟请求：${path}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('prompt', vi.fn().mockReturnValueOnce('20260001').mockReturnValueOnce('张三'))
+    const wrapper = mount(TeacherStudentsView, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text().includes('新增已有学生'))?.trigger('click')
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/classes/class-a/members',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ student_number: '20260001', student_name: '张三' }) }),
+    ))
+  })
 })

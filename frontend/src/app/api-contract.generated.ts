@@ -2876,6 +2876,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Accounts */
+        get: operations["list_accounts_api_v1_auth_users_get"];
+        put?: never;
+        /** Create Account */
+        post: operations["create_account_api_v1_auth_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Account */
+        get: operations["get_account_api_v1_auth_users__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reconciliation/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan Identity Reconciliation */
+        post: operations["scan_identity_reconciliation_api_v1_auth_reconciliation_scan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -2914,6 +2966,82 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccountCreate */
+        AccountCreate: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "teacher" | "student";
+            /**
+             * Status
+             * @default ACTIVE
+             * @enum {string}
+             */
+            status: "ACTIVE" | "DISABLED";
+            /** External Subject */
+            external_subject?: string | null;
+            /** Login Name */
+            login_name?: string | null;
+            /** Teacher Id */
+            teacher_id?: string | null;
+            /** Staff Number */
+            staff_number?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Student Number */
+            student_number?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+        };
+        /** AccountListResponse */
+        AccountListResponse: {
+            /** Items */
+            items: components["schemas"]["AccountView"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** AccountView */
+        AccountView: {
+            /** User Id */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "teacher" | "student";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ACTIVE" | "DISABLED";
+            /** External Subject */
+            external_subject: string | null;
+            /** Login Name */
+            login_name: string | null;
+            /** Teacher Id */
+            teacher_id?: string | null;
+            /** Staff Number */
+            staff_number?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Student Number */
+            student_number?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+        };
         /** ArchiveInput */
         ArchiveInput: {
             /** Class Id */
@@ -3204,6 +3332,20 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * IdentityReconciliationScanResponse
+         * @description 历史名单身份核对扫描结果；不会改写 class_membership。
+         */
+        IdentityReconciliationScanResponse: {
+            /** Examined Count */
+            examined_count: number;
+            /** Valid Count */
+            valid_count: number;
+            /** Created Case Count */
+            created_case_count: number;
+            /** Existing Case Count */
+            existing_case_count: number;
+        };
         /** ImageBinding */
         ImageBinding: {
             /** Node Key */
@@ -3308,16 +3450,10 @@ export interface components {
         };
         /** MemberCreate */
         MemberCreate: {
-            /** Student Id */
-            student_id: string;
             /** Student Number */
             student_number: string;
             /** Student Name */
             student_name: string;
-            /** Phone */
-            phone?: string | null;
-            /** Email */
-            email?: string | null;
         };
         /**
          * NetworkEnvironment
@@ -4178,15 +4314,7 @@ export interface operations {
     list_courses_api_v1_courses_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4233,15 +4361,7 @@ export interface operations {
     create_course_api_v1_courses_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4292,15 +4412,7 @@ export interface operations {
     get_course_api_v1_courses__course_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -4349,15 +4461,7 @@ export interface operations {
     patch_course_api_v1_courses__course_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -4410,15 +4514,7 @@ export interface operations {
     list_course_lessons_api_v1_courses__course_id__lessons_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -4467,15 +4563,7 @@ export interface operations {
     list_classes_api_v1_classes_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4522,15 +4610,7 @@ export interface operations {
     create_class_api_v1_classes_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4581,15 +4661,7 @@ export interface operations {
     get_class_api_v1_classes__class_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
             };
@@ -4645,15 +4717,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
             };
@@ -4702,15 +4766,7 @@ export interface operations {
     add_member_api_v1_classes__class_id__members_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
             };
@@ -4763,15 +4819,7 @@ export interface operations {
     member_template_api_v1_classes__class_id__members_import_template_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
             };
@@ -4822,13 +4870,6 @@ export interface operations {
             query?: never;
             header?: {
                 "Idempotency-Key"?: string | null;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 class_id: string;
@@ -4882,15 +4923,7 @@ export interface operations {
     import_job_api_v1_import_jobs__job_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 job_id: string;
             };
@@ -4939,15 +4972,7 @@ export interface operations {
     import_errors_api_v1_import_jobs__job_id__error_rows_xlsx_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 job_id: string;
             };
@@ -4996,15 +5021,7 @@ export interface operations {
     export_members_api_v1_classes__class_id__members_export_xlsx_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
             };
@@ -5053,15 +5070,7 @@ export interface operations {
     member_detail_api_v1_classes__class_id__members__membership_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
                 membership_id: string;
@@ -5111,15 +5120,7 @@ export interface operations {
     remove_member_api_v1_classes__class_id__members__membership_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
                 membership_id: string;
@@ -5169,15 +5170,7 @@ export interface operations {
     member_learning_summary_api_v1_classes__class_id__members__membership_id__learning_summary_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
                 membership_id: string;
@@ -5227,15 +5220,7 @@ export interface operations {
     student_learning_summary_api_v1_classes__class_id__students__student_id__learning_summary_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
                 student_id: string;
@@ -5285,15 +5270,7 @@ export interface operations {
     freeze_roster_api_v1_classes__class_id__roster_freeze_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
             };
@@ -5342,15 +5319,7 @@ export interface operations {
     list_attendance_api_v1_attendance_tasks_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5397,15 +5366,7 @@ export interface operations {
     create_attendance_api_v1_attendance_tasks_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5456,15 +5417,7 @@ export interface operations {
     get_attendance_api_v1_attendance_tasks__task_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 task_id: string;
             };
@@ -5513,15 +5466,7 @@ export interface operations {
     publish_attendance_api_v1_attendance_tasks__task_id__publish_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 task_id: string;
             };
@@ -5570,15 +5515,7 @@ export interface operations {
     close_attendance_api_v1_attendance_tasks__task_id__close_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 task_id: string;
             };
@@ -5627,15 +5564,7 @@ export interface operations {
     attendance_records_api_v1_attendance_tasks__task_id__records_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 task_id: string;
             };
@@ -5684,15 +5613,7 @@ export interface operations {
     attendance_summary_api_v1_attendance_section_summary_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5739,15 +5660,7 @@ export interface operations {
     attendance_link_api_v1_attendance_sign_links__token__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 token: string;
             };
@@ -5796,15 +5709,7 @@ export interface operations {
     sign_attendance_by_token_api_v1_attendance_sign_links__token__sign_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 token: string;
             };
@@ -5855,15 +5760,7 @@ export interface operations {
             query: {
                 token: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 task_id: string;
             };
@@ -5912,15 +5809,7 @@ export interface operations {
     export_attendance_api_v1_attendance__task_id__export_xlsx_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 task_id: string;
             };
@@ -5969,15 +5858,7 @@ export interface operations {
     create_poll_api_v1_polls_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6028,15 +5909,7 @@ export interface operations {
     publish_poll_api_v1_polls__poll_id__publish_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 poll_id: string;
             };
@@ -6085,15 +5958,7 @@ export interface operations {
     answer_poll_api_v1_polls__poll_id__answers_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 poll_id: string;
             };
@@ -6146,15 +6011,7 @@ export interface operations {
     poll_results_api_v1_polls__poll_id__results_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 poll_id: string;
             };
@@ -6203,15 +6060,7 @@ export interface operations {
     create_assignment_api_v1_assignments_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6262,15 +6111,7 @@ export interface operations {
     publish_assignment_api_v1_assignments__assignment_id__publish_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 assignment_id: string;
             };
@@ -6319,15 +6160,7 @@ export interface operations {
     submit_assignment_api_v1_assignments__assignment_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 assignment_id: string;
             };
@@ -6380,15 +6213,7 @@ export interface operations {
     create_quiz_api_v1_quizzes_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6439,15 +6264,7 @@ export interface operations {
     publish_quiz_api_v1_quizzes__quiz_id__publish_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 quiz_id: string;
             };
@@ -6496,15 +6313,7 @@ export interface operations {
     start_quiz_api_v1_quizzes__quiz_id__attempts_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 quiz_id: string;
             };
@@ -6553,15 +6362,7 @@ export interface operations {
     submit_quiz_api_v1_quizzes__quiz_id__attempts__attempt_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 quiz_id: string;
                 attempt_id: string;
@@ -6615,15 +6416,7 @@ export interface operations {
     teacher_read_model_api_v1_teaching_read_model_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6670,15 +6463,7 @@ export interface operations {
     student_read_model_api_v1_teaching_student_read_model_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6730,15 +6515,7 @@ export interface operations {
                 name?: string | null;
                 resource_type?: string | null;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6785,15 +6562,7 @@ export interface operations {
     create_resource_api_v1_resources_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6844,15 +6613,7 @@ export interface operations {
     upload_resource_file_api_v1_resources_files_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6905,15 +6666,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6962,15 +6715,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7019,15 +6764,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7074,15 +6811,7 @@ export interface operations {
     blueprint_api_v1_resources_course_blueprint__course_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -7131,15 +6860,7 @@ export interface operations {
     run_audit_api_v1_resources_audit_run_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7192,15 +6913,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7247,15 +6960,7 @@ export interface operations {
     freeze_api_v1_resources_delivery_freeze_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7308,15 +7013,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7365,15 +7062,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7420,15 +7109,7 @@ export interface operations {
     get_resource_api_v1_resources__resource_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
             };
@@ -7477,15 +7158,7 @@ export interface operations {
     download_resource_api_v1_resources__resource_id__download_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
             };
@@ -7534,15 +7207,7 @@ export interface operations {
     create_version_api_v1_resources__resource_id__versions_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
             };
@@ -7595,15 +7260,7 @@ export interface operations {
     ppt_quality_check_api_v1_resources__resource_id__versions__version_id__quality_check_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
                 version_id: string;
@@ -7657,15 +7314,7 @@ export interface operations {
     submit_review_api_v1_resources__resource_id__submit_review_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
             };
@@ -7714,15 +7363,7 @@ export interface operations {
     approve_api_v1_resources__resource_id__approve_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
             };
@@ -7775,15 +7416,7 @@ export interface operations {
     reject_api_v1_resources__resource_id__reject_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
             };
@@ -7836,15 +7469,7 @@ export interface operations {
     publish_api_v1_resources__resource_id__publish_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 resource_id: string;
             };
@@ -7895,15 +7520,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7950,15 +7567,7 @@ export interface operations {
     create_question_api_v1_questions_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8011,15 +7620,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8068,13 +7669,6 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -8126,15 +7720,7 @@ export interface operations {
     get_question_import_job_api_v1_questions_import_jobs__job_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 job_id: string;
             };
@@ -8183,15 +7769,7 @@ export interface operations {
     question_import_error_rows_api_v1_questions_import_jobs__job_id__error_rows_xlsx_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 job_id: string;
             };
@@ -8244,15 +7822,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8301,15 +7871,7 @@ export interface operations {
             query?: {
                 course_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8356,15 +7918,7 @@ export interface operations {
     patch_question_api_v1_questions__question_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 question_id: string;
             };
@@ -8417,15 +7971,7 @@ export interface operations {
     review_question_api_v1_questions__question_id__review_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 question_id: string;
             };
@@ -8478,15 +8024,7 @@ export interface operations {
     list_labs_api_v1_labs_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8535,13 +8073,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -8595,13 +8126,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -8653,15 +8177,7 @@ export interface operations {
     get_lab_api_v1_labs__definition_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 definition_id: string;
             };
@@ -8712,13 +8228,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 definition_id: string;
@@ -8772,15 +8281,7 @@ export interface operations {
     get_version_api_v1_lab_versions__version_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 version_id: string;
             };
@@ -8831,13 +8332,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 version_id: string;
@@ -8893,13 +8387,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 version_id: string;
@@ -8951,13 +8438,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 version_id: string;
@@ -9007,15 +8487,7 @@ export interface operations {
     export_version_api_v1_lab_versions__version_id__export_json_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 version_id: string;
             };
@@ -9064,15 +8536,7 @@ export interface operations {
     list_templates_api_v1_lab_templates_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9121,13 +8585,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -9179,15 +8636,7 @@ export interface operations {
     list_knowledge_api_v1_lab_knowledge_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9236,13 +8685,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -9296,13 +8738,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 knowledge_id: string;
@@ -9356,15 +8791,7 @@ export interface operations {
     download_diagram_api_v1_lab_knowledge__knowledge_id__diagrams__diagram_id__download_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 knowledge_id: string;
                 diagram_id: string;
@@ -9416,13 +8843,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -9476,13 +8896,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 release_id: string;
@@ -9534,13 +8947,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 release_id: string;
@@ -9592,13 +8998,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 release_id: string;
@@ -9650,13 +9049,6 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -9814,15 +9206,7 @@ export interface operations {
     get_request_api_v1_runtime_requests__request_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -9871,15 +9255,7 @@ export interface operations {
     cancel_request_api_v1_runtime_requests__request_id__cancel_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -9932,15 +9308,7 @@ export interface operations {
     get_instance_api_v1_runtime_instances__instance_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -9989,15 +9357,7 @@ export interface operations {
     destroy_instance_api_v1_runtime_instances__instance_id__destroy_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -10050,15 +9410,7 @@ export interface operations {
     rebuild_instance_api_v1_runtime_instances__instance_id__rebuild_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -10111,15 +9463,7 @@ export interface operations {
     extend_instance_api_v1_runtime_instances__instance_id__extend_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -10172,15 +9516,7 @@ export interface operations {
     rejudge_instance_api_v1_runtime_instances__instance_id__rejudge_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -10229,15 +9565,7 @@ export interface operations {
     instance_logs_api_v1_runtime_instances__instance_id__logs_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -10286,15 +9614,7 @@ export interface operations {
     traffic_artifacts_api_v1_runtime_instances__instance_id__traffic_artifacts_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -10343,15 +9663,7 @@ export interface operations {
     issue_terminal_token_api_v1_runtime_instances__instance_id__terminal_token_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -10404,15 +9716,7 @@ export interface operations {
     list_nodes_api_v1_infrastructure_nodes_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10459,15 +9763,7 @@ export interface operations {
     register_node_api_v1_infrastructure_nodes_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10520,13 +9816,6 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 node_id: string;
@@ -10576,15 +9865,7 @@ export interface operations {
     list_images_api_v1_infrastructure_images_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10631,15 +9912,7 @@ export interface operations {
     register_image_api_v1_infrastructure_images_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10690,15 +9963,7 @@ export interface operations {
     list_queue_api_v1_infrastructure_queue_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10747,13 +10012,6 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path: {
                 queue_id: string;
@@ -10805,13 +10063,6 @@ export interface operations {
             query?: never;
             header: {
                 "Idempotency-Key": string;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -10863,15 +10114,7 @@ export interface operations {
     infrastructure_overview_api_v1_infrastructure_overview_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10918,15 +10161,7 @@ export interface operations {
     infrastructure_events_api_v1_infrastructure_events_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10973,15 +10208,7 @@ export interface operations {
     list_instances_api_v1_runtime_instances_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11028,15 +10255,7 @@ export interface operations {
     class_runtime_read_model_api_v1_runtime_read_model_classes__class_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 class_id: string;
             };
@@ -11085,15 +10304,7 @@ export interface operations {
     student_runtime_read_model_api_v1_runtime_read_model_students__student_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 student_id: string;
             };
@@ -11142,15 +10353,7 @@ export interface operations {
     release_summary_api_v1_runtime_lab_releases__release_id__summary_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -11199,15 +10402,7 @@ export interface operations {
     release_students_api_v1_runtime_lab_releases__release_id__students_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -11256,15 +10451,7 @@ export interface operations {
     release_student_api_v1_runtime_lab_releases__release_id__students__student_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
                 student_id: string;
@@ -11314,15 +10501,7 @@ export interface operations {
     release_detail_api_v1_runtime_lab_releases__release_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -11371,15 +10550,7 @@ export interface operations {
     release_start_api_v1_runtime_lab_releases__release_id__start_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -11432,15 +10603,7 @@ export interface operations {
     release_submit_api_v1_runtime_lab_releases__release_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -11493,15 +10656,7 @@ export interface operations {
     release_bulk_action_api_v1_runtime_lab_releases__release_id___action__post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
                 action: string;
@@ -11555,15 +10710,7 @@ export interface operations {
     facade_instance_api_v1_runtime_instances__instance_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -11612,15 +10759,7 @@ export interface operations {
     facade_terminal_token_api_v1_runtime_instances__instance_id__terminal_token_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
             };
@@ -11673,15 +10812,7 @@ export interface operations {
     facade_instance_action_api_v1_runtime_instances__instance_id___action__post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 instance_id: string;
                 action: string;
@@ -11739,15 +10870,7 @@ export interface operations {
                 lab_release_id?: string;
                 student_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11798,15 +10921,7 @@ export interface operations {
                 lab_release_id?: string;
                 student_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11853,15 +10968,7 @@ export interface operations {
     artifact_detail_api_v1_runtime_log_artifacts__artifact_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 artifact_id: string;
             };
@@ -11910,15 +11017,7 @@ export interface operations {
     artifact_download_url_api_v1_runtime_log_artifacts__artifact_id__download_url_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 artifact_id: string;
             };
@@ -11967,15 +11066,7 @@ export interface operations {
     artifact_bundle_url_api_v1_runtime_log_artifacts_bundle_url_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12028,13 +11119,6 @@ export interface operations {
             query?: never;
             header?: {
                 "X-Service-Origin"?: string | null;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -12088,15 +11172,7 @@ export interface operations {
             query: {
                 capability: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 assignment_id: string;
             };
@@ -12145,15 +11221,7 @@ export interface operations {
     release_summary_api_v1_classroom_lab_releases__release_id__summary_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -12202,15 +11270,7 @@ export interface operations {
     release_students_api_v1_classroom_lab_releases__release_id__students_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -12259,15 +11319,7 @@ export interface operations {
     release_student_api_v1_classroom_lab_releases__release_id__students__student_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
                 student_id: string;
@@ -12317,15 +11369,7 @@ export interface operations {
     runtime_action_api_v1_classroom_runtime__runtime_id___action__post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 runtime_id: string;
                 action: string;
@@ -12379,15 +11423,7 @@ export interface operations {
     release_action_api_v1_classroom_lab_releases__release_id___action__post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
                 action: string;
@@ -12441,15 +11477,7 @@ export interface operations {
     student_start_api_v1_classroom_my_lab_releases__release_id__start_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -12498,15 +11526,7 @@ export interface operations {
     student_release_api_v1_classroom_my_lab_releases__release_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -12555,15 +11575,7 @@ export interface operations {
     student_submit_api_v1_classroom_my_lab_releases__release_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -12612,15 +11624,7 @@ export interface operations {
     student_terminal_api_v1_classroom_my_runtime__runtime_id__terminal_token_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 runtime_id: string;
             };
@@ -12669,15 +11673,7 @@ export interface operations {
     teacher_terminal_api_v1_classroom_runtime__runtime_id__terminal_token_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 runtime_id: string;
             };
@@ -12729,15 +11725,7 @@ export interface operations {
                 class_id?: string;
                 lab_release_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12787,15 +11775,7 @@ export interface operations {
                 class_id?: string;
                 lab_release_id?: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12842,15 +11822,7 @@ export interface operations {
     traffic_download_api_v1_teaching_logs_traffic__artifact_id__download_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 artifact_id: string;
             };
@@ -12899,15 +11871,7 @@ export interface operations {
     distributions_api_v1_teaching_logs_distributions_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12956,13 +11920,6 @@ export interface operations {
             query?: never;
             header?: {
                 "Idempotency-Key"?: string | null;
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -13014,15 +11971,7 @@ export interface operations {
     distribution_api_v1_teaching_logs_distributions__distribution_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 distribution_id: string;
             };
@@ -13071,15 +12020,7 @@ export interface operations {
     my_assignments_api_v1_teaching_logs_my_assignments_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -13126,15 +12067,7 @@ export interface operations {
     assignment_download_api_v1_teaching_logs_my_assignments__assignment_id__download_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 assignment_id: string;
             };
@@ -13183,15 +12116,7 @@ export interface operations {
     consume_runtime_event_api_v1_classroom_events_runtime_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -13244,15 +12169,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 student_id: string;
             };
@@ -13304,15 +12221,7 @@ export interface operations {
                 cursor?: number;
                 once?: boolean;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 release_id: string;
             };
@@ -13361,15 +12270,7 @@ export interface operations {
     consume_api_v1_grading_events_consume_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -13420,15 +12321,7 @@ export interface operations {
     get_policy_api_v1_grading_policies__course_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -13477,15 +12370,7 @@ export interface operations {
     put_policy_api_v1_grading_policies__course_id__put: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -13538,15 +12423,7 @@ export interface operations {
     recalculate_api_v1_grading_courses__course_id__recalculate_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -13601,15 +12478,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -13660,15 +12529,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -13719,15 +12580,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
                 student_id: string;
@@ -13779,15 +12632,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
                 student_id: string;
@@ -13839,15 +12684,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -13898,15 +12735,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -13957,15 +12786,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
                 lesson_id: string;
@@ -14017,15 +12838,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14076,15 +12889,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14136,15 +12941,7 @@ export interface operations {
                 class_id: string;
                 student_id?: string | null;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14196,15 +12993,7 @@ export interface operations {
                 class_id: string;
                 student_id?: string | null;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14255,15 +13044,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14312,15 +13093,7 @@ export interface operations {
     precheck_api_v1_archives_courses__course_id__precheck_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14373,15 +13146,7 @@ export interface operations {
     archive_freeze_api_v1_archives_courses__course_id__freeze_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14436,15 +13201,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14495,15 +13252,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
             };
@@ -14554,15 +13303,7 @@ export interface operations {
             query: {
                 class_id: string;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path: {
                 course_id: string;
                 artifact_type: string;
@@ -14616,15 +13357,7 @@ export interface operations {
                 action?: string | null;
                 result?: string | null;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -14671,15 +13404,7 @@ export interface operations {
     audit_ingest_api_v1_audit_events_ingest_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -14732,15 +13457,7 @@ export interface operations {
             query?: {
                 course_id?: string | null;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -14789,15 +13506,7 @@ export interface operations {
             query?: {
                 course_id?: string | null;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -14846,15 +13555,7 @@ export interface operations {
             query?: {
                 limit?: number;
             };
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -14867,6 +13568,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_accounts_api_v1_auth_users_get: {
+        parameters: {
+            query?: {
+                search?: string;
+                role?: ("admin" | "teacher" | "student") | null;
+                status?: ("ACTIVE" | "DISABLED") | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    create_account_api_v1_auth_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountView"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_account_api_v1_auth_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountView"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    scan_identity_reconciliation_api_v1_auth_reconciliation_scan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityReconciliationScanResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -14923,15 +13824,7 @@ export interface operations {
     auth_context_api_v1_auth_context_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-user-id"?: string | null;
-                "x-role"?: string | null;
-                "x-teacher-id"?: string | null;
-                "x-student-id"?: string | null;
-                "x-permissions"?: string | null;
-                "x-course-ids"?: string | null;
-                "x-class-ids"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };

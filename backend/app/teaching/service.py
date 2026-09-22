@@ -2,10 +2,12 @@ import hashlib
 import json
 import secrets
 from datetime import datetime
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.auth import models as auth_models
+from app.auth.repository import AuthRepository
 from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.outbox import enqueue_event
@@ -28,6 +30,7 @@ def entity_dict(entity) -> dict:
 class TeachingService:
     def __init__(self, session: Session, user: UserContext):
         self.session, self.user, self.repo = session, user, TeachingRepository(session)
+        self.auth_repo = AuthRepository(session)
 
     def require(self, permission: str):
         if permission not in self.user.permissions:
@@ -169,16 +172,106 @@ class TeachingService:
         if not item: raise ApiError("MEMBER.NOT_FOUND", "班级成员不存在", 404)
         return entity_dict(item)
 
+    def _record_identity_case(self, *, class_id: str, student_number: str, student_name: str, phone: str | None, email: str | None, reason_code: str, details: dict, legacy_student_id: str | None = None, canonical_student_id: str | None = None) -> None:
+        # 有既有成员标识时，一个班级只保留一个待核对事项，重试不能把
+        # 同一身份冲突变成数据库唯一约束错误；没有历史标识的导入行仍逐行留证。
+        if legacy_student_id and self.auth_repo.reconciliation_case(legacy_student_id, class_id):
+            return
+        self.session.add(
+            auth_models.IdentityReconciliationCase(
+                reconciliation_case_id=str(uuid4()),
+                legacy_student_id=legacy_student_id,
+                canonical_student_id=canonical_student_id,
+                class_id=class_id,
+                student_number=student_number,
+                observed_name=student_name,
+                observed_phone=phone,
+                observed_email=email,
+                reason_code=reason_code,
+                status="PENDING",
+                details_json=details,
+                created_by=self.user.user_id,
+                created_at=now(),
+                resolved_by=None,
+                resolved_at=None,
+            )
+        )
+
+    def _resolve_roster_student(self, *, class_id: str, student_number: str, student_name: str, phone: str | None = None, email: str | None = None, legacy_student_id: str | None = None):
+        profile = self.auth_repo.student_profile_by_number(student_number)
+        if not profile:
+            self._record_identity_case(
+                class_id=class_id,
+                student_number=student_number,
+                student_name=student_name,
+                phone=phone,
+                email=email,
+                reason_code="STUDENT_PROFILE_NOT_FOUND",
+                details={"message": "学号不存在，不能创建班级成员"},
+                legacy_student_id=legacy_student_id,
+            )
+            return None, "学号不存在或账号不可用", "STUDENT.PROFILE_NOT_FOUND"
+        account = self.auth_repo.user(profile.user_id)
+        if profile.status != "ACTIVE" or not account or account.status != "ACTIVE":
+            self._record_identity_case(
+                class_id=class_id,
+                student_number=student_number,
+                student_name=student_name,
+                phone=phone,
+                email=email,
+                reason_code="STUDENT_PROFILE_DISABLED",
+                details={"message": "学生档案或账号已停用", "student_id": profile.student_id},
+                legacy_student_id=legacy_student_id,
+                canonical_student_id=profile.student_id,
+            )
+            return None, "学号不存在或账号不可用", "STUDENT.PROFILE_DISABLED"
+        if profile.full_name.strip() != student_name.strip():
+            self._record_identity_case(
+                class_id=class_id,
+                student_number=student_number,
+                student_name=student_name,
+                phone=phone,
+                email=email,
+                reason_code="STUDENT_NAME_CONFLICT",
+                details={"message": "导入姓名与学生档案不一致", "profile_name": profile.full_name, "student_id": profile.student_id},
+                legacy_student_id=legacy_student_id,
+                canonical_student_id=profile.student_id,
+            )
+            return None, "姓名与已有学生档案不一致", "STUDENT.NAME_CONFLICT"
+        return profile, None, None
+
     def add_member(self, class_id: str, body: MemberCreate):
         self.require("teaching.members.write"); self.require_class(class_id)
         self.require_mutable_roster(class_id)
         existing = self.repo.membership_by_number(class_id, body.student_number)
+        profile, reason, code = self._resolve_roster_student(
+            class_id=class_id,
+            student_number=body.student_number,
+            student_name=body.student_name,
+            legacy_student_id=existing.student_id if existing else None,
+        )
+        if not profile:
+            self.session.commit()
+            raise ApiError(code or "STUDENT.PROFILE_NOT_FOUND", reason or "学生账号不可用", 422)
         if existing:
-            if existing.student_id != body.student_id: raise ApiError("MEMBER.NUMBER_CONFLICT", "学号已被班级内其他学生使用", 409)
-            existing.status = "ACTIVE"; existing.student_name = body.student_name; existing.phone = body.phone; existing.email = body.email
+            if existing.student_id != profile.student_id:
+                self._record_identity_case(
+                    class_id=class_id,
+                    student_number=body.student_number,
+                    student_name=body.student_name,
+                    phone=None,
+                    email=None,
+                    reason_code="MEMBERSHIP_IDENTITY_CONFLICT",
+                    details={"message": "班级已有成员与学生档案身份不一致", "membership_student_id": existing.student_id, "profile_student_id": profile.student_id},
+                    legacy_student_id=existing.student_id,
+                    canonical_student_id=profile.student_id,
+                )
+                self.session.commit()
+                raise ApiError("MEMBER.IDENTITY_CONFLICT", "班级已有成员与学生档案身份不一致，需人工核对", 409)
+            existing.status = "ACTIVE"; existing.student_name = profile.full_name; existing.phone = profile.phone; existing.email = profile.email
             item = existing
         else:
-            item = self.repo.add(m.ClassMembership(class_membership_id=str(uuid4()), class_id=class_id, status="ACTIVE", joined_at=now(), **body.model_dump()))
+            item = self.repo.add(m.ClassMembership(class_membership_id=str(uuid4()), class_id=class_id, student_id=profile.student_id, student_number=profile.student_number, student_name=profile.full_name, phone=profile.phone, email=profile.email, status="ACTIVE", joined_at=now()))
         course = self.repo.class_course(class_id)
         self.audit("membership.added", "class_membership", item.class_membership_id, {"course_id": course.course_id if course else None, "class_id": class_id, "student_id": item.student_id})
         self.session.commit(); return entity_dict(item)
@@ -263,15 +356,39 @@ class TeachingService:
         success_count = 0
         for item in valid:
             existing = self.repo.membership_by_number(class_id, item["student_number"])
+            profile, reason, _ = self._resolve_roster_student(
+                class_id=class_id,
+                student_number=item["student_number"],
+                student_name=item["student_name"],
+                phone=item["phone"] or None,
+                email=item["email"] or None,
+                legacy_student_id=existing.student_id if existing else None,
+            )
+            if not profile:
+                errors.append({**item, "reason": reason or "学号不存在或账号不可用"})
+                continue
             if existing and existing.status == "ACTIVE":
                 duplicate_count += 1
                 errors.append({**item, "reason": "该学号已在班级中"})
                 continue
-            student_id = str(uuid5(NAMESPACE_URL, f"yueke:{class_id}:{item['student_number']}"))
             if existing:
-                existing.status = "ACTIVE"; existing.student_name = item["student_name"]; existing.phone = item["phone"] or None; existing.email = item["email"] or None
+                if existing.student_id != profile.student_id:
+                    self._record_identity_case(
+                        class_id=class_id,
+                        student_number=item["student_number"],
+                        student_name=item["student_name"],
+                        phone=item["phone"] or None,
+                        email=item["email"] or None,
+                        reason_code="MEMBERSHIP_IDENTITY_CONFLICT",
+                        details={"message": "班级已有成员与学生档案身份不一致", "membership_student_id": existing.student_id, "profile_student_id": profile.student_id},
+                        legacy_student_id=existing.student_id,
+                        canonical_student_id=profile.student_id,
+                    )
+                    errors.append({**item, "reason": "班级已有成员与学生档案身份不一致，需人工核对"})
+                    continue
+                existing.status = "ACTIVE"; existing.student_name = profile.full_name; existing.phone = profile.phone; existing.email = profile.email
             else:
-                self.repo.add(m.ClassMembership(class_membership_id=str(uuid4()), class_id=class_id, student_id=student_id, student_number=item["student_number"], student_name=item["student_name"], phone=item["phone"] or None, email=item["email"] or None, status="ACTIVE", joined_at=now()))
+                self.repo.add(m.ClassMembership(class_membership_id=str(uuid4()), class_id=class_id, student_id=profile.student_id, student_number=profile.student_number, student_name=profile.full_name, phone=profile.phone, email=profile.email, status="ACTIVE", joined_at=now()))
             success_count += 1
         job = self.repo.add(m.ImportJob(job_id=str(uuid4()), class_id=class_id, idempotency_key=key, request_sha256=request_sha256, status="COMPLETED", success_count=success_count, failure_count=len(errors), duplicate_count=duplicate_count, error_rows_json=errors, created_by=self.user.user_id, created_at=now()))
         course = self.repo.class_course(class_id)

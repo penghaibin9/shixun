@@ -16,7 +16,7 @@
 
 `docs/contracts/openapi-v1.json` 由 `scripts/freeze_openapi.py` 从当前 FastAPI（后端接口框架）真实路由生成，契约测试要求其与运行时规范逐字段一致。前端执行 `npm run contracts:generate` 生成 `frontend/src/app/api-contract.generated.ts`，共享错误信封和用户上下文类型必须直接引用生成结果；禁止手工维护第二份同名共享 DTO（数据传输对象）。
 
-已落地的总控接口：`GET /api/v1/auth/context`，从身份提供方解析请求用户、角色、权限及课程/班级范围。生产身份由认证中间件注入；开发环境请求头仅用于契约测试，不能作为生产认证方案。
+已落地的总控接口：`GET /api/v1/auth/context`，从身份提供方解析请求用户、角色、权限及课程/班级范围。`POST /api/v1/auth/users`、`GET /api/v1/auth/users`、`GET /api/v1/auth/users/{user_id}` 仅管理员可创建和查询不含密码/认证凭据的最小账号档案；创建必须提供外部主体标识或登录名，学生还必须提供学号。`POST /api/v1/auth/reconciliation/scan` 仅管理员可扫描历史名单差异，固定只新增核对事项而不改写 `class_membership`。生产身份由认证中间件注入；开发环境请求头仅在两个显式环境变量同时启用时用于契约测试，不能作为生产认证方案。
 
 ## 课程与课时权威目录
 
@@ -41,6 +41,8 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 ```
 
 成员列表必须服务端分页，支持姓名/学号搜索、账号状态过滤及学号/姓名排序。名单冻结生成按学号排序的 SHA256（文件校验值）快照并发布 `course.roster.frozen`，冻结后加入、移出和导入固定返回 `CLASS.ROSTER_FROZEN`。学习汇总由总控聚合 A 的签到/作业/测验、E 的实验状态、F 的总评/风险 ReadModel；未接入的跨域字段返回 `null` 和 `data_status: "PENDING"`，A 不得跨域直连表或自行计算实验成绩与风险。
+
+新增成员和 XLSX（电子表格）导入只接受学号与姓名，服务端按已有、启用的 `student_profile` 解析全局 `student_id`；客户端不得提交学生标识。未知/停用学号、姓名冲突和历史身份冲突会保留在导入任务逐行错误中，并写入可审计身份核对事项；同一学号加入不同班级时必须复用同一 `student_id`。
 
 ## 总控事件投递接口
 

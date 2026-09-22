@@ -14,10 +14,15 @@ from app.main import app
 from app.teaching.models import ClassMembership, ImportJob
 from app.teaching.repository import TeachingRepository
 from app.teaching.xlsx import HEADERS
+from backend.tests.auth_profiles import seed_student_profile, seed_student_profiles
+
+
+_active_sessions = None
 
 
 @pytest.fixture()
 def test_context():
+    global _active_sessions
     engine = create_engine("sqlite+pysqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine, expire_on_commit=False)
@@ -27,7 +32,9 @@ def test_context():
             yield session
 
     app.dependency_overrides[get_session] = override
+    _active_sessions = sessions
     yield TestClient(app), sessions
+    _active_sessions = None
     app.dependency_overrides.clear()
     Base.metadata.drop_all(engine)
 
@@ -42,6 +49,9 @@ def headers(*permissions: str, course_id: str = "", class_id: str = "", student_
 
 
 def workbook_bytes(rows):
+    # 名单导入只能解析既有学生档案；测试数据在生成 XLSX 时明确预置档案。
+    if _active_sessions is not None:
+        seed_student_profiles(_active_sessions, rows)
     book = Workbook(); sheet = book.active; sheet.append(HEADERS)
     for row in rows: sheet.append(row)
     stream = BytesIO(); book.save(stream); return stream.getvalue()
@@ -149,7 +159,7 @@ def test_import_batch_duplicate_counts_only_rows_actually_written(test_context):
 
 
 def test_roster_mutations_and_freeze_use_the_same_class_lock(test_context, monkeypatch):
-    client, _ = test_context; course_id, class_id = build_course_class(client)
+    client, sessions = test_context; course_id, class_id = build_course_class(client)
     scoped = headers(
         "teaching.members.import", "teaching.members.write", "teaching.roster.freeze",
         course_id=course_id, class_id=class_id,
@@ -162,6 +172,9 @@ def test_roster_mutations_and_freeze_use_the_same_class_lock(test_context, monke
         return original(repo, locked_class_id)
 
     monkeypatch.setattr(TeachingRepository, "class_for_update", tracked_class_for_update)
+    with sessions() as db:
+        seed_student_profile(db, student_number="2301002", full_name="李四")
+        db.commit()
     imported = client.post(
         f"/api/v1/classes/{class_id}/members/import",
         headers={**scoped, "Idempotency-Key": "freeze-lock-regression"},
@@ -171,7 +184,7 @@ def test_roster_mutations_and_freeze_use_the_same_class_lock(test_context, monke
     added = client.post(
         f"/api/v1/classes/{class_id}/members",
         headers=scoped,
-        json={"student_id": "manual-student", "student_number": "2301002", "student_name": "李四"},
+        json={"student_number": "2301002", "student_name": "李四"},
     )
     assert added.status_code == 201, added.text
     removed = client.delete(
@@ -340,11 +353,15 @@ def test_teacher_cannot_access_another_class_and_student_cannot_publish(test_con
 
 
 def test_teacher_student_management_search_detail_summary_remove_and_permissions(test_context):
-    client, _ = test_context; course_id, class_id = build_course_class(client)
+    client, sessions = test_context; course_id, class_id = build_course_class(client)
     teacher = headers("teaching.members.read", "teaching.members.write", course_id=course_id, class_id=class_id)
-    first = client.post(f"/api/v1/classes/{class_id}/members", headers=teacher, json={"student_id":"existing-student-1","student_number":"2301002","student_name":"李四","email":"li@example.edu.cn"})
+    with sessions() as db:
+        seed_student_profile(db, student_id="existing-student-1", student_number="2301002", full_name="李四", email="li@example.edu.cn")
+        seed_student_profile(db, student_id="existing-student-2", student_number="2301001", full_name="张三")
+        db.commit()
+    first = client.post(f"/api/v1/classes/{class_id}/members", headers=teacher, json={"student_number":"2301002","student_name":"李四"})
     assert first.status_code == 201, first.text
-    second = client.post(f"/api/v1/classes/{class_id}/members", headers=teacher, json={"student_id":"existing-student-2","student_number":"2301001","student_name":"张三"})
+    second = client.post(f"/api/v1/classes/{class_id}/members", headers=teacher, json={"student_number":"2301001","student_name":"张三"})
     assert second.status_code == 201
     listing = client.get(f"/api/v1/classes/{class_id}/members", headers=teacher, params={"search":"张","sort":"student_name","direction":"desc","page":1,"page_size":10}).json()
     assert listing["total"] == 1 and listing["items"][0]["student_name"] == "张三"
