@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test'
 
 const apiBase = process.env.YUEKE_GATE_API_URL || 'http://127.0.0.1:18003'
+const agentUrl = process.env.YUEKE_GATE_NODE_AGENT_URL || 'http://127.0.0.1:19443'
 const imageDigest = process.env.YUEKE_GATE_IMAGE_DIGEST || ''
 const internalToken = process.env.YUEKE_INTERNAL_RUNTIME_TOKEN || ''
 
@@ -60,7 +61,7 @@ async function prepare(request: APIRequestContext) {
   }))
   await checked(await request.post(`${apiBase}/api/v1/infrastructure/nodes`, {
     headers: labHeaders,
-    data: { node_id: 'node_docker_desktop_gate', name: 'Docker Desktop Linux 门禁节点', agent_url: 'http://127.0.0.1:19443', weight: 1000, labels: { environment: 'browser-gate' } },
+    data: { node_id: 'node_docker_desktop_gate', name: 'Docker Desktop Linux 门禁节点', agent_url: agentUrl, weight: 1000, labels: { environment: 'browser-gate' } },
   }))
   const releaseId = `release_browser_${run}`
   await checked(await request.post(`${apiBase}/api/v1/runtime/release-contexts`, {
