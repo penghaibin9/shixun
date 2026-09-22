@@ -2092,6 +2092,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artifact-storage/bundles/{assignment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Artifact Bundle */
+        get: operations["download_artifact_bundle_api_v1_artifact_storage_bundles__assignment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/classroom/lab-releases/{release_id}/summary": {
         parameters: {
             query?: never;
@@ -2901,6 +2918,11 @@ export interface components {
         ArchiveInput: {
             /** Class Id */
             class_id: string;
+        };
+        /** ArtifactBundleRequest */
+        ArtifactBundleRequest: {
+            /** Artifact Ids */
+            artifact_ids: string[];
         };
         /** AssignmentCreate */
         AssignmentCreate: {
@@ -11959,9 +11981,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ArtifactBundleRequest"];
             };
         };
         responses: {
@@ -12032,6 +12052,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    download_artifact_bundle_api_v1_artifact_storage_bundles__assignment_id__get: {
+        parameters: {
+            query: {
+                capability: string;
+            };
+            header?: {
+                "x-user-id"?: string | null;
+                "x-role"?: string | null;
+                "x-teacher-id"?: string | null;
+                "x-student-id"?: string | null;
+                "x-permissions"?: string | null;
+                "x-course-ids"?: string | null;
+                "x-class-ids"?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 日志任务 ZIP 压缩包 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
                 };
             };
             /** @description 标准错误信封 */
