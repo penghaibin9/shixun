@@ -3317,7 +3317,10 @@ export interface components {
             occurred_at: string;
             /** Idempotency Key */
             idempotency_key: string;
-            /** Payload */
+            /**
+             * Payload
+             * @description 冻结上游载荷。作业和测验必须引用已由 grading.score.proof.frozen 持久化的 score_proof_event_id；自带摘要不能替代受控服务端证明。
+             */
             payload: {
                 [key: string]: unknown;
             };

@@ -10,8 +10,10 @@
 | 实验课堂 | E 实验课堂 | 课堂编排、教学日志分发 |
 | 成绩、学情、审计 | F 成绩学情审计 | 成绩事件、成绩册、分析、归档、审计 |
 
-唯一事实：学生归班为 `class_membership`，课程为 `course`，实验为 `lab_definition + lab_version`，实例为 `runtime_instance_group + runtime_instance`，成绩入口为 `grade_event`，二进制文件为 `file_object`。任何模块不得新增 `course_students`、`lab_students` 或 `resource_students`。
+唯一事实：学生归班为 `class_membership`，课程为 `course`，实验为 `lab_definition + lab_version`，实例为 `runtime_instance_group + runtime_instance`，成绩入口为 `grade_event`，作业/测验的服务端评分证明为 `grade_score_proof`，二进制文件为 `file_object`。任何模块不得新增 `course_students`、`lab_students` 或 `resource_students`。
 
 教师学生管理不是全校学籍或账号管理。A 只能管理教师本人任课班级的 `class_membership`；学习汇总通过 A/E/F 的 ReadModel（读取模型）聚合，不得把实验、成绩或风险数据复制进 `class_membership`。
 
 跨域只调用冻结的 API（应用程序接口）或消费领域事件；不得跨域直接写表。
+
+F 只能从不可变事件箱消费成绩来源。签到、投票和已验证实验事件可按各自冻结范围进入成绩；作业/测验必须先由 A 的固定服务端生产者 `service_teaching_score_prover` 产生独立的 `grading.score.proof.frozen`（评分证明已冻结）事件，F 持久化并逐字段绑定后才接受最终分数事件的 `score_proof_event_id`（评分证明事件标识）引用。证明尚未到达时保留可审计待重试状态，不能将浏览器或提交接口自带的摘要当成服务端事实。

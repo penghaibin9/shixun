@@ -1,13 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.models import DomainEventOutbox
 from app.grading.schemas import AuditIngest, EventEnvelope
-from app.grading.service import EVENT_TYPES, GradingService
+from app.grading.service import EVENT_TYPES, SCORE_PROOF_EVENT_TYPE, GradingService
 from app.lab_classroom.gateway import get_gateways
 from app.lab_classroom.schemas import RuntimeEventIn
 from app.lab_classroom.service import ClassroomService
@@ -22,7 +22,7 @@ CLASSROOM_EVENTS = {
     "lab.checkpoint.failed",
     "lab.submitted",
 }
-GRADING_EVENTS = set(EVENT_TYPES) | {"resource.delivery.frozen", "course.roster.frozen"}
+GRADING_EVENTS = set(EVENT_TYPES) | {SCORE_PROOF_EVENT_TYPE, "resource.delivery.frozen", "course.roster.frozen"}
 CLASSROOM_AUDIT_ACTIONS = {
     "runtime.remind",
     "runtime.rejudge",
@@ -90,7 +90,11 @@ class OutboxDispatcher:
 
     async def dispatch(self, limit: int = 100) -> dict:
         self.authorize()
-        events = list(self.session.scalars(select(DomainEventOutbox).where(DomainEventOutbox.published_at.is_(None)).order_by(DomainEventOutbox.occurred_at, DomainEventOutbox.event_id).limit(limit)))
+        # A score event may reference a proof emitted in the same upstream transaction.
+        # Deliver every frozen proof before ordinary events so a single dispatch batch is
+        # deterministic; a missing proof remains unpublished and can safely retry.
+        proof_first = case((DomainEventOutbox.event_type == SCORE_PROOF_EVENT_TYPE, 0), else_=1)
+        events = list(self.session.scalars(select(DomainEventOutbox).where(DomainEventOutbox.published_at.is_(None)).order_by(proof_first, DomainEventOutbox.occurred_at, DomainEventOutbox.event_id).limit(limit)))
         results: list[dict] = []
         for event in events:
             targets: list[str] = []

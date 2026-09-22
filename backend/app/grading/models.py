@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.models import Base
@@ -30,7 +30,11 @@ class GradingPolicyItem(Base):
 
 class GradeEvent(Base):
     __tablename__ = "grade_event"
-    __table_args__ = (UniqueConstraint("event_id", name="uq_grade_event_source_event"), Index("ix_grade_event_scope", "course_id", "class_id", "student_id", "source_type"))
+    __table_args__ = (
+        UniqueConstraint("event_id", name="uq_grade_event_source_event"),
+        Index("ix_grade_event_scope", "course_id", "class_id", "student_id", "source_type"),
+        Index("ix_grade_event_verification_scope", "source_verification_status", "course_id", "class_id"),
+    )
     grade_event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     course_id: Mapped[str] = mapped_column(String(36))
     class_id: Mapped[str] = mapped_column(String(36))
@@ -44,7 +48,41 @@ class GradeEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime)
     event_id: Mapped[str] = mapped_column(String(36))
     status: Mapped[str] = mapped_column(String(16))
+    source_verification_status: Mapped[str] = mapped_column(String(32), default="QUARANTINED_LEGACY", server_default=text("'QUARANTINED_LEGACY'"))
+    source_proof_issuer: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    source_proof_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     payload_json: Mapped[dict] = mapped_column(JSON)
+
+
+class GradeScoreProof(Base):
+    """F 保存的不可修改评分来源事实；普通作业/测验提交接口没有写入路径。"""
+
+    __tablename__ = "grade_score_proof"
+    __table_args__ = (
+        UniqueConstraint("score_event_id", name="uq_grade_score_proof_score_event"),
+        Index("ix_grade_score_proof_scope", "course_id", "class_id", "student_id"),
+    )
+    source_proof_event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    score_event_id: Mapped[str] = mapped_column(String(36))
+    score_event_type: Mapped[str] = mapped_column(String(64))
+    score_aggregate_id: Mapped[str] = mapped_column(String(36))
+    source_fact_id: Mapped[str] = mapped_column(String(36))
+    course_id: Mapped[str] = mapped_column(String(36))
+    class_id: Mapped[str] = mapped_column(String(36))
+    lesson_id: Mapped[str | None] = mapped_column(String(36))
+    student_id: Mapped[str] = mapped_column(String(36))
+    raw_score: Mapped[Decimal] = mapped_column(Numeric(8, 2))
+    max_score: Mapped[Decimal] = mapped_column(Numeric(8, 2))
+    contract: Mapped[str] = mapped_column(String(64))
+    issuer: Mapped[str] = mapped_column(String(48))
+    origin: Mapped[str] = mapped_column(String(32))
+    evidence_type: Mapped[str] = mapped_column(String(64))
+    frozen_question_count: Mapped[int] = mapped_column(Integer)
+    frozen_question_sha256: Mapped[str] = mapped_column(String(64))
+    answer_evidence_sha256: Mapped[str] = mapped_column(String(64))
+    scoring_evidence_sha256: Mapped[str] = mapped_column(String(64))
+    score_payload_sha256: Mapped[str] = mapped_column(String(64))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime)
 
 
 class Gradebook(Base):

@@ -88,6 +88,27 @@ def test_database_tables_have_exactly_one_frozen_owner():
     assert set(claimed) == set(Base.metadata.tables)
 
 
+def test_grade_event_provenance_is_frozen_in_database_and_openapi_contracts():
+    ownership = json.loads((ROOT / "docs/contracts/database-ownership-v1.json").read_text(encoding="utf-8"))
+    provenance = ownership["authority_contracts"]["grading_source_provenance"]
+    assert provenance["owner"] == "F"
+    assert provenance["table"] == "grade_event"
+    assert provenance["proof_fact_table"] == "grade_score_proof"
+    assert provenance["proof_producer_actor_user_id"] == "service_teaching_score_prover"
+    assert provenance["verified_statuses"] == ["VERIFIED_OUTBOX", "VERIFIED_SCORE_PROOF"]
+    assert provenance["legacy_status"] == "QUARANTINED_LEGACY"
+    table = Base.metadata.tables["grade_event"]
+    assert {"source_verification_status", "source_proof_issuer", "source_proof_digest"} <= set(table.columns.keys())
+    assert "ix_grade_event_verification_scope" in {index.name for index in table.indexes}
+    proof_table = Base.metadata.tables["grade_score_proof"]
+    assert {"source_proof_event_id", "score_event_id", "score_payload_sha256"} <= set(proof_table.columns.keys())
+    assert "ix_grade_score_proof_scope" in {index.name for index in proof_table.indexes}
+    openapi = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    description = openapi["components"]["schemas"]["EventEnvelope"]["properties"]["payload"]["description"]
+    assert "score_proof_event_id" in description and "grading.score.proof.frozen" in description
+    assert "service_teaching_score_prover" in description
+
+
 def test_lesson_resource_is_only_a_resource_extension_of_a_curriculum():
     columns = set(Base.metadata.tables["lesson_resource"].columns.keys())
     assert {"course_id", "lesson_id", "purpose", "environment", "principle", "steps_summary"} <= columns

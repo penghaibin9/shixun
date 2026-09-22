@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "authority_contracts": {
     "curriculum": {
       "owner": "A",
@@ -16,6 +16,23 @@
         "question_lesson_map.lesson_id"
       ],
       "rule": "课程、章节、课时编号、标题与类型只由 A 维护；B 仅维护资源扩展与交付证据。"
+    },
+    "grading_source_provenance": {
+      "owner": "F",
+      "table": "grade_event",
+      "columns": [
+        "source_verification_status",
+        "source_proof_issuer",
+        "source_proof_digest"
+      ],
+      "verified_statuses": [
+        "VERIFIED_OUTBOX",
+        "VERIFIED_SCORE_PROOF"
+      ],
+      "legacy_status": "QUARANTINED_LEGACY",
+      "proof_fact_table": "grade_score_proof",
+      "proof_producer_actor_user_id": "service_teaching_score_prover",
+      "rule": "F 只把与同一不可变 domain_event_outbox 逐字段相符且通过事件类型范围校验的事实计入成绩册；作业和测验还必须引用由固定服务端生产者 service_teaching_score_prover 的独立 grading.score.proof.frozen 事件创建的持久化证明事实，校验冻结题目、答题与判分摘要。旧的未证明事实保留可追溯，但不参与重算。"
     }
   },
   "owners": {
@@ -126,6 +143,7 @@
       "course_archive",
       "course_archive_artifact",
       "grade_event",
+      "grade_score_proof",
       "gradebook",
       "gradebook_item",
       "grading_policy",

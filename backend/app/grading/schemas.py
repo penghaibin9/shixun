@@ -19,7 +19,13 @@ class EventEnvelope(BaseModel):
     actor_user_id: str
     occurred_at: datetime
     idempotency_key: str
-    payload: dict
+    payload: dict = Field(
+        description=(
+            "冻结上游载荷。作业和测验必须引用已由 grading.score.proof.frozen "
+            "持久化的 score_proof_event_id；证明事件的 actor_user_id 固定为 "
+            "service_teaching_score_prover，自带摘要不能替代受控服务端证明。"
+        )
+    )
 
 
 class RecalculateInput(BaseModel):

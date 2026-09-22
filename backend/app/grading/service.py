@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from hashlib import sha256
 from io import BytesIO
@@ -17,13 +17,13 @@ from sqlalchemy.orm import Session
 
 from app.common.context import UserContext
 from app.common.errors import ApiError
-from app.common.models import FileObject
+from app.common.models import DomainEventOutbox, FileObject
 from app.common.outbox import enqueue_event
 from app.resources.storage import upload_root
 
 from .models import (AnalyticsCourseSummary, AnalyticsLabSummary, AnalyticsSectionSummary, AnalyticsStudentLabSummary,
                      AuditEvent, CourseArchive, CourseArchiveArtifact, GradeEvent, Gradebook, GradebookItem,
-                     GradingPolicy, GradingPolicyItem, StudentCourseScore, StudentRiskFlag)
+                     GradeScoreProof, GradingPolicy, GradingPolicyItem, StudentCourseScore, StudentRiskFlag)
 from .repository import GradingRepository
 
 COMPONENTS = ["ATTENDANCE", "ASSIGNMENT", "QUIZ", "LAB", "INTERACTION"]
@@ -35,10 +35,90 @@ EVENT_TYPES = {
 }
 ARCHIVE_FILE_TYPES = {"GRADEBOOK_XLSX", "ANALYTICS_XLSX", "RESOURCE_VERSION_MANIFEST_JSON"}
 SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
+SOURCE_AGGREGATE_TYPES = {
+    "attendance.completed": "attendance_task",
+    "assignment.submitted": "assignment",
+    "quiz.completed": "quiz",
+    "poll.completed": "poll",
+    "lab.checkpoint.passed": "runtime_instance",
+    "lab.checkpoint.failed": "runtime_instance",
+    "lab.submitted": "runtime_instance",
+    "grade.manual.adjusted": "grade_event",
+}
+FREEZE_AGGREGATE_TYPES = {
+    "course.roster.frozen": "class_roster",
+    "resource.delivery.frozen": "course_resource",
+}
+SCORE_PROOF_REQUIREMENTS = {
+    "assignment.submitted": ("teaching-core", "ASSIGNMENT_FROZEN_QUESTION_SET"),
+    "quiz.completed": ("teaching-core", "QUIZ_FROZEN_QUESTION_SET"),
+}
+SCORE_PROOF_EVENT_TYPE = "grading.score.proof.frozen"
+SCORE_PROOF_PRODUCER_ID = "service_teaching_score_prover"
+SCORE_PROOF_SOURCE_AGGREGATE_TYPES = {
+    "assignment.submitted": "assignment_submission",
+    "quiz.completed": "quiz_attempt",
+}
+VERIFIED_OUTBOX = "VERIFIED_OUTBOX"
+VERIFIED_SCORE_PROOF = "VERIFIED_SCORE_PROOF"
+SCORE_PROOF_CONTRACT = "grading-score-proof/v1"
+SCORE_PROOF_ORIGIN = "SERVER_GRADED"
 
 
 def utcnow(): return datetime.utcnow()
 def number(value): return float(value) if value is not None else None
+
+
+def canonical_score(value: Decimal) -> str:
+    """稳定表示数值，防止 80 和 80.0 绕过同一来源证明绑定。"""
+
+    normalized = value.normalize()
+    return format(normalized, "f") if normalized != 0 else "0"
+
+
+def source_proof_digest(*, event_id: str, event_type: str, aggregate_id: str, payload: dict, proof: dict, raw: Decimal, maximum: Decimal) -> str:
+    """冻结成绩证明与事件、范围和分数的可重算绑定摘要。"""
+
+    binding = {
+        "aggregate_id": aggregate_id,
+        "answer_evidence_sha256": proof["answer_evidence_sha256"],
+        "contract": proof["contract"],
+        "course_id": payload["course_id"],
+        "event_id": event_id,
+        "event_type": event_type,
+        "evidence_type": proof["evidence_type"],
+        "frozen_question_count": proof["frozen_question_count"],
+        "frozen_question_sha256": proof["frozen_question_sha256"],
+        "issuer": proof["issuer"],
+        "max_score": canonical_score(maximum),
+        "origin": proof["origin"],
+        "raw_score": canonical_score(raw),
+        "scoring_evidence_sha256": proof["scoring_evidence_sha256"],
+        "source_event_id": proof["source_event_id"],
+        "source_fact_id": proof["source_fact_id"],
+        "student_id": payload["student_id"],
+        "class_id": payload["class_id"],
+        "lesson_id": payload.get("lesson_id"),
+    }
+    return sha256(json.dumps(binding, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+
+
+def canonical_json(value: object) -> str:
+    """用于比较不可变事件箱与消费者收到的事件，不依赖字典插入顺序。"""
+
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+def normalized_event_time(value: datetime) -> datetime:
+    """按 MySQL `DATETIME(0)` 的秒级舍入规则比较事件时间。"""
+
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    # 当前冻结表使用 DATETIME（无 fsp），MySQL 会将 .5 秒及以上写入下一秒。
+    # 消费端必须比对数据库实际持久化表示，不能因合法精度折损误拒绝同一事件箱事实。
+    if value.microsecond >= 500_000:
+        value += timedelta(seconds=1)
+    return value.replace(microsecond=0)
 
 
 def validate_freeze_contract(event_type: str, aggregate_id: str, payload: dict) -> dict:
@@ -148,11 +228,192 @@ class GradingService:
         for component, weight in DEFAULT_WEIGHTS.items(): self.repo.add(GradingPolicyItem(grading_policy_item_id=str(uuid4()), grading_policy_id=policy.grading_policy_id, component=component, weight_percent=weight))
         self.session.flush(); return policy
 
+    def verify_source_outbox(self, envelope, expected_aggregate_type: str) -> DomainEventOutbox:
+        """只接受同一事务事件箱中原封不动投递到 F 的冻结来源。"""
+
+        source = self.session.get(DomainEventOutbox, envelope.event_id)
+        if not source:
+            raise ApiError(
+                "GRADING.SOURCE_EVENT_UNVERIFIED",
+                "成绩事件未找到受控事件箱来源",
+                422,
+                {"reason": "OUTBOX_EVENT_NOT_FOUND"},
+            )
+        mismatches: list[str] = []
+        scalar_fields = ("event_type", "aggregate_type", "aggregate_id", "actor_user_id", "idempotency_key")
+        for field in scalar_fields:
+            if getattr(source, field) != getattr(envelope, field):
+                mismatches.append(field)
+        if normalized_event_time(source.occurred_at) != normalized_event_time(envelope.occurred_at):
+            mismatches.append("occurred_at")
+        try:
+            if canonical_json(source.payload_json or {}) != canonical_json(envelope.payload):
+                mismatches.append("payload")
+        except (TypeError, ValueError):
+            mismatches.append("payload")
+        if mismatches:
+            raise ApiError(
+                "GRADING.SOURCE_EVENT_UNVERIFIED",
+                "成绩事件与受控事件箱来源不一致",
+                422,
+                {"reason": "OUTBOX_ENVELOPE_MISMATCH", "fields": sorted(mismatches)},
+            )
+        if source.aggregate_type != expected_aggregate_type:
+            raise ApiError(
+                "GRADING.SOURCE_SCOPE_INVALID",
+                "成绩事件来源聚合范围不符合冻结契约",
+                422,
+                {"event_type": envelope.event_type, "expected_aggregate_type": expected_aggregate_type},
+            )
+        return source
+
+    @staticmethod
+    def verify_runtime_evidence(envelope, payload: dict) -> None:
+        """D 的运行事件必须继续绑定到实例、发布与服务端状态，而非裸分数。"""
+
+        required = ["lab_release_id", "runtime_instance_id"]
+        missing = [field for field in required if not isinstance(payload.get(field), str) or not payload[field].strip()]
+        if payload.get("runtime_instance_id") != envelope.aggregate_id:
+            missing.append("runtime_instance_id")
+        if envelope.event_type == "lab.submitted":
+            if payload.get("submission_status") != "SUBMITTED":
+                missing.append("submission_status")
+        else:
+            expected_status = "PASSED" if envelope.event_type == "lab.checkpoint.passed" else "FAILED"
+            if not isinstance(payload.get("checkpoint_id"), str) or not payload["checkpoint_id"].strip():
+                missing.append("checkpoint_id")
+            if payload.get("checkpoint_status") != expected_status:
+                missing.append("checkpoint_status")
+        if missing:
+            raise ApiError(
+                "GRADING.SOURCE_EVIDENCE_INVALID",
+                "实验成绩事件缺少受控运行证据",
+                422,
+                {"event_type": envelope.event_type, "invalid": sorted(set(missing))},
+            )
+
+    @staticmethod
+    def validate_score_proof_fields(*, event_id: str, event_type: str, aggregate_id: str, payload: dict, proof: object, raw: Decimal, maximum: Decimal) -> tuple[str, str]:
+        """验证冻结题集、服务端来源标记与分数绑定摘要；调用方必须先证明确实来自持久化证明事实。"""
+
+        expected_issuer, expected_evidence_type = SCORE_PROOF_REQUIREMENTS[event_type]
+        if not isinstance(proof, dict):
+            raise ApiError("GRADING.SCORE_PROOF_REQUIRED", "评分证明缺少冻结题集和服务端判分摘要", 422, {"event_type": event_type, "missing": ["source_proof"]})
+        required = ("contract", "issuer", "origin", "evidence_type", "source_event_id", "source_fact_id", "frozen_question_count", "frozen_question_sha256", "answer_evidence_sha256", "scoring_evidence_sha256", "score_payload_sha256")
+        missing = [field for field in required if proof.get(field) is None or proof.get(field) == ""]
+        if missing:
+            raise ApiError("GRADING.SCORE_PROOF_REQUIRED", "评分证明字段不完整", 422, {"event_type": event_type, "missing": missing})
+        invalid: list[str] = []
+        if proof.get("contract") != SCORE_PROOF_CONTRACT: invalid.append("contract")
+        if proof.get("issuer") != expected_issuer: invalid.append("issuer")
+        if proof.get("origin") != SCORE_PROOF_ORIGIN: invalid.append("origin")
+        if proof.get("evidence_type") != expected_evidence_type: invalid.append("evidence_type")
+        if proof.get("source_event_id") != event_id: invalid.append("source_event_id")
+        if proof.get("source_fact_id") != payload.get("source_id"): invalid.append("source_fact_id")
+        count = proof.get("frozen_question_count")
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 10000: invalid.append("frozen_question_count")
+        for field in ("frozen_question_sha256", "answer_evidence_sha256", "scoring_evidence_sha256", "score_payload_sha256"):
+            if not isinstance(proof.get(field), str) or not SHA256_PATTERN.fullmatch(proof[field]): invalid.append(field)
+        if invalid:
+            raise ApiError("GRADING.SCORE_PROOF_INVALID", "评分证明格式或服务端来源标记无效", 422, {"event_type": event_type, "invalid": sorted(set(invalid))})
+        digest = source_proof_digest(event_id=event_id, event_type=event_type, aggregate_id=aggregate_id, payload=payload, proof=proof, raw=raw, maximum=maximum)
+        if proof["score_payload_sha256"].lower() != digest:
+            raise ApiError("GRADING.SCORE_PROOF_INVALID", "评分证明与冻结分数事实不一致", 422, {"event_type": event_type, "invalid": ["score_payload_sha256"]})
+        return expected_issuer, digest
+
+    def consume_score_proof(self, envelope) -> dict:
+        """只由独立的受控事件箱事件写入 F 的服务端评分证明事实。"""
+
+        payload = envelope.payload
+        if envelope.actor_user_id != SCORE_PROOF_PRODUCER_ID:
+            self.reject_envelope(
+                envelope,
+                "GRADING.SCORE_PROOF_PRODUCER_INVALID",
+                "评分证明事件不是受信任的服务端判分产物",
+                {"expected_actor_user_id": SCORE_PROOF_PRODUCER_ID, "actor_user_id": envelope.actor_user_id},
+            )
+        score_event_type = payload.get("score_event_type")
+        if score_event_type not in SCORE_PROOF_REQUIREMENTS:
+            self.reject_envelope(envelope, "GRADING.SCORE_PROOF_EVENT_INVALID", "评分证明未声明受支持的成绩事件类型", {"invalid": ["score_event_type"]})
+        required = ("score_event_id", "score_aggregate_id", "source_fact_id", "course_id", "class_id", "student_id", "raw_score", "max_score")
+        missing = [field for field in required if payload.get(field) is None or payload.get(field) == ""]
+        if missing:
+            self.reject_envelope(envelope, "GRADING.SCORE_PROOF_EVENT_INVALID", "评分证明事件缺少冻结成绩字段", {"missing": missing})
+        identifiers = ("score_event_id", "score_aggregate_id", "source_fact_id", "course_id", "class_id", "student_id", "lesson_id")
+        invalid_ids = [field for field in identifiers if payload.get(field) is not None and (not isinstance(payload[field], str) or not payload[field].strip() or len(payload[field]) > 36)]
+        if invalid_ids:
+            self.reject_envelope(envelope, "GRADING.SCORE_PROOF_EVENT_INVALID", "评分证明事件标识字段无效", {"invalid": sorted(set(invalid_ids))})
+        if envelope.aggregate_id != payload["source_fact_id"]:
+            self.reject_envelope(envelope, "GRADING.SOURCE_SCOPE_INVALID", "评分证明聚合标识与提交事实不一致", {"invalid": ["aggregate_id"]})
+        try:
+            raw, maximum = Decimal(str(payload["raw_score"])), Decimal(str(payload["max_score"]))
+        except (InvalidOperation, ValueError):
+            self.reject_envelope(envelope, "GRADING.SCORE_PROOF_EVENT_INVALID", "评分证明分数必须为有限数值", {})
+        if not raw.is_finite() or not maximum.is_finite() or maximum <= 0 or maximum > Decimal("999999.99") or raw < 0 or raw > maximum:
+            self.reject_envelope(envelope, "GRADING.SCORE_PROOF_EVENT_INVALID", "评分证明分数不在有效范围内", {})
+        score_payload = {"course_id": payload["course_id"], "class_id": payload["class_id"], "student_id": payload["student_id"], "lesson_id": payload.get("lesson_id"), "source_id": payload["source_fact_id"], "raw_score": payload["raw_score"], "max_score": payload["max_score"]}
+        try:
+            self.verify_source_outbox(envelope, SCORE_PROOF_SOURCE_AGGREGATE_TYPES[score_event_type])
+            issuer, digest = self.validate_score_proof_fields(event_id=payload["score_event_id"], event_type=score_event_type, aggregate_id=payload["score_aggregate_id"], payload=score_payload, proof=payload.get("source_proof"), raw=raw, maximum=maximum)
+        except ApiError as exc:
+            self.reject_envelope(envelope, exc.code, exc.message, exc.details)
+        existing = self.session.get(GradeScoreProof, envelope.event_id)
+        if existing:
+            return {"status": "DUPLICATE", "source_proof_event_id": envelope.event_id}
+        same_score_event = self.session.scalar(select(GradeScoreProof).where(GradeScoreProof.score_event_id == payload["score_event_id"]))
+        if same_score_event:
+            self.reject_envelope(envelope, "GRADING.SCORE_PROOF_CONFLICT", "同一成绩事件已存在另一份服务端评分证明", {"score_event_id": payload["score_event_id"]})
+        proof = payload["source_proof"]
+        row = GradeScoreProof(source_proof_event_id=envelope.event_id, score_event_id=payload["score_event_id"], score_event_type=score_event_type, score_aggregate_id=payload["score_aggregate_id"], source_fact_id=payload["source_fact_id"], course_id=payload["course_id"], class_id=payload["class_id"], lesson_id=payload.get("lesson_id"), student_id=payload["student_id"], raw_score=raw, max_score=maximum, contract=proof["contract"], issuer=issuer, origin=proof["origin"], evidence_type=proof["evidence_type"], frozen_question_count=proof["frozen_question_count"], frozen_question_sha256=proof["frozen_question_sha256"], answer_evidence_sha256=proof["answer_evidence_sha256"], scoring_evidence_sha256=proof["scoring_evidence_sha256"], score_payload_sha256=digest, recorded_at=envelope.occurred_at.replace(tzinfo=None))
+        self.repo.add(row)
+        self.audit("GRADE_SCORE_PROOF_FROZEN", "grade_score_proof", row.source_proof_event_id, course_id=row.course_id, class_id=row.class_id, student_id=row.student_id, details={"score_event_id": row.score_event_id, "score_event_type": row.score_event_type, "source_fact_id": row.source_fact_id, "digest": row.score_payload_sha256})
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            if self.session.get(GradeScoreProof, envelope.event_id):
+                return {"status": "DUPLICATE", "source_proof_event_id": envelope.event_id}
+            raise
+        return {"status": "RECORDED", "source_proof_event_id": row.source_proof_event_id, "score_event_id": row.score_event_id}
+
+    def defer_envelope(self, envelope, code: str, message: str, details: dict) -> None:
+        """证明尚未投递时留下可审计待重试事实，不能用永久拒绝堵死同批重试。"""
+
+        existing = self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == envelope.event_id, AuditEvent.action == "GRADE_EVENT_DEFERRED"))
+        if not existing:
+            payload = envelope.payload
+            self.repo.add(AuditEvent(audit_event_id=str(uuid4()), source_event_id=envelope.event_id, actor_user_id=envelope.actor_user_id, actor_role="service", action="GRADE_EVENT_DEFERRED", resource_type=envelope.aggregate_type, resource_id=envelope.aggregate_id, course_id=payload.get("course_id"), class_id=payload.get("class_id"), student_id=payload.get("student_id"), request_id=self.request_id, ip=self.ip, result="PENDING", reason=message, occurred_at=utcnow(), details_json={"code": code, "details": details, "event_type": envelope.event_type}))
+            self.session.commit()
+        raise ApiError(code, message, 422, details)
+
+    def verify_score_proof(self, envelope, payload: dict, raw: Decimal, maximum: Decimal) -> tuple[str, str]:
+        """分数事件只引用 F 已从独立受控证明事件持久化的来源事实。"""
+
+        proof_event_id = payload.get("score_proof_event_id")
+        if not isinstance(proof_event_id, str) or not proof_event_id.strip() or len(proof_event_id) > 36:
+            raise ApiError("GRADING.SCORE_PROOF_REQUIRED", "作业或测验缺少独立冻结的服务端评分证明引用", 422, {"event_type": envelope.event_type, "reason": "SERVER_PERSISTED_PROOF_REQUIRED", "missing": ["score_proof_event_id"]})
+        stored = self.session.get(GradeScoreProof, proof_event_id)
+        if not stored:
+            self.defer_envelope(envelope, "GRADING.SERVER_PROOF_PENDING", "作业或测验引用的服务端评分证明尚未入库", {"event_type": envelope.event_type, "score_proof_event_id": proof_event_id})
+        expected = {"score_event_id": envelope.event_id, "score_event_type": envelope.event_type, "score_aggregate_id": envelope.aggregate_id, "source_fact_id": payload.get("source_id"), "course_id": payload.get("course_id"), "class_id": payload.get("class_id"), "lesson_id": payload.get("lesson_id"), "student_id": payload.get("student_id")}
+        invalid = [field for field, value in expected.items() if getattr(stored, field) != value]
+        if stored.raw_score != raw: invalid.append("raw_score")
+        if stored.max_score != maximum: invalid.append("max_score")
+        if invalid:
+            raise ApiError("GRADING.SCORE_PROOF_INVALID", "服务端评分证明与成绩事件范围或分数不一致", 422, {"event_type": envelope.event_type, "invalid": sorted(invalid)})
+        proof = {"contract": stored.contract, "issuer": stored.issuer, "origin": stored.origin, "evidence_type": stored.evidence_type, "source_event_id": stored.score_event_id, "source_fact_id": stored.source_fact_id, "frozen_question_count": stored.frozen_question_count, "frozen_question_sha256": stored.frozen_question_sha256, "answer_evidence_sha256": stored.answer_evidence_sha256, "scoring_evidence_sha256": stored.scoring_evidence_sha256, "score_payload_sha256": stored.score_payload_sha256}
+        return self.validate_score_proof_fields(event_id=envelope.event_id, event_type=envelope.event_type, aggregate_id=envelope.aggregate_id, payload=payload, proof=proof, raw=raw, maximum=maximum)
+
     def consume(self, envelope) -> dict:
         self.require_internal_service("grading:consume")
         envelope_limits={"event_id":64,"event_type":64,"aggregate_type":64,"aggregate_id":36,"actor_user_id":36,"idempotency_key":128}
         invalid_envelope=[field for field,limit in envelope_limits.items() if not isinstance((value:=getattr(envelope,field)),str) or not value.strip() or len(value)>limit]
         if invalid_envelope:raise ApiError("GRADING.EVENT_ENVELOPE_INVALID","上游事件信封字段无效",422,{"invalid":invalid_envelope})
+        if envelope.event_type == SCORE_PROOF_EVENT_TYPE:
+            rejected = self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == envelope.event_id, AuditEvent.action == "GRADE_EVENT_REJECTED"))
+            if rejected:
+                raise ApiError(rejected.details_json["code"], rejected.reason or "评分证明事件已拒绝", 422, rejected.details_json.get("details", {}))
+            return self.consume_score_proof(envelope)
         existing = self.session.scalar(select(GradeEvent).where(GradeEvent.event_id == envelope.event_id))
         if existing: return {"status": "DUPLICATE", "grade_event_id": existing.grade_event_id, "event_id": envelope.event_id}
         rejected=self.session.scalar(select(AuditEvent).where(AuditEvent.source_event_id==envelope.event_id,AuditEvent.action=="GRADE_EVENT_REJECTED"))
@@ -161,6 +422,7 @@ class GradingService:
         if envelope.event_type not in EVENT_TYPES:
             if envelope.event_type in {"resource.delivery.frozen", "course.roster.frozen"}:
                 try:
+                    self.verify_source_outbox(envelope, FREEZE_AGGREGATE_TYPES[envelope.event_type])
                     frozen_payload = validate_freeze_contract(envelope.event_type, envelope.aggregate_id, payload)
                 except ApiError as exc:
                     self.reject_envelope(envelope, exc.code, exc.message, exc.details)
@@ -193,13 +455,27 @@ class GradingService:
         manual_adjustment=envelope.event_type=="grade.manual.adjusted"
         if maximum <= 0 or maximum > Decimal("999999.99") or raw > maximum or (raw < 0 and (not manual_adjustment or raw < -maximum)):
             self.reject_envelope(envelope,"GRADING.SCORE_INVALID","原始分数必须在有效范围内",{})
+        try:
+            self.verify_source_outbox(envelope, SOURCE_AGGREGATE_TYPES[envelope.event_type])
+            if envelope.event_type.startswith("lab."):
+                self.verify_runtime_evidence(envelope, payload)
+            if envelope.event_type in SCORE_PROOF_REQUIREMENTS:
+                source_proof_issuer, source_proof_digest_value = self.verify_score_proof(envelope, payload, raw, maximum)
+                source_verification_status = VERIFIED_SCORE_PROOF
+            else:
+                source_proof_issuer, source_proof_digest_value = None, None
+                source_verification_status = VERIFIED_OUTBOX
+        except ApiError as exc:
+            if exc.code == "GRADING.SERVER_PROOF_PENDING":
+                raise
+            self.reject_envelope(envelope, exc.code, exc.message, exc.details)
         # All fact-window transitions use the latest gradebook row as their
         # scope lock. If posting wins, this event becomes LATE; if ingestion
         # wins, posting observes the new fact and rejects a stale snapshot.
         book = self.repo.gradebook(payload["course_id"], payload["class_id"], lock=True)
         archive = self.repo.archive(payload["course_id"], payload["class_id"], lock=True)
         fact_window_closed = bool(book and book.status in {"POSTED", "LOCKED"}) or bool(archive and archive.status == "ARCHIVED")
-        grade = GradeEvent(grade_event_id=str(uuid4()), course_id=payload["course_id"], class_id=payload["class_id"], lesson_id=payload.get("lesson_id"), student_id=payload["student_id"], source_type=EVENT_TYPES[envelope.event_type], source_id=payload["source_id"], raw_score=raw, max_score=maximum, normalized_score=(raw/maximum*100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), occurred_at=envelope.occurred_at.replace(tzinfo=None), event_id=envelope.event_id, status="LATE" if fact_window_closed else "CONSUMED", payload_json={**payload,"source_event_type":envelope.event_type,"source_occurred_at":envelope.occurred_at.isoformat()})
+        grade = GradeEvent(grade_event_id=str(uuid4()), course_id=payload["course_id"], class_id=payload["class_id"], lesson_id=payload.get("lesson_id"), student_id=payload["student_id"], source_type=EVENT_TYPES[envelope.event_type], source_id=payload["source_id"], raw_score=raw, max_score=maximum, normalized_score=(raw/maximum*100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), occurred_at=envelope.occurred_at.replace(tzinfo=None), event_id=envelope.event_id, status="LATE" if fact_window_closed else "CONSUMED", source_verification_status=source_verification_status, source_proof_issuer=source_proof_issuer, source_proof_digest=source_proof_digest_value, payload_json={**payload,"source_event_type":envelope.event_type,"source_occurred_at":envelope.occurred_at.isoformat()})
         self.repo.add(grade)
         if fact_window_closed:
             self.audit("GRADE_EVENT_LATE_IGNORED", "grade_event", grade.grade_event_id, result="BLOCKED", reason="成绩事实窗口已关闭", course_id=grade.course_id, class_id=grade.class_id, student_id=grade.student_id, details={"source_id": grade.source_id, "event_id": grade.event_id, "gradebook_status": book.status if book else None, "archive_status": archive.status if archive else None})
@@ -622,7 +898,7 @@ class GradingService:
     @staticmethod
     def gradebook_dict(b):return {"gradebook_id":b.gradebook_id,"course_id":b.course_id,"class_id":b.class_id,"policy_version":b.policy_version,"status":b.status,"calculated_at":b.calculated_at.isoformat()+"Z","posted_at":b.posted_at.isoformat()+"Z" if b.posted_at else None}
     @staticmethod
-    def event_dict(e):return {"grade_event_id":e.grade_event_id,"source_type":e.source_type,"source_id":e.source_id,"lab_release_id":e.payload_json.get("lab_release_id"),"lesson_id":e.lesson_id,"raw_score":number(e.raw_score),"max_score":number(e.max_score),"normalized_score":number(e.normalized_score),"occurred_at":e.occurred_at.isoformat()+"Z","event_id":e.event_id}
+    def event_dict(e):return {"grade_event_id":e.grade_event_id,"source_type":e.source_type,"source_id":e.source_id,"lab_release_id":e.payload_json.get("lab_release_id"),"lesson_id":e.lesson_id,"raw_score":number(e.raw_score),"max_score":number(e.max_score),"normalized_score":number(e.normalized_score),"source_verification_status":e.source_verification_status,"source_proof_issuer":e.source_proof_issuer,"source_proof_digest":e.source_proof_digest,"occurred_at":e.occurred_at.isoformat()+"Z","event_id":e.event_id}
     @staticmethod
     def audit_dict(x):return {"audit_event_id":x.audit_event_id,"source_event_id":x.source_event_id,"actor_user_id":x.actor_user_id,"actor_role":x.actor_role,"action":x.action,"resource_type":x.resource_type,"resource_id":x.resource_id,"course_id":x.course_id,"class_id":x.class_id,"student_id":x.student_id,"request_id":x.request_id,"ip":x.ip,"result":x.result,"reason":x.reason,"occurred_at":x.occurred_at.isoformat()+"Z","details":x.details_json}
     @staticmethod

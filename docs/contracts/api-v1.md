@@ -105,6 +105,8 @@ POST /api/v1/questions/{question_id}/review
 
 F 域只消费 A/D/E 发布的冻结事件，不提供签到、作业、测验、实验提交或班级成员写接口。`POST /api/v1/grading/events/consume` 按上游 `event_id` 幂等，同一事件重复投递不会重复计分。
 
+`POST /api/v1/grading/events/consume` 不接受仅带 `raw_score`（原始分）/`max_score`（满分）的分数事件。F 必须在同一 `domain_event_outbox`（事务事件箱）中核验完整信封和冻结聚合范围；作业、测验还必须通过独立的 `grading.score.proof.frozen`（评分证明已冻结）事件先写入 F 的 `grade_score_proof`（评分证明事实），最终成绩事件只携带 `score_proof_event_id` 引用。证明事件的 `actor_user_id` 固定为受信任服务 `service_teaching_score_prover`，并含 `issuer: teaching-core`、`origin: SERVER_GRADED`（服务端来源标记）、冻结题集、答题证据、判分证据及与目标分数和范围绑定的 SHA256（文件校验值）；最终成绩事件自己携带的同名摘要不构成证明。缺少、格式不合法、生产者不匹配或绑定不一致时接口返回 422（请求内容不合法）和 `GRADING.SOURCE_EVENT_UNVERIFIED`、`GRADING.SCORE_PROOF_REQUIRED`、`GRADING.SCORE_PROOF_PRODUCER_INVALID`、`GRADING.SCORE_PROOF_INVALID` 或 `GRADING.SOURCE_EVIDENCE_INVALID`，同时只追加 `GRADE_EVENT_REJECTED`（成绩事件已拒绝）审计事实，不会创建成绩事实。若引用的证明已在受控事件箱中但尚未由 F 消费，返回 `GRADING.SERVER_PROOF_PENDING`（服务端证明待到达）并追加 `GRADE_EVENT_DEFERRED`（成绩事件待证明），可安全重试。迁移前未证明的成绩保留为 `QUARANTINED_LEGACY`（历史隔离），不参与重算。
+
 默认成绩规则为签到 10%、作业 20%、测验 20%、实验 40%、互动 10%；规则版本发布后不可覆盖。`POST /api/v1/grading/courses/{course_id}/recalculate` 仅使用 `grade_event` 计算，`POSTED（已入账）` 或 `LOCKED（已锁定）` 成绩不可静默修改。
 
 新增 `GET /api/v1/analytics/courses/{course_id}/learning-summary?class_id={class_id}` 作为教师/学生管理 CR（变更请求）的只读模型，仅返回成绩、风险和学情摘要。成绩册、追溯、学情、风险和导出接口同样强制显式 `class_id`，并同时校验课程/班级数据范围，禁止按课程猜测“最新班级”。上游班级成员、完整教学事实或成绩入账缺失时返回 `PENDING（待处理）` 或 `PARTIAL（部分数据）`；学生响应不包含其他学生标识。

@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from sqlalchemy import create_engine, delete, select
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.common.models import DomainEventOutbox, FileObject
 from app.grading import models as grading
+from app.grading.service import source_proof_digest
 from app.lab_classroom import models as classroom
 from app.resources.models import ResourceDeliveryManifest
 from app.runtime import models as runtime
@@ -37,18 +39,43 @@ def remove_archive_files(files: list[FileObject]) -> None:
 
 
 def add_event(session: Session, *, event_id: str, event_type: str, aggregate_type: str,
-              aggregate_id: str, occurred_at: datetime, payload: dict) -> None:
+              aggregate_id: str, occurred_at: datetime, payload: dict,
+              actor_user_id: str = "service_g8_seed") -> None:
     session.add(DomainEventOutbox(
         event_id=event_id,
         event_type=event_type,
         aggregate_type=aggregate_type,
         aggregate_id=aggregate_id,
-        actor_user_id="service_g8_seed",
+        actor_user_id=actor_user_id,
         occurred_at=occurred_at,
         payload_json=payload,
         idempotency_key=f"g8:{event_id}",
         published_at=None,
     ))
+
+
+def source_proof(*, event_id: str, event_type: str, aggregate_id: str, payload: dict) -> dict:
+    """模拟 A 已冻结题目与服务端判分后发布给 F 的最小摘要，不保存答案原文。"""
+
+    evidence_type = "ASSIGNMENT_FROZEN_QUESTION_SET" if event_type == "assignment.submitted" else "QUIZ_FROZEN_QUESTION_SET"
+    digest = lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest()
+    proof = {
+        "contract": "grading-score-proof/v1",
+        "issuer": "teaching-core",
+        "origin": "SERVER_GRADED",
+        "evidence_type": evidence_type,
+        "source_event_id": event_id,
+        "source_fact_id": payload["source_id"],
+        "frozen_question_count": 1,
+        "frozen_question_sha256": digest(f"g8:frozen:{aggregate_id}"),
+        "answer_evidence_sha256": digest(f"g8:answers:{payload['source_id']}"),
+        "scoring_evidence_sha256": digest(f"g8:scoring:{payload['source_id']}"),
+    }
+    proof["score_payload_sha256"] = source_proof_digest(
+        event_id=event_id, event_type=event_type, aggregate_id=aggregate_id, payload=payload, proof=proof,
+        raw=Decimal(str(payload["raw_score"])), maximum=Decimal(str(payload["max_score"])),
+    )
+    return proof
 
 
 def main() -> None:
@@ -68,7 +95,7 @@ def main() -> None:
             grading.AnalyticsLabSummary, grading.AnalyticsStudentLabSummary,
             grading.AnalyticsSectionSummary, grading.AnalyticsCourseSummary,
             grading.StudentCourseScore, grading.GradebookItem, grading.Gradebook,
-            grading.GradeEvent, grading.GradingPolicyItem, grading.GradingPolicy,
+            grading.GradeEvent, grading.GradeScoreProof, grading.GradingPolicyItem, grading.GradingPolicy,
             grading.AuditEvent,
         ):
             session.execute(delete(model))
@@ -157,25 +184,53 @@ def main() -> None:
         session.add(ResourceDeliveryManifest(resource_delivery_manifest_id=manifest_id, course_id=COURSE_ID, version_no=1, status="FROZEN", manifest_json={"course_id": COURSE_ID, "version_no": 1, "resources": [{"lesson_id": LESSON_ID, "lab_version_id": VERSION_ID}]}, frozen_by="teacher_f", frozen_at=stamp))
         session.flush()
 
-        add_event(session, event_id="evt_g8_roster", event_type="course.roster.frozen", aggregate_type="class", aggregate_id=CLASS_ID, occurred_at=stamp, payload={"course_id": COURSE_ID, "class_id": CLASS_ID, "member_count": len(STUDENTS), "snapshot_hash": roster_hash, "frozen_at": stamp.isoformat() + "Z"})
-        add_event(session, event_id="evt_g8_resource", event_type="resource.delivery.frozen", aggregate_type="course", aggregate_id=COURSE_ID, occurred_at=stamp + timedelta(seconds=1), payload={"course_id": COURSE_ID, "manifest_id": manifest_id, "version_no": 1})
+        add_event(session, event_id="evt_g8_roster", event_type="course.roster.frozen", aggregate_type="class_roster", aggregate_id=CLASS_ID, occurred_at=stamp, payload={"course_id": COURSE_ID, "class_id": CLASS_ID, "member_count": len(STUDENTS), "snapshot_hash": roster_hash, "frozen_at": stamp.isoformat() + "Z"})
+        add_event(session, event_id="evt_g8_resource", event_type="resource.delivery.frozen", aggregate_type="course_resource", aggregate_id=COURSE_ID, occurred_at=stamp + timedelta(seconds=1), payload={"course_id": COURSE_ID, "manifest_id": manifest_id, "version_no": 1})
         for index, student_id in enumerate(STUDENTS, 1):
             values = scores[student_id]
             common = {"course_id": COURSE_ID, "class_id": CLASS_ID, "lesson_id": LESSON_ID, "student_id": student_id}
             facts = (
-                ("attendance.completed", f"evt_g8_att_{index}", f"atr_g8_{index:03d}", "attendance_record", values["attendance"]),
-                ("assignment.submitted", f"evt_g8_asg_{index}", f"asu_g8_{index:03d}", "assignment_submission", values["assignment"]),
-                ("quiz.completed", f"evt_g8_quiz_{index}", f"qat_g8_{index:03d}", "quiz_attempt", values["quiz"]),
-                ("poll.completed", f"evt_g8_poll_{index}", f"pan_g8_{index:03d}", "poll_answer", values["poll"]),
+                ("attendance.completed", f"evt_g8_att_{index}", f"atr_g8_{index:03d}", "attendance_task", "att_g8_gate", values["attendance"]),
+                ("assignment.submitted", f"evt_g8_asg_{index}", f"asu_g8_{index:03d}", "assignment", "asg_g8_gate", values["assignment"]),
+                ("quiz.completed", f"evt_g8_quiz_{index}", f"qat_g8_{index:03d}", "quiz", "quiz_g8_gate", values["quiz"]),
+                ("poll.completed", f"evt_g8_poll_{index}", f"pan_g8_{index:03d}", "poll", "poll_g8_gate", values["poll"]),
             )
-            for offset, (event_type, event_id, source_id, aggregate_type, score) in enumerate(facts, 2):
-                add_event(session, event_id=event_id, event_type=event_type, aggregate_type=aggregate_type, aggregate_id=source_id, occurred_at=stamp + timedelta(seconds=index * 10 + offset), payload={**common, "source_id": source_id, "raw_score": score[0], "max_score": score[1]})
+            for offset, (event_type, event_id, source_id, aggregate_type, aggregate_id, score) in enumerate(facts, 2):
+                payload = {**common, "source_id": source_id, "raw_score": score[0], "max_score": score[1]}
+                if event_type in {"assignment.submitted", "quiz.completed"}:
+                    proof_event_id = f"evt_g8_score_proof_{index}_{'asg' if event_type == 'assignment.submitted' else 'quiz'}"
+                    payload["score_proof_event_id"] = proof_event_id
+                    proof = source_proof(event_id=event_id, event_type=event_type, aggregate_id=aggregate_id, payload=payload)
+                    add_event(
+                        session,
+                        event_id=proof_event_id,
+                        event_type="grading.score.proof.frozen",
+                        aggregate_type="assignment_submission" if event_type == "assignment.submitted" else "quiz_attempt",
+                        aggregate_id=source_id,
+                        actor_user_id="service_teaching_score_prover",
+                        # 故意晚于成绩事件：dispatcher 必须依据类型先投递证明。
+                        occurred_at=stamp + timedelta(seconds=index * 10 + offset + 30),
+                        payload={
+                            "score_event_id": event_id,
+                            "score_event_type": event_type,
+                            "score_aggregate_id": aggregate_id,
+                            "source_fact_id": source_id,
+                            "course_id": COURSE_ID,
+                            "class_id": CLASS_ID,
+                            "lesson_id": LESSON_ID,
+                            "student_id": student_id,
+                            "raw_score": score[0],
+                            "max_score": score[1],
+                            "source_proof": proof,
+                        },
+                    )
+                add_event(session, event_id=event_id, event_type=event_type, aggregate_type=aggregate_type, aggregate_id=aggregate_id, occurred_at=stamp + timedelta(seconds=index * 10 + offset), payload=payload)
             runtime_payload = {**common, "lab_release_id": RELEASE_ID, "runtime_instance_id": instance_ids[index-1], "status": "RUNNING", "current_step": 5, "total_steps": 5, "raw_score": values["lab"][0], "max_score": values["lab"][1]}
-            add_event(session, event_id=f"evt_g8_cp_{index}", event_type="lab.checkpoint.passed", aggregate_type="runtime_instance", aggregate_id=instance_ids[index-1], occurred_at=stamp + timedelta(seconds=index * 10 + 6), payload={**runtime_payload, "source_id": f"cpr_g8_{index:03d}", "checkpoint_id": "rsa-fingerprint"})
+            add_event(session, event_id=f"evt_g8_cp_{index}", event_type="lab.checkpoint.passed", aggregate_type="runtime_instance", aggregate_id=instance_ids[index-1], occurred_at=stamp + timedelta(seconds=index * 10 + 6), payload={**runtime_payload, "source_id": f"cpr_g8_{index:03d}", "checkpoint_id": "rsa-fingerprint", "checkpoint_status": "PASSED"})
             add_event(session, event_id=f"evt_g8_lab_{index}", event_type="lab.submitted", aggregate_type="runtime_instance", aggregate_id=instance_ids[index-1], occurred_at=stamp + timedelta(seconds=index * 10 + 7), payload={**runtime_payload, "status": "SUBMITTED", "source_id": request_ids[index-1], "submission_status": "SUBMITTED"})
         session.commit()
     engine.dispose()
-    print(json.dumps({"course_id": COURSE_ID, "class_id": CLASS_ID, "lesson_id": LESSON_ID, "students": len(STUDENTS), "outbox_events": 14}, ensure_ascii=False))
+    print(json.dumps({"course_id": COURSE_ID, "class_id": CLASS_ID, "lesson_id": LESSON_ID, "students": len(STUDENTS), "outbox_events": 18}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

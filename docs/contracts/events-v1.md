@@ -4,7 +4,7 @@
 
 首批事件：
 
-`attendance.completed`、`poll.completed`、`assignment.submitted`、`quiz.completed`、`lab.release.published`、`lab.instance.started`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted`、`lab.instance.failed`、`lab.instance.destroyed`、`grade.event.created`、`gradebook.posted`、`course.archived`。
+`attendance.completed`、`poll.completed`、`assignment.submitted`、`quiz.completed`、`grading.score.proof.frozen`、`lab.release.published`、`lab.instance.started`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted`、`lab.instance.failed`、`lab.instance.destroyed`、`grade.event.created`、`gradebook.posted`、`course.archived`。
 
 业务事实和 `domain_event_outbox` 必须同一数据库事务写入。消费者必须按 `event_id` 或同一事件类型的 `idempotency_key` 幂等处理，禁止将消息队列当作权威事实库。
 
@@ -16,7 +16,27 @@ C 线新增事件：`lab.definition.created`、`lab.version.cloned`、`lab.versi
 
 `lab.release.published` 必须携带 `lab_version_id`、`course_id`、`class_id`、`status` 和发布时的 `spec_snapshot`（规范快照）；D 使用该快照登记 `runtime_release_read_model`，不得在事件消费时读取 C 的业务表。
 
-F 消费 `attendance.completed`、`assignment.submitted`、`quiz.completed`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted`、`poll.completed`，并输出 `grade.event.created`、`gradebook.posted`、`course.archived`。`lab.submitted` 的 `source_id` 固定为提交事实标识，`lab_release_id` 固定为实验发布标识。归档门禁还记录 `course.roster.frozen` 和 `resource.delivery.frozen` 的只读证据，不复制 A/B 业务事实；名单冻结证据必须同时匹配 `course_id` 与 `class_id`。
+F 消费 `attendance.completed`、`assignment.submitted`、`quiz.completed`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted`、`poll.completed`、`grading.score.proof.frozen`，并输出 `grade.event.created`、`gradebook.posted`、`course.archived`。`lab.submitted` 的 `source_id` 固定为提交事实标识，`lab_release_id` 固定为实验发布标识。归档门禁还记录 `course.roster.frozen` 和 `resource.delivery.frozen` 的只读证据，不复制 A/B 业务事实；名单冻结证据必须同时匹配 `course_id` 与 `class_id`。
+
+## F 成绩来源证明（冻结）
+
+F 在消费成绩或归档冻结事件前，必须按 `event_id` 查到同一不可变 `domain_event_outbox`（事务事件箱）记录，并逐字段比对 `event_type`、聚合类型/标识、操作者、发生时间、幂等键和规范化后的完整载荷。事件箱不存在、信封或载荷被替换、或聚合范围不符合下表时，均不是成绩事实。
+
+| 事件 | 冻结聚合类型 | 可接受的证明路径 |
+| --- | --- | --- |
+| `attendance.completed` | `attendance_task` | 受控事件箱逐字段匹配 |
+| `poll.completed` | `poll` | 受控事件箱逐字段匹配 |
+| `lab.checkpoint.passed` / `lab.checkpoint.failed` | `runtime_instance` | 受控事件箱逐字段匹配，且 `runtime_instance_id` 等于聚合标识、携带 `lab_release_id`、`checkpoint_id` 与对应 `checkpoint_status` |
+| `lab.submitted` | `runtime_instance` | 受控事件箱逐字段匹配，且 `runtime_instance_id` 等于聚合标识、携带 `lab_release_id` 和 `submission_status: SUBMITTED` |
+| `grading.score.proof.frozen` | `assignment_submission` 或 `quiz_attempt` | 独立受控事件箱逐字段匹配，写入 F 的不可修改 `grade_score_proof`（评分证明事实） |
+| `assignment.submitted` | `assignment` | 受控事件箱逐字段匹配，且引用已经持久化的评分证明事实 |
+| `quiz.completed` | `quiz` | 受控事件箱逐字段匹配，且引用已经持久化的评分证明事实 |
+
+`grading.score.proof.frozen` 必须在 A 的服务端完成冻结题集和判分后、与上游事务事件箱同事务写入；普通提交接口不得写入该事实。其 `actor_user_id` 固定为 `service_teaching_score_prover`，F 同时核对该受信任生产者和事件箱信封，不能只信载荷中的 `issuer`。聚合类型按目标成绩事件固定为 `assignment_submission` 或 `quiz_attempt`，聚合标识等于 `source_fact_id`。载荷固定包含目标 `score_event_id`、`score_event_type`、`score_aggregate_id`、`source_fact_id`、课程/班级/学生/课时、原始分/满分和 `source_proof`。`source_proof` 固定使用 `contract: grading-score-proof/v1`，并必须包含：`issuer: teaching-core`、`origin: SERVER_GRADED`（服务端来源标记）、目标成绩事件和提交事实标识、冻结题集类型（作业为 `ASSIGNMENT_FROZEN_QUESTION_SET`，测验为 `QUIZ_FROZEN_QUESTION_SET`）、正整数题目数、冻结题集/答题证据/判分证据的三个 SHA256（文件校验值），以及 `score_payload_sha256`。最后一个摘要必须重算并绑定目标事件、聚合、课程/班级/学生/课时、原始分/满分和前述证明字段；证明只保存摘要，不传递答案原文或凭据。
+
+随后 `assignment.submitted` 或 `quiz.completed` 只携带 `score_proof_event_id` 引用已持久化的证明事件；F 重新核对引用事实与分数事件的事件标识、聚合、课程/班级/学生/课时、提交事实及分数。最终成绩事件中自带的 `source_proof` 不作为证明依据，不能以“载荷自洽”绕过服务端事实。总控投递器对未发布事件按证明事件优先排序，因此同一批证明与成绩事件可确定地先证明、后计分；若成绩事件引用的证明尚未入库，F 写入 `GRADE_EVENT_DEFERRED`（成绩事件待证明）审计事实并保持可重试。
+
+缺少证明引用、格式错误或摘要不匹配的证明固定拒绝，F 不创建 `grade_event`，并追加不可修改的 `audit_event`，动作是 `GRADE_EVENT_REJECTED`，其中记录拒绝码和最小原因。迁移前没有证明列的旧 `grade_event` 标为 `QUARANTINED_LEGACY`（历史隔离），保留追溯但不参与成绩册重算；只有 `VERIFIED_OUTBOX` 或 `VERIFIED_SCORE_PROOF` 才能进入成绩册。
 
 `course.roster.frozen` 还必须携带 `member_count`、`snapshot_hash` 和 `frozen_at`；A 冻结后拒绝任何名单增删和再次导入。
 

@@ -1,6 +1,8 @@
 import os
+from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from decimal import Decimal
 from hashlib import sha256
 import json
 from io import BytesIO
@@ -21,8 +23,8 @@ from app.common.models import DomainEventOutbox, FileObject
 from app.main import app
 from app.grading.models import (AnalyticsCourseSummary, AnalyticsLabSummary, AnalyticsSectionSummary, AnalyticsStudentLabSummary,
     AuditEvent, CourseArchive, CourseArchiveArtifact, GradeEvent, Gradebook, GradebookItem, GradingPolicy,
-    GradingPolicyItem, StudentCourseScore, StudentRiskFlag)
-from app.grading.service import GradingService
+    GradingPolicyItem, GradeScoreProof, StudentCourseScore, StudentRiskFlag)
+from app.grading.service import GradingService, source_proof_digest
 
 pytestmark = pytest.mark.skipif(not os.getenv("YUEKE_DATABASE_URL"), reason="需要专属 MySQL 集成库")
 COURSE, CLASS = "course_data_security", "class_2301"
@@ -30,6 +32,7 @@ MANAGER = {"X-User-Id":"teacher_f","X-Role":"teacher","X-Teacher-Id":"teacher_f"
 STUDENT = {"X-User-Id":"user_s1","X-Role":"student","X-Student-Id":"student_1","X-Course-Ids":COURSE,"X-Class-Ids":CLASS,"X-Permissions":"grading:read,analytics:read"}
 SERVICE = {"X-User-Id":"service_event_consumer","X-Role":"admin","X-Permissions":"grading:consume,audit:ingest"}
 BROWSER_SPOOF = {"X-User-Id":"teacher_f","X-Role":"teacher","X-Teacher-Id":"teacher_f","X-Permissions":"grading:consume,audit:ingest"}
+SCORE_PROOF_EVENTS: dict[str, dict] = {}
 
 
 def remove_test_archive_files(items):
@@ -47,7 +50,8 @@ def remove_test_archive_files(items):
 def clean_database():
     if not os.getenv("YUEKE_DATABASE_URL"): yield; return
     engine=create_engine(os.environ["YUEKE_DATABASE_URL"])
-    order=[CourseArchiveArtifact,CourseArchive,StudentRiskFlag,AnalyticsLabSummary,AnalyticsStudentLabSummary,AnalyticsSectionSummary,AnalyticsCourseSummary,StudentCourseScore,GradebookItem,Gradebook,GradeEvent,GradingPolicyItem,GradingPolicy,AuditEvent]
+    order=[CourseArchiveArtifact,CourseArchive,StudentRiskFlag,AnalyticsLabSummary,AnalyticsStudentLabSummary,AnalyticsSectionSummary,AnalyticsCourseSummary,StudentCourseScore,GradebookItem,Gradebook,GradeEvent,GradeScoreProof,GradingPolicyItem,GradingPolicy,AuditEvent]
+    SCORE_PROOF_EVENTS.clear()
     with Session(engine) as session:
         for model in order: session.execute(delete(model))
         archive_files=list(session.scalars(select(FileObject).where(FileObject.bucket=="course-archives")))
@@ -59,16 +63,134 @@ def clean_database():
         archive_files=list(session.scalars(select(FileObject).where(FileObject.bucket=="course-archives")))
         session.execute(delete(DomainEventOutbox));session.execute(delete(FileObject).where(FileObject.bucket=="course-archives"));session.execute(delete(FileObject).where(FileObject.storage_provider == "generated-api"));session.commit()
         remove_test_archive_files(archive_files)
+    SCORE_PROOF_EVENTS.clear()
+
+
+def register_source_event(data: dict) -> None:
+    """测试只通过与请求完全相同的受控事件箱事实喂给 F。"""
+
+    if not os.getenv("YUEKE_DATABASE_URL"):
+        return
+    occurred_at = datetime.fromisoformat(data["occurred_at"].replace("Z", "+00:00"))
+    if occurred_at.tzinfo is not None:
+        occurred_at = occurred_at.astimezone(timezone.utc).replace(tzinfo=None)
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:
+        if not session.get(DomainEventOutbox, data["event_id"]):
+            session.add(DomainEventOutbox(
+                event_id=data["event_id"], event_type=data["event_type"],
+                aggregate_type=data["aggregate_type"], aggregate_id=data["aggregate_id"],
+                actor_user_id=data["actor_user_id"], occurred_at=occurred_at,
+                idempotency_key=data["idempotency_key"],
+                payload_json=json.loads(json.dumps(data["payload"])), published_at=None,
+            ))
+            session.commit()
+    engine.dispose()
+
+
+class VerifiedEventClient:
+    """正常的 F 测试事件模拟总控从事件箱投递，而不是直塞裸分数。"""
+
+    def __init__(self, raw: TestClient):
+        self.raw = raw
+
+    def __getattr__(self, name):
+        return getattr(self.raw, name)
+
+    def post(self, url, *args, **kwargs):
+        headers = kwargs.get("headers") or {}
+        data = kwargs.get("json")
+        if url == "/api/v1/grading/events/consume" and headers.get("X-User-Id") == "service_event_consumer" and isinstance(data, dict):
+            proof_event = SCORE_PROOF_EVENTS.get(data.get("event_id"))
+            if proof_event:
+                register_source_event(proof_event)
+                proof_response = self.raw.post(url, *args, headers=headers, json=proof_event)
+                assert proof_response.status_code == 200, proof_response.text
+            register_source_event(data)
+        return self.raw.post(url, *args, **kwargs)
 
 
 @pytest.fixture()
-def client(): return TestClient(app)
+def client(): return VerifiedEventClient(TestClient(app))
+
+
+def evidence_hash(label: str) -> str:
+    return sha256(label.encode("utf-8")).hexdigest()
+
+
+def attach_score_proof_reference(data: dict) -> None:
+    """构造独立证明事件；最终成绩只保存其不可伪造的事件引用。"""
+
+    payload = data["payload"]
+    evidence_type = "ASSIGNMENT_FROZEN_QUESTION_SET" if data["event_type"] == "assignment.submitted" else "QUIZ_FROZEN_QUESTION_SET"
+    proof = {
+        "contract": "grading-score-proof/v1",
+        "issuer": "teaching-core",
+        "origin": "SERVER_GRADED",
+        "evidence_type": evidence_type,
+        "source_event_id": data["event_id"],
+        "source_fact_id": payload["source_id"],
+        "frozen_question_count": 1,
+        "frozen_question_sha256": evidence_hash(f"frozen:{data['aggregate_id']}"),
+        "answer_evidence_sha256": evidence_hash(f"answers:{payload['source_id']}"),
+        "scoring_evidence_sha256": evidence_hash(f"score:{payload['source_id']}"),
+    }
+    proof_event_id = str(uuid4())
+    payload["score_proof_event_id"] = proof_event_id
+    proof["score_payload_sha256"] = source_proof_digest(
+        event_id=data["event_id"], event_type=data["event_type"], aggregate_id=data["aggregate_id"],
+        payload=payload, proof=proof, raw=Decimal(str(payload["raw_score"])), maximum=Decimal(str(payload["max_score"])),
+    )
+    SCORE_PROOF_EVENTS[data["event_id"]] = {
+        "event_id": proof_event_id,
+        "event_type": "grading.score.proof.frozen",
+        "aggregate_type": "assignment_submission" if data["event_type"] == "assignment.submitted" else "quiz_attempt",
+        "aggregate_id": payload["source_id"],
+        "actor_user_id": "service_teaching_score_prover",
+        "occurred_at": data["occurred_at"],
+        "idempotency_key": str(uuid4()),
+        "payload": {
+            "score_event_id": data["event_id"],
+            "score_event_type": data["event_type"],
+            "score_aggregate_id": data["aggregate_id"],
+            "source_fact_id": payload["source_id"],
+            "course_id": payload["course_id"],
+            "class_id": payload["class_id"],
+            "student_id": payload["student_id"],
+            "lesson_id": payload.get("lesson_id"),
+            "raw_score": payload["raw_score"],
+            "max_score": payload["max_score"],
+            "source_proof": proof,
+        },
+    }
 
 
 def envelope(event_type, student, source, raw, maximum=100, lesson="lesson_3_2", lab_release_id=None):
     payload={"course_id":COURSE,"class_id":CLASS,"student_id":student,"lesson_id":lesson,"source_id":source,"raw_score":raw,"max_score":maximum}
-    if event_type=="lab.submitted":payload["lab_release_id"]=lab_release_id or source
-    return {"event_id":str(uuid4()),"event_type":event_type,"aggregate_type":"source_fact","aggregate_id":source,"actor_user_id":"upstream","occurred_at":datetime.now(timezone.utc).isoformat(),"idempotency_key":str(uuid4()),"payload":payload}
+    aggregate_type = {
+        "attendance.completed": "attendance_task", "assignment.submitted": "assignment", "quiz.completed": "quiz",
+        "poll.completed": "poll", "lab.checkpoint.passed": "runtime_instance", "lab.checkpoint.failed": "runtime_instance",
+        "lab.submitted": "runtime_instance", "grade.manual.adjusted": "grade_event",
+    }[event_type]
+    aggregate_id = "runtime_1" if event_type.startswith("lab.") else f"{aggregate_type}_{source}"
+    if event_type.startswith("lab."):
+        payload.update({"lab_release_id":lab_release_id or "lab_release_rsa", "runtime_instance_id":aggregate_id})
+        if event_type == "lab.submitted": payload["submission_status"] = "SUBMITTED"
+        else: payload.update({"checkpoint_id":source, "checkpoint_status":"PASSED" if event_type.endswith("passed") else "FAILED"})
+    data = {"event_id":str(uuid4()),"event_type":event_type,"aggregate_type":aggregate_type,"aggregate_id":aggregate_id,"actor_user_id":"upstream","occurred_at":datetime.now(timezone.utc).isoformat(),"idempotency_key":str(uuid4()),"payload":payload}
+    if event_type in {"assignment.submitted", "quiz.completed"}: attach_score_proof_reference(data)
+    return data
+
+
+def consume_score_proof(client: TestClient, data: dict):
+    """以 F 实际消费链先持久化证明，再消费引用该证明的成绩事实。"""
+
+    proof_event = SCORE_PROOF_EVENTS[data["event_id"]]
+    register_source_event(proof_event)
+    response = client.post("/api/v1/grading/events/consume", headers=SERVICE, json=proof_event)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] in {"RECORDED", "DUPLICATE"}
+    return proof_event
 
 
 def seed_complete_facts(client):
@@ -87,7 +209,8 @@ def freeze_envelope(event_type, *, class_id=CLASS, member_count=2):
     else:
         aggregate_id=COURSE
         payload={"course_id":COURSE,"manifest_id":"resource_manifest_1","version_no":1}
-    return {"event_id":str(uuid4()),"event_type":event_type,"aggregate_type":"upstream_manifest","aggregate_id":aggregate_id,"actor_user_id":"upstream","occurred_at":datetime.now(timezone.utc).isoformat(),"idempotency_key":str(uuid4()),"payload":payload}
+    aggregate_type = "class_roster" if event_type == "course.roster.frozen" else "course_resource"
+    return {"event_id":str(uuid4()),"event_type":event_type,"aggregate_type":aggregate_type,"aggregate_id":aggregate_id,"actor_user_id":"upstream","occurred_at":datetime.now(timezone.utc).isoformat(),"idempotency_key":str(uuid4()),"payload":payload}
 
 
 def consume_freeze(client, event_type, **kwargs):
@@ -108,6 +231,9 @@ def test_event_replay_three_times_creates_one_grade_event(client):
 
 def test_concurrent_event_replay_returns_duplicate_instead_of_database_error():
     data=envelope("quiz.completed","student_1","quiz_concurrent",88)
+    with TestClient(app) as setup_client:
+        consume_score_proof(setup_client, data)
+    register_source_event(data)
     def consume_once():
         with TestClient(app) as local_client:
             response=local_client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data)
@@ -133,6 +259,115 @@ def test_invalid_event_values_are_rejected_before_mysql(client,field,value,code)
     data=envelope("quiz.completed","student_1","quiz_invalid",88);data["payload"][field]=value
     response=client.post("/api/v1/grading/events/consume",headers=SERVICE,json=data)
     assert response.status_code==422 and response.json()["code"]==code
+
+
+def test_score_events_require_separate_persisted_server_proof(client):
+    untrusted = envelope("assignment.submitted", "student_1", "assignment_untrusted", 88)
+    missing_outbox = client.raw.post("/api/v1/grading/events/consume", headers=SERVICE, json=untrusted)
+    assert missing_outbox.status_code == 422
+    assert missing_outbox.json()["code"] == "GRADING.SOURCE_EVENT_UNVERIFIED"
+
+    # 完整、自洽的 payload 与同一 outbox 记录仍不足以入分：证明必须先被 F
+    # 从独立服务端事件持久化，提交接口自带摘要一律不被采信。
+    forged = envelope("quiz.completed", "student_1", "quiz_forged_payload", 88)
+    forged["payload"]["source_proof"] = deepcopy(SCORE_PROOF_EVENTS[forged["event_id"]]["payload"]["source_proof"])
+    forged["payload"].pop("score_proof_event_id")
+    register_source_event(forged)
+    forged_response = client.raw.post("/api/v1/grading/events/consume", headers=SERVICE, json=forged)
+    assert forged_response.status_code == 422
+    assert forged_response.json()["code"] == "GRADING.SCORE_PROOF_REQUIRED"
+
+    # 即使摘要完整且 outbox 对应，非 A 服务端判分器也不能创建证明事实。
+    forged_producer = envelope("quiz.completed", "student_1", "quiz_forged_producer", 88)
+    forged_producer_event = SCORE_PROOF_EVENTS[forged_producer["event_id"]]
+    forged_producer_event["actor_user_id"] = "service_forged_score_prover"
+    register_source_event(forged_producer_event)
+    forged_producer_response = client.raw.post("/api/v1/grading/events/consume", headers=SERVICE, json=forged_producer_event)
+    assert forged_producer_response.status_code == 422
+    assert forged_producer_response.json()["code"] == "GRADING.SCORE_PROOF_PRODUCER_INVALID"
+
+    malformed = envelope("quiz.completed", "student_1", "quiz_malformed_proof", 88)
+    malformed_proof = SCORE_PROOF_EVENTS[malformed["event_id"]]
+    malformed_proof["payload"]["source_proof"]["score_payload_sha256"] = "0" * 64
+    register_source_event(malformed_proof)
+    invalid_proof = client.raw.post("/api/v1/grading/events/consume", headers=SERVICE, json=malformed_proof)
+    assert invalid_proof.status_code == 422
+    assert invalid_proof.json()["code"] == "GRADING.SCORE_PROOF_INVALID"
+
+    # 若最终成绩先到，保留可审计待重试状态；证明入库后同一事件可重试而不永久拒绝。
+    pending = envelope("quiz.completed", "student_1", "quiz_proof_pending", 88)
+    register_source_event(pending)
+    pending_response = client.raw.post("/api/v1/grading/events/consume", headers=SERVICE, json=pending)
+    assert pending_response.status_code == 422
+    assert pending_response.json()["code"] == "GRADING.SERVER_PROOF_PENDING"
+    consume_score_proof(client.raw, pending)
+    retried = client.raw.post("/api/v1/grading/events/consume", headers=SERVICE, json=pending)
+    assert retried.status_code == 200 and retried.json()["status"] == "CONSUMED"
+
+    verified = envelope("quiz.completed", "student_1", "quiz_verified_proof", 88)
+    accepted = client.post("/api/v1/grading/events/consume", headers=SERVICE, json=verified)
+    assert accepted.status_code == 200 and accepted.json()["status"] == "CONSUMED"
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:
+        grade = session.scalar(select(GradeEvent).where(GradeEvent.event_id == verified["event_id"]))
+        rejects = list(session.scalars(select(AuditEvent).where(AuditEvent.action == "GRADE_EVENT_REJECTED")))
+        deferred = session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == pending["event_id"], AuditEvent.action == "GRADE_EVENT_DEFERRED"))
+        stored_proof = session.get(GradeScoreProof, verified["payload"]["score_proof_event_id"])
+        assert not session.scalar(select(GradeEvent).where(GradeEvent.event_id == forged["event_id"]))
+        assert not session.get(GradeScoreProof, forged_producer_event["event_id"])
+        assert grade and grade.source_verification_status == "VERIFIED_SCORE_PROOF"
+        assert grade.source_proof_issuer == "teaching-core" and grade.source_proof_digest
+        assert stored_proof and stored_proof.score_event_id == verified["event_id"]
+        assert deferred and deferred.result == "PENDING"
+        assert {item.source_event_id for item in rejects} == {untrusted["event_id"], forged["event_id"], forged_producer_event["event_id"], malformed_proof["event_id"]}
+    engine.dispose()
+
+
+def test_attendance_poll_and_lab_sources_stay_on_verified_outbox_path(client):
+    events = [
+        envelope("attendance.completed", "student_1", "attendance_verified", 1, maximum=1),
+        envelope("poll.completed", "student_1", "poll_verified", 1, maximum=1),
+        envelope("lab.submitted", "student_1", "lab_verified", 90, lab_release_id="lab_release_rsa"),
+    ]
+    for data in events:
+        response = client.post("/api/v1/grading/events/consume", headers=SERVICE, json=data)
+        assert response.status_code == 200 and response.json()["status"] == "CONSUMED"
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:
+        rows = list(session.scalars(select(GradeEvent).where(GradeEvent.event_id.in_([data["event_id"] for data in events]))))
+        assert len(rows) == 3
+        assert {row.source_verification_status for row in rows} == {"VERIFIED_OUTBOX"}
+        assert all(row.source_proof_issuer is None and row.source_proof_digest is None for row in rows)
+    engine.dispose()
+
+
+def test_quarantined_legacy_grade_event_does_not_enter_recalculation(client):
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+    with Session(engine) as session:
+        session.add(GradeEvent(
+            grade_event_id=str(uuid4()),
+            course_id=COURSE,
+            class_id=CLASS,
+            lesson_id="lesson_legacy",
+            student_id="student_1",
+            source_type="QUIZ",
+            source_id="legacy_quiz",
+            raw_score=Decimal("100"),
+            max_score=Decimal("100"),
+            normalized_score=Decimal("100"),
+            occurred_at=datetime.utcnow(),
+            event_id=str(uuid4()),
+            status="CONSUMED",
+            source_verification_status="QUARANTINED_LEGACY",
+            source_proof_issuer=None,
+            source_proof_digest=None,
+            payload_json={"legacy": True},
+        ))
+        session.commit()
+    response = client.post(f"/api/v1/grading/courses/{COURSE}/recalculate", headers=MANAGER, json={"class_id": CLASS})
+    assert response.status_code == 409
+    assert response.json()["code"] == "GRADING.SOURCE_FACTS_PENDING"
+    engine.dispose()
 
 
 def test_lab_submission_requires_release_id_and_keeps_source_for_trace(client):
@@ -212,6 +447,8 @@ def test_post_and_fact_ingestion_share_the_gradebook_scope_lock(client, monkeypa
 
     monkeypatch.setattr(GradingService,"gradebook_integrity",paused_integrity)
     incoming=envelope("quiz.completed","student_1","quiz_racing_with_post",100)
+    consume_score_proof(client.raw, incoming)
+    register_source_event(incoming)
 
     def post_gradebook():
         with TestClient(app) as local_client:
@@ -309,7 +546,7 @@ def test_policy_weight_recalculate_trace_post_analytics_and_student_scope(client
     section=client.get(f"/api/v1/analytics/courses/{COURSE}/sections/lesson_3_2",headers=MANAGER,params={"class_id":CLASS}).json()
     assert section["status"]=="READY" and sum(section["distribution"].values())==2
     labs=client.get(f"/api/v1/analytics/courses/{COURSE}/labs/by-lab",headers=MANAGER,params={"class_id":CLASS}).json()
-    assert labs["items"][0]["lab_release_id"]=="lab_rsa" and labs["items"][0]["submitted_students"]==2 and labs["items"][0]["avg_score"]==90.0
+    assert labs["items"][0]["lab_release_id"]=="lab_release_rsa" and labs["items"][0]["submitted_students"]==2 and labs["items"][0]["avg_score"]==90.0
     consume_freeze(client,"course.roster.frozen")
     posted=client.post(f"/api/v1/grading/courses/{COURSE}/post",headers=MANAGER,params={"class_id":CLASS})
     assert posted.status_code==200 and posted.json()["status"]=="POSTED"
@@ -481,7 +718,8 @@ def test_risk_flags_are_backed_by_checkpoint_and_submission_facts(client):
     risks=client.get(f"/api/v1/analytics/courses/{COURSE}/risks",headers=MANAGER,params={"class_id":CLASS,"student_id":"student_1"}).json()["items"]
     by_type={x["risk_type"]:x["evidence"] for x in risks}
     assert by_type["CONSECUTIVE_CHECKPOINT_FAILURES"]["failure_count"]==2
-    assert by_type["MULTIPLE_MISSING_SUBMISSIONS"]["missing_count"]==3
+    # 检查点也携带受控 lab_release_id；它证明该实验已向学生开放，不能从漏交风险中排除。
+    assert by_type["MULTIPLE_MISSING_SUBMISSIONS"]["missing_count"]==4
 
 
 def test_learning_summary_is_pending_without_upstream_facts(client):

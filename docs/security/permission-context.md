@@ -14,6 +14,8 @@
 
 `integration:dispatch`（集成事件派发）、`grading:consume`（评分事件消费）、`audit:ingest`（审计事件写入）和 `classroom.events.consume`（课堂事件消费）只登记给受控内部服务身份；它们不得通过管理员、教师或学生角色授予。下游服务仅接收课堂服务针对已获准业务操作缩减后的权限集合，不能把普通账号扩展为内部服务身份。
 
+`grading.score.proof.frozen`（评分证明已冻结）不是普通账号可调用的写入能力：它只能由 A 的固定服务身份 `service_teaching_score_prover` 随受控事务事件箱写入，再被 `integration:dispatch`（集成事件派发）投递，并由具备 `grading:consume`（评分事件消费）的内部服务持久化。教师、学生和管理员均不能通过请求头、成绩接口或任意 `source_proof`（来源证明）摘要创建该事实。
+
 身份提供方式按环境强制隔离，默认关闭开发身份头。只有同时设置 `YUEKE_ENV=development`（开发）或 `YUEKE_ENV=test`（测试）以及 `YUEKE_ALLOW_DEV_IDENTITY_HEADERS=1` 时，才可使用 `X-User-Id` 等请求头进行本地契约验收；任何缺失、其他环境或 `production`（生产）都无条件拒绝这些请求头。生产只接受上游受信任中间件写入的主体，平台通过可替换的 `TrustedIdentityResolver`（可信身份解析器）按 `user_id` 或外部主体标识重新查询本库的有效账号、角色、权限、教师/学生档案和课程/班级范围。仓库不实现或部署登录、密钥或单点登录方案。生产尚未接入认证中间件时返回 `AUTH.TRUSTED_IDENTITY_REQUIRED`，不得降级为可伪造请求头。
 
 管理员可创建和查询不含密码或认证凭据的最小账号档案。学生名单按 `student_profile.student_number` 解析已有、启用的档案，服务端写入该档案的全局 `student_id`；未知学号、停用档案、姓名不一致和历史标识差异均进入逐行错误或 `identity_reconciliation_case`（身份核对事项），不得按班级生成学生身份或静默覆盖历史名单。

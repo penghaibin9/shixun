@@ -18,7 +18,12 @@ class GradingRepository:
     def policy_items(self, policy_id: str) -> list[GradingPolicyItem]:
         return list(self.session.scalars(select(GradingPolicyItem).where(GradingPolicyItem.grading_policy_id == policy_id)))
     def grade_events(self, course_id: str, class_id: str, student_id: str | None = None) -> list[GradeEvent]:
-        query = select(GradeEvent).where(GradeEvent.course_id == course_id, GradeEvent.class_id == class_id, GradeEvent.status == "CONSUMED")
+        query = select(GradeEvent).where(
+            GradeEvent.course_id == course_id,
+            GradeEvent.class_id == class_id,
+            GradeEvent.status == "CONSUMED",
+            GradeEvent.source_verification_status.in_(("VERIFIED_OUTBOX", "VERIFIED_SCORE_PROOF")),
+        )
         if student_id: query = query.where(GradeEvent.student_id == student_id)
         return list(self.session.scalars(query.order_by(GradeEvent.occurred_at)))
     def gradebook(self, course_id: str, class_id: str, *, lock: bool = False) -> Gradebook | None:
