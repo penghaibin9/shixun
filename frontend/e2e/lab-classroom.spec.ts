@@ -29,8 +29,9 @@ test('教师可查看 43 人课堂、执行操作并分发日志', async ({page}
   await page.getByRole('button',{name:'提醒',exact:true}).click()
   await page.getByRole('button',{name:'关闭'}).click()
   await page.getByRole('link',{name:'教学日志'}).click()
+  await page.getByRole('checkbox',{name:'学生1 2026001',exact:true}).click()
   await page.getByRole('button',{name:'确认分发'}).click()
-  await expect(page.getByText('日志任务已分发')).toBeVisible()
+  await expect(page.getByText('日志任务已分发给 1 名学生')).toBeVisible()
 })
 
 test('学生可查看实验步骤与本人日志任务', async ({page})=>{

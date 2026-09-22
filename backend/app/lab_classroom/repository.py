@@ -21,6 +21,8 @@ class ClassroomRepository:
         return list(self.session.scalars(select(m.TeachingLogDistributionTask).where(m.TeachingLogDistributionTask.class_id.in_(class_ids)).order_by(m.TeachingLogDistributionTask.created_at.desc())))
     def distribution_items(self, distribution_id: str):
         return list(self.session.scalars(select(m.TeachingLogDistributionItem).where(m.TeachingLogDistributionItem.distribution_id == distribution_id)))
+    def distribution_assignments(self, distribution_id: str):
+        return list(self.session.scalars(select(m.StudentLogAssignment).where(m.StudentLogAssignment.distribution_id == distribution_id)))
     def student_assignments(self, student_id: str):
         return list(self.session.scalars(select(m.StudentLogAssignment).where(m.StudentLogAssignment.student_id == student_id).order_by(m.StudentLogAssignment.assigned_at.desc())))
     def assignment(self, assignment_id: str): return self.session.get(m.StudentLogAssignment, assignment_id)
