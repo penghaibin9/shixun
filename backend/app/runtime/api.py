@@ -15,7 +15,7 @@ from app.labs.database import create_session_factory, get_session
 
 from . import models
 from .catalog import LabCatalogClient
-from .schemas import ImageRegister, NodeRegister, ReleaseContextInput, ReleaseStudentInput, RuntimeAction, RuntimeExtend, RuntimeFacadeAction, RuntimeHeartbeatResult, RuntimeMaintenanceResult, RuntimeMaintenanceRun, RuntimeQueueRetryResult, RuntimeStart, TerminalTokenInput
+from .schemas import DistributionBundleAuthorization, ImageRegister, NodeRegister, ReleaseContextInput, ReleaseStudentInput, RuntimeAction, RuntimeExtend, RuntimeFacadeAction, RuntimeHeartbeatResult, RuntimeMaintenanceResult, RuntimeMaintenanceRun, RuntimeQueueRetryResult, RuntimeStart, TerminalTokenInput
 from .service import RuntimeService, new_id, now
 
 router = APIRouter(prefix="/api/v1", tags=["实验运行时"])
@@ -34,6 +34,7 @@ def service(request: Request, session: Session, user: UserContext) -> RuntimeSer
             "classroom.runtime.remind": {"runtime.remind", "runtime.read"}, "classroom.runtime.unlock": {"runtime.unlock", "runtime.read"},
             "classroom.terminal.use": {"runtime.terminal", "runtime.read"}, "classroom.terminal.assist": {"runtime.terminal", "runtime.read"},
             "classroom.logs.read": {"runtime.read"}, "classroom.logs.download": {"runtime.read"},
+            "classroom.logs.assignment.download": {"runtime.distributed-artifact.download"},
             "classroom.release.extend-all": {"runtime.extend", "runtime.read"}, "classroom.release.remind-idle": {"runtime.remind", "runtime.read"},
         }
         permissions = set(user.permissions)
@@ -316,6 +317,19 @@ def artifact_bundle_url(data: dict, request: Request, session: DbSession, user: 
     for artifact_id in artifact_ids:
         artifact_detail(str(artifact_id), request, session, user)
     return {"download_url": f"{base.rstrip('/')}/bundles/pending", "expires_in": 300, "artifact_count": len(artifact_ids), "status": "PENDING"}
+
+
+@router.post("/runtime/log-artifacts/distribution-bundle-url")
+def distribution_artifact_bundle_url(
+    data: DistributionBundleAuthorization,
+    request: Request,
+    session: DbSession,
+    user: CurrentUser,
+    service_origin: Annotated[str | None, Header(alias="X-Service-Origin")] = None,
+):
+    if service_origin != "lab-classroom":
+        raise ApiError("AUTH.SERVICE_ORIGIN_REQUIRED", "日志分发下载只接受实验课堂服务调用", 403)
+    return service(request, session, user).distribution_artifact_bundle(data.authorization)
 
 
 @router.websocket("/runtime-instances/{instance_id}/terminal")

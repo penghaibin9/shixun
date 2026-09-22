@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.common.context import UserContext
 from app.common.models import Base, DomainEventOutbox
+from app.common.signed_capability import verify_capability
 from app.database import get_session
 from app.lab_classroom.gateway import GatewayBundle, downstream_headers, get_gateways
 from app.lab_classroom.models import ConsumedRuntimeEvent, RuntimeProjection
@@ -32,6 +33,12 @@ class FakeClient:
         if path == "/api/v1/runtime/lab-releases/release-1": return {"lab_release_id":"release-1","class_id":"class-a"}
         if path == "/api/v1/runtime/instances/runtime-a": return {"runtime_instance_id":"runtime-a","class_id":"class-a","student_id":"student-a","status":"RUNNING"}
         if path.endswith("/terminal-token"): return {"token":"short-lived","expires_in":30,"websocket_url":"ws://127.0.0.1:8010/ws/terminal"}
+        if path.endswith("/distribution-bundle-url"):
+            claims = verify_capability(json["authorization"], "test-log-distribution-signing-key-32-bytes")
+            assert claims["student_id"] == user.student_id
+            assert claims["assignment_id"] and claims["distribution_id"]
+            assert claims["reference_ids"] == ["artifact-1", "artifact-2"]
+            return {"download_url":"http://127.0.0.1:8010/download/signed","expires_in":60,"artifact_count":2,"status":"READY"}
         if path.endswith("/download-url") or path.endswith("/bundle-url"): return {"download_url":"http://127.0.0.1:8010/download/signed","expires_in":60}
         if path.endswith("/logs/traffic") or path == "/api/v1/runtime/logs/traffic": return {"items":[{"artifact_id":"artifact-1","student_id":"student-a","name":"traffic-1.pcap","size_bytes":12,"course_id":"course-a","class_id":"class-a","lab_release_id":"release-1"},{"artifact_id":"artifact-2","student_id":"student-a","name":"traffic-2.pcap","size_bytes":14,"course_id":"course-a","class_id":"class-a","lab_release_id":"release-1"}],"total":2}
         if path == "/api/v1/runtime/logs/audit": return {"items":[{"event_id":"audit-1","event_type":"runtime.command","student_id":"student-a","course_id":"course-a","class_id":"class-a","lab_release_id":"release-1"}],"total":1}
@@ -116,7 +123,8 @@ def test_legacy_alert_without_p0_equivalent_is_rejected():
         RuntimeEventIn(event_id="evt",event_type="runtime.alert",aggregate_id="runtime-a",actor_user_id="system",occurred_at="2026-09-21T12:00:00",idempotency_key="stable",payload={})
 
 
-def test_log_distribution_references_artifacts_and_only_target_downloads(client_db):
+def test_log_distribution_references_artifacts_and_only_target_downloads(client_db, monkeypatch):
+    monkeypatch.setenv("YUEKE_LOG_DISTRIBUTION_SIGNING_KEY", "test-log-distribution-signing-key-32-bytes")
     client,_=client_db; body={"course_id":"course-a","class_id":"class-a","lab_release_id":"release-1","distribution_type":"TRAFFIC","source_filter":{},"requested_count":2,"target_student_ids":["student-a"],"title":"RSA 流量分析","instruction":"定位异常连接"}
     created=client.post("/api/v1/teaching-logs/distributions",headers={**teacher("classroom.logs.distribute"),"Idempotency-Key":"dist-1"},json=body)
     assert created.status_code==201 and len(created.json()["items"])==2

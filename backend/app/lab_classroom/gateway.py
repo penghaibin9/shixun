@@ -29,7 +29,7 @@ DOWNSTREAM_PERMISSION_MAP: dict[str, frozenset[str]] = {
     "classroom.logs.read": frozenset({"runtime.read", "audit:read"}),
     "classroom.logs.download": frozenset({"runtime.read"}),
     "classroom.logs.distribute": frozenset({"runtime.read", "teaching.members.read"}),
-    "classroom.logs.assignment.download": frozenset({"runtime.read"}),
+    "classroom.logs.assignment.download": frozenset({"runtime.distributed-artifact.download"}),
     "classroom.readmodel.read": frozenset({"teaching.members.read", "grading:read"}),
 }
 
