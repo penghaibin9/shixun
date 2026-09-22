@@ -18,6 +18,13 @@ class NodeAgentClient:
         return {"Authorization": f"Bearer {self.token}"}
 
     async def _request(self, method: str, path: str, **kwargs) -> dict:
+        response = await self._response(method, path, **kwargs)
+        try:
+            return response.json()
+        except ValueError as error:
+            raise ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "节点代理响应不是有效数据", 503) from error
+
+    async def _response(self, method: str, path: str, **kwargs) -> httpx.Response:
         try:
             async with httpx.AsyncClient(base_url=self.agent_url, timeout=30) as client:
                 response = await client.request(method, path, headers=self._headers(), **kwargs)
@@ -26,7 +33,7 @@ class NodeAgentClient:
         if response.status_code >= 400:
             message = response.json().get("detail", "节点代理拒绝请求") if response.headers.get("content-type", "").startswith("application/json") else "节点代理拒绝请求"
             raise ApiError("RUNTIME.PROVIDER_REJECTED", message, 503, {"provider_status": response.status_code})
-        return response.json()
+        return response
 
     async def health(self) -> dict:
         return await self._request("GET", "/health")
@@ -46,3 +53,19 @@ class NodeAgentClient:
 
     async def exec(self, provider_group_id: str, payload: dict) -> dict:
         return await self._request("POST", f"/runtime-groups/{provider_group_id}/exec", json=payload)
+
+    async def capture_start(self, provider_group_id: str) -> dict:
+        return await self._request("POST", f"/runtime-groups/{provider_group_id}/capture/start")
+
+    async def capture_stop(self, provider_group_id: str) -> dict:
+        return await self._request("POST", f"/runtime-groups/{provider_group_id}/capture/stop", timeout=60)
+
+    async def capture_artifact(self, provider_group_id: str) -> dict:
+        response = await self._response("GET", f"/runtime-groups/{provider_group_id}/capture/artifact", timeout=60)
+        return {
+            "content": response.content,
+            "content_type": response.headers.get("content-type", ""),
+            "sha256": response.headers.get("x-content-sha256", ""),
+            "capture_id": response.headers.get("x-capture-id", ""),
+            "content_length": response.headers.get("content-length"),
+        }

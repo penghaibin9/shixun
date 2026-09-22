@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
+import struct
 from time import sleep, time
 from urllib.parse import parse_qs, urlparse
 from zipfile import ZipFile
@@ -30,6 +31,8 @@ STUDENT = {"X-User-Id": "user_student_2301001", "X-Role": "student", "X-Student-
 TEACHER = {"X-User-Id": "user_teacher_runtime", "X-Role": "teacher", "X-Teacher-Id": "teacher_runtime", "X-Permissions": "runtime.read,runtime.preview,runtime.destroy,runtime.rebuild,runtime.extend,runtime.rejudge,runtime.terminal,infrastructure.read,infrastructure.write", "X-Course-Ids": "course_data_security", "X-Class-Ids": "class_netsec_2301"}
 ADMIN = {"X-User-Id": "user_admin_runtime", "X-Role": "admin", "X-Permissions": "infrastructure.read,infrastructure.write", "X-Course-Ids": "course_data_security", "X-Class-Ids": "class_netsec_2301"}
 DIGEST = "sha256:" + "a" * 64
+PCAP_PACKET = b"\x00\x01\x02\x03"
+PCAP_BYTES = b"\xd4\xc3\xb2\xa1" + struct.pack("<HHIIII", 2, 4, 0, 0, 65535, 1) + struct.pack("<IIII", 1, 0, len(PCAP_PACKET), len(PCAP_PACKET)) + PCAP_PACKET
 CLEAN_MODELS = [models.RuntimeCleanupTask, models.RuntimeAdminAction, models.CheckpointResult, models.RuntimeArtifact, models.RuntimeTerminalSession, models.RuntimeResourceUsage, models.RuntimeEvent, models.RuntimeNetwork, models.RuntimeContainer, models.RuntimeInstance, models.RuntimeInstanceGroup, models.RuntimeQueue, models.RuntimeRequest, models.RuntimeReleaseReadModel, models.InfraImageValidation, models.InfraImage, models.InfraNodeHeartbeat, models.InfraNode]
 D_EVENT_TYPES = ["lab.instance.started", "lab.instance.failed", "lab.instance.destroyed", "lab.checkpoint.passed", "lab.checkpoint.failed", "lab.submitted"]
 
@@ -81,6 +84,10 @@ class FakeAgent:
         self.memory_available_mb = 8192
         self.destroy_delay_seconds = 0
         self.create_hook = None
+        self.capture_start_failures = 0
+        self.capture_stop_failures = 0
+        self.capture_tampered = False
+        self.captures = {}
 
     async def health(self):
         return {"status": "ok"}
@@ -120,9 +127,53 @@ class FakeAgent:
     async def exec(self, provider_group_id, payload):
         return {"passed": True, "message": "检查点通过", "evidence": {"exit_code": 0, "provider_group_id": provider_group_id}}
 
+    async def capture_start(self, provider_group_id):
+        if self.capture_start_failures > 0:
+            self.capture_start_failures -= 1
+            raise ApiError("RUNTIME.PROVIDER_REJECTED", "测试抓包启动失败", 503)
+        capture = self.captures.setdefault(provider_group_id, {
+            "capture_id": f"cap_{sha256(provider_group_id.encode()).hexdigest()[:32]}",
+            "started_at": "2026-09-22T00:00:00+00:00",
+            "status": "CAPTURING",
+        })
+        return {
+            "provider_group_id": provider_group_id, **capture,
+            "idempotent_replay": capture["status"] != "CAPTURING",
+        }
+
+    async def capture_stop(self, provider_group_id):
+        if self.capture_stop_failures > 0:
+            self.capture_stop_failures -= 1
+            raise ApiError("RUNTIME.PROVIDER_REJECTED", "测试抓包停止失败", 503)
+        capture = self.captures.get(provider_group_id)
+        if not capture:
+            raise ApiError("RUNTIME.PROVIDER_REJECTED", "测试运行组未启动抓包", 503)
+        capture["status"] = "COMPLETED"
+        return {
+            "provider_group_id": provider_group_id, **capture,
+            "ended_at": "2026-09-22T00:01:00+00:00",
+            "file_id": f"{capture['capture_id']}.pcap",
+            "sha256": sha256(PCAP_BYTES).hexdigest(),
+            "size_bytes": len(PCAP_BYTES),
+            "packet_count": 1,
+            "idempotent_replay": False,
+        }
+
+    async def capture_artifact(self, provider_group_id):
+        capture = self.captures[provider_group_id]
+        content = PCAP_BYTES + (b"tampered" if self.capture_tampered else b"")
+        return {
+            "content": content,
+            "content_type": "application/vnd.tcpdump.pcap",
+            "sha256": sha256(PCAP_BYTES).hexdigest(),
+            "capture_id": capture["capture_id"],
+            "content_length": str(len(PCAP_BYTES)),
+        }
+
 
 @pytest.fixture()
-def db_and_client():
+def db_and_client(tmp_path, monkeypatch):
+    monkeypatch.setenv("YUEKE_RUNTIME_ARTIFACT_DIR", str(tmp_path / "runtime-artifacts"))
     engine = create_engine(os.environ["YUEKE_DATABASE_URL"], pool_pre_ping=True)
     with Session(engine) as session:
         for table in CLEAN_MODELS:
@@ -177,8 +228,23 @@ def test_start_is_idempotent_and_persists_scheduler_decision(db_and_client):
         assert session.scalar(select(func.count()).select_from(DomainEventOutbox).where(DomainEventOutbox.event_type == "lab.instance.started")) == 1
 
 
+def test_capture_start_failure_rolls_back_and_never_reports_running(db_and_client):
+    engine, client, fake = db_and_client
+    fake.capture_start_failures = 1
+    response = start(client, "runtime-start-capture-failure")
+    assert response.status_code == 503
+    assert response.json()["code"] == "RUNTIME.CAPTURE_START_FAILED"
+    assert fake.destroyed_group_ids
+    with Session(engine) as session:
+        request = session.scalar(select(models.RuntimeRequest))
+        group = session.scalar(select(models.RuntimeInstanceGroup))
+        assert request.status == group.status == "FAILED"
+        assert session.scalar(select(func.count()).select_from(models.RuntimeInstance)) == 0
+        assert session.scalar(select(func.count()).select_from(models.RuntimeArtifact)) == 0
+
+
 def test_student_scope_terminal_token_and_destroy_twice(db_and_client):
-    _, client, fake = db_and_client
+    engine, client, fake = db_and_client
     started = start(client, "runtime-start-student-002").json()
     instance_id = next(instance_id for instance_id in started["instance_ids"] if client.get(f"/api/v1/runtime-instances/{instance_id}", headers=STUDENT).json()["role"] == "STUDENT_WORKSTATION")
     other = {**STUDENT, "X-User-Id": "other", "X-Student-Id": "student_other"}
@@ -190,6 +256,51 @@ def test_student_scope_terminal_token_and_destroy_twice(db_and_client):
     assert destroyed.status_code == 200 and destroyed.json()["status"] == "DESTROYED" and fake.destroyed
     repeated = client.post(f"/api/v1/runtime-instances/{instance_id}/destroy", headers=STUDENT, json={"reason": "重复回收"})
     assert repeated.status_code == 200 and repeated.json()["status"] == "DESTROYED"
+    with Session(engine) as session:
+        artifacts = list(session.scalars(select(models.RuntimeArtifact)))
+        assert len(artifacts) == 1
+        artifact = artifacts[0]
+        file_object = session.get(FileObject, artifact.file_id)
+        assert artifact.runtime_instance_id == instance_id
+        assert artifact.sha256 == file_object.sha256 == sha256(PCAP_BYTES).hexdigest()
+        assert artifact.size_bytes == file_object.size_bytes == len(PCAP_BYTES)
+        assert file_object.storage_provider == "local" and file_object.bucket == "runtime-artifacts"
+        assert (Path(os.environ["YUEKE_RUNTIME_ARTIFACT_DIR"]) / file_object.object_key).read_bytes() == PCAP_BYTES
+
+
+def test_capture_integrity_failure_is_recorded_but_does_not_leak_group(db_and_client):
+    engine, client, fake = db_and_client
+    started = start(client, "runtime-start-capture-tamper").json()
+    instance_id = next(
+        value for value in started["instance_ids"]
+        if client.get(f"/api/v1/runtime-instances/{value}", headers=STUDENT).json()["role"] == "STUDENT_WORKSTATION"
+    )
+    fake.capture_tampered = True
+    destroyed = client.post(f"/api/v1/runtime-instances/{instance_id}/destroy", headers=STUDENT, json={"reason": "篡改抓包仍须清理"})
+    assert destroyed.status_code == 200 and destroyed.json()["status"] == "DESTROYED"
+    assert fake.destroyed
+    with Session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(models.RuntimeArtifact)) == 0
+        failure = session.scalar(select(models.RuntimeEvent).where(models.RuntimeEvent.event_type == "runtime.capture.failed"))
+        assert failure and failure.detail_json["error_code"] == "RUNTIME.CAPTURE_ARTIFACT_INVALID"
+
+
+def test_capture_stop_failure_does_not_block_destroy(db_and_client):
+    engine, client, fake = db_and_client
+    started = start(client, "runtime-start-capture-stop-failure").json()
+    instance_id = started["instance_ids"][0]
+    fake.capture_stop_failures = 1
+    destroyed = client.post(
+        f"/api/v1/runtime-instances/{instance_id}/destroy",
+        headers=STUDENT,
+        json={"reason": "抓包停止失败仍须清理"},
+    )
+    assert destroyed.status_code == 200 and destroyed.json()["status"] == "DESTROYED"
+    assert fake.destroyed
+    with Session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(models.RuntimeArtifact)) == 0
+        failure = session.scalar(select(models.RuntimeEvent).where(models.RuntimeEvent.event_type == "runtime.capture.failed"))
+        assert failure and failure.detail_json["error_code"] == "RUNTIME.PROVIDER_REJECTED"
 
 
 def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempotent(db_and_client, monkeypatch, tmp_path):
@@ -1121,6 +1232,25 @@ def test_rebuild_restores_destroyed_group_and_clears_destroyed_at(db_and_client)
         assert group.status == "RUNNING" and group.destroyed_at is None
         assert request.status == "RUNNING"
         assert all(item.status == "RUNNING" and item.ended_at is None for item in session.scalars(
+            select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)
+        ))
+
+
+def test_rebuild_capture_start_failure_destroys_new_generation(db_and_client):
+    engine, client, fake = db_and_client
+    running = start(client, "runtime-start-rebuild-capture-failure").json()
+    instance_id = running["instance_ids"][0]
+    fake.capture_start_failures = 1
+    rebuilt = client.post(f"/api/v1/runtime-instances/{instance_id}/rebuild", headers=STUDENT, json={"reason": "验证抓包失败回滚"})
+    assert rebuilt.status_code == 503
+    assert rebuilt.json()["code"] == "RUNTIME.CAPTURE_START_FAILED"
+    assert any(group_id.endswith("-g2") for group_id in fake.destroyed_group_ids)
+    with Session(engine) as session:
+        group = session.get(models.RuntimeInstanceGroup, running["runtime_group_id"])
+        request = session.get(models.RuntimeRequest, running["runtime_request_id"])
+        assert group.status == request.status == "FAILED"
+        assert group.provider_group_id is None
+        assert all(item.status == "FAILED" for item in session.scalars(
             select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id)
         ))
 

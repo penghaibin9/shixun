@@ -20,7 +20,7 @@ from app.common.outbox import enqueue_event
 from app.common.signed_capability import sign_capability, verify_capability
 
 from . import models
-from .artifact_storage import BundleEntry, build_bundle
+from .artifact_storage import BundleEntry, build_bundle, store_capture_artifact
 from .catalog import LabCatalogClient
 from .provider import NodeAgentClient
 from .schemas import ArtifactStorageClaims, DistributionDownloadClaims, ImageRegister, NodeRegister, RuntimeExtend, RuntimeMaintenanceRun, RuntimeStart
@@ -166,6 +166,174 @@ class RuntimeService:
             )
         if not valid:
             raise ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "计算节点代理创建响应无效", 503)
+
+    @staticmethod
+    def _validate_capture_start_result(result: dict, expected_group_id: str) -> None:
+        if (
+            not isinstance(result, dict)
+            or result.get("provider_group_id") != expected_group_id
+            or result.get("status") != "CAPTURING"
+            or not re.fullmatch(r"cap_[0-9a-f]{32}", str(result.get("capture_id", "")))
+            or not isinstance(result.get("started_at"), str)
+            or not isinstance(result.get("idempotent_replay"), bool)
+        ):
+            raise ApiError("RUNTIME.CAPTURE_RESPONSE_INVALID", "节点代理抓包启动响应无效", 503)
+
+    @staticmethod
+    def _capture_datetime(value: object, field: str) -> datetime:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        except (TypeError, ValueError) as error:
+            raise ApiError("RUNTIME.CAPTURE_RESPONSE_INVALID", f"节点代理抓包{field}无效", 503) from error
+
+    @classmethod
+    def _validate_capture_stop_result(cls, result: dict, expected_group_id: str) -> dict:
+        if (
+            not isinstance(result, dict)
+            or result.get("provider_group_id") != expected_group_id
+            or result.get("status") != "COMPLETED"
+            or not re.fullmatch(r"cap_[0-9a-f]{32}", str(result.get("capture_id", "")))
+            or result.get("file_id") != f"{result.get('capture_id')}.pcap"
+            or not re.fullmatch(r"[0-9a-f]{64}", str(result.get("sha256", "")))
+            or isinstance(result.get("size_bytes"), bool)
+            or not isinstance(result.get("size_bytes"), int)
+            or not 24 < result["size_bytes"] <= 128 * 1024 * 1024
+            or isinstance(result.get("packet_count"), bool)
+            or not isinstance(result.get("packet_count"), int)
+            or result["packet_count"] < 1
+        ):
+            raise ApiError("RUNTIME.CAPTURE_RESPONSE_INVALID", "节点代理抓包停止响应无效", 503)
+        started_at = cls._capture_datetime(result.get("started_at"), "开始时间")
+        ended_at = cls._capture_datetime(result.get("ended_at"), "结束时间")
+        if ended_at < started_at:
+            raise ApiError("RUNTIME.CAPTURE_RESPONSE_INVALID", "节点代理抓包时间范围无效", 503)
+        return {**result, "capture_started_at": started_at, "capture_ended_at": ended_at}
+
+    @staticmethod
+    def _validate_capture_artifact(result: dict, stopped: dict) -> bytes:
+        content = result.get("content") if isinstance(result, dict) else None
+        content_length = result.get("content_length") if isinstance(result, dict) else None
+        if content_length not in (None, ""):
+            try:
+                declared_length = int(content_length)
+            except (TypeError, ValueError) as error:
+                raise ApiError("RUNTIME.CAPTURE_ARTIFACT_INVALID", "节点抓包下载长度响应无效", 503) from error
+        else:
+            declared_length = stopped["size_bytes"]
+        if (
+            not isinstance(content, bytes)
+            or not str(result.get("content_type", "")).split(";", 1)[0].strip() == "application/vnd.tcpdump.pcap"
+            or result.get("capture_id") != stopped["capture_id"]
+            or result.get("sha256") != stopped["sha256"]
+            or declared_length != stopped["size_bytes"]
+            or len(content) != stopped["size_bytes"]
+            or sha256(content).hexdigest() != stopped["sha256"]
+        ):
+            raise ApiError("RUNTIME.CAPTURE_ARTIFACT_INVALID", "节点抓包下载内容与停止摘要不一致", 503)
+        return content
+
+    async def _capture_before_cleanup(self, agent, provider_group_id: str, runtime_group_id: str) -> dict:
+        primary = self.session.scalar(
+            select(models.RuntimeInstance)
+            .where(
+                models.RuntimeInstance.runtime_group_id == runtime_group_id,
+                models.RuntimeInstance.role == "STUDENT_WORKSTATION",
+            )
+            .order_by(models.RuntimeInstance.runtime_instance_id)
+        )
+        if not primary:
+            return {"status": "SKIPPED", "reason": "NO_STUDENT_INSTANCE"}
+        instance_id = primary.runtime_instance_id
+        student_id = primary.student_id
+        try:
+            stopped = self._validate_capture_stop_result(
+                await agent.capture_stop(provider_group_id), provider_group_id
+            )
+            content = self._validate_capture_artifact(
+                await agent.capture_artifact(provider_group_id), stopped
+            )
+            object_key = store_capture_artifact(content, stopped["sha256"], stopped["size_bytes"])
+            existing_artifact = self.session.scalar(
+                select(models.RuntimeArtifact).where(
+                    models.RuntimeArtifact.runtime_instance_id == instance_id,
+                    models.RuntimeArtifact.artifact_type == "TRAFFIC",
+                    models.RuntimeArtifact.sha256 == stopped["sha256"],
+                    models.RuntimeArtifact.size_bytes == stopped["size_bytes"],
+                )
+            )
+            if existing_artifact:
+                file_object = self.session.get(FileObject, existing_artifact.file_id)
+                if (
+                    not file_object
+                    or file_object.storage_provider != "local"
+                    or file_object.bucket != "runtime-artifacts"
+                    or file_object.object_key != object_key
+                    or file_object.sha256 != stopped["sha256"]
+                    or file_object.size_bytes != stopped["size_bytes"]
+                ):
+                    raise ApiError("RUNTIME.ARTIFACT_REGISTRATION_MISMATCH", "既有流量制品登记与真实文件不一致", 409)
+                return {"status": "COMPLETED", "artifact_id": existing_artifact.runtime_artifact_id, "idempotent_replay": True}
+
+            file_object = self.session.scalar(
+                select(FileObject).where(
+                    FileObject.sha256 == stopped["sha256"],
+                    FileObject.size_bytes == stopped["size_bytes"],
+                )
+            )
+            if file_object and (
+                file_object.storage_provider != "local"
+                or file_object.bucket != "runtime-artifacts"
+                or file_object.object_key != object_key
+            ):
+                raise ApiError("RUNTIME.ARTIFACT_REGISTRATION_MISMATCH", "相同内容已登记到其他存储位置", 409)
+            if not file_object:
+                file_object = FileObject(
+                    file_id=new_id("fil"), storage_provider="local", bucket="runtime-artifacts",
+                    object_key=object_key, original_name=f"流量记录-{stopped['capture_id']}.pcap",
+                    mime_type="application/vnd.tcpdump.pcap", size_bytes=stopped["size_bytes"],
+                    sha256=stopped["sha256"], created_by=self.user.user_id, created_at=now(),
+                )
+                self.session.add(file_object)
+            artifact = models.RuntimeArtifact(
+                runtime_artifact_id=new_id("rta"), runtime_instance_id=instance_id,
+                student_id=student_id, artifact_type="TRAFFIC", file_id=file_object.file_id,
+                sha256=stopped["sha256"], size_bytes=stopped["size_bytes"],
+                capture_started_at=stopped["capture_started_at"], capture_ended_at=stopped["capture_ended_at"],
+            )
+            self.session.add(artifact)
+            self._event(
+                "runtime.capture.completed", instance_id=instance_id, group_id=runtime_group_id,
+                detail={
+                    "artifact_id": artifact.runtime_artifact_id,
+                    "capture_id": stopped["capture_id"],
+                    "sha256": stopped["sha256"],
+                    "size_bytes": stopped["size_bytes"],
+                    "packet_count": stopped["packet_count"],
+                },
+            )
+            self.session.commit()
+            return {"status": "COMPLETED", "artifact_id": artifact.runtime_artifact_id, "idempotent_replay": False}
+        except Exception as raw_error:
+            self.session.rollback()
+            if isinstance(raw_error, ApiError):
+                error = raw_error
+            elif isinstance(raw_error, IntegrityError):
+                error = ApiError("RUNTIME.ARTIFACT_REGISTRATION_FAILED", "流量制品登记冲突", 503)
+            else:
+                error = ApiError("RUNTIME.CAPTURE_FINALIZATION_FAILED", "流量采集结束处理失败", 503)
+            try:
+                self._event(
+                    "runtime.capture.failed", instance_id=instance_id, group_id=runtime_group_id,
+                    detail={"provider_group_id": provider_group_id, "error_code": error.code, "message": error.message},
+                )
+                self.session.commit()
+            except Exception:
+                # 采集审计本身不可用时也不能阻断随后对运行组的安全销毁。
+                self.session.rollback()
+            return {"status": "FAILED", "error_code": error.code, "message": error.message}
 
     @staticmethod
     def _provider_group_id(runtime_group_id: str, generation: int) -> str:
@@ -773,6 +941,20 @@ class RuntimeService:
                 result = None
                 continue
             try:
+                capture_result = await self.agent_factory(node.agent_url).capture_start(provider_group_id)
+                self._validate_capture_start_result(capture_result, provider_group_id)
+            except (ApiError, KeyError, TypeError, ValueError) as raw_capture_error:
+                capture_error = raw_capture_error if isinstance(raw_capture_error, ApiError) else ApiError(
+                    "RUNTIME.CAPTURE_RESPONSE_INVALID", "节点代理抓包启动响应无效", 503
+                )
+                last_error = ApiError(
+                    "RUNTIME.CAPTURE_START_FAILED", "实验流量采集启动失败，运行组已回滚", 503,
+                    {"provider_error": capture_error.code},
+                )
+                await rollback_candidate(node, last_error)
+                result = None
+                continue
+            try:
                 if queue_owner:
                     self._assert_queue_lease(request.runtime_request_id, queue_owner)
                 group, request = self._lock_provision_owner(
@@ -838,6 +1020,10 @@ class RuntimeService:
             self.session.add(models.RuntimeNetwork(runtime_network_id=new_id("rtn"), runtime_group_id=group_id, network_key=network["network_key"], provider_network_id=network["network_id"], status="ACTIVE", isolation_checks_json=network.get("isolation_checks", {})))
         primary = next((x for x in instances if x.role == "STUDENT_WORKSTATION"), instances[0] if instances else None)
         request.last_activity_at = now()
+        self._event(
+            "runtime.capture.started", instance_id=primary.runtime_instance_id if primary else None, group_id=group_id,
+            detail={"provider_group_id": provider_group_id, "capture_id": capture_result["capture_id"], "started_at": capture_result["started_at"]},
+        )
         self._event("lab.instance.started", instance_id=primary.runtime_instance_id if primary else None, group_id=group_id, detail=self._projection_payload(request, primary, status="RUNNING"), idempotency_key=f"lab.instance.started:{primary.runtime_instance_id if primary else group_id}:1")
         queued = self.session.scalar(select(models.RuntimeQueue).where(models.RuntimeQueue.runtime_request_id == request.runtime_request_id))
         if queued:
@@ -947,8 +1133,10 @@ class RuntimeService:
             sibling.status = "STOPPING"
         self.session.commit()
         destroy_target = group.provider_group_id or group.runtime_group_id
+        agent = self.agent_factory(node.agent_url)
+        await self._capture_before_cleanup(agent, destroy_target, group.runtime_group_id)
         try:
-            cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+            cleanup_result = await agent.destroy(destroy_target)
             self._validate_destroy_result(cleanup_result, destroy_target)
         except (ApiError, KeyError, TypeError, ValueError) as raw_error:
             error = raw_error if isinstance(raw_error, ApiError) else ApiError(
@@ -1070,10 +1258,11 @@ class RuntimeService:
         }
         self.session.commit()
 
-        async def compensate_rebuild_orphan(error: ApiError) -> None:
+        async def compensate_rebuild_orphan(error: ApiError) -> bool:
             try:
                 cleanup_result = await self.agent_factory(node.agent_url).destroy(provider_group_id)
                 self._validate_destroy_result(cleanup_result, provider_group_id)
+                return True
             except (ApiError, KeyError, TypeError, ValueError) as raw_cleanup_error:
                 cleanup_error = raw_cleanup_error if isinstance(raw_cleanup_error, ApiError) else ApiError(
                     "RUNTIME.REBUILD_ORPHAN_CLEANUP_FAILED", "节点代理重建回滚响应无效", 503
@@ -1083,10 +1272,13 @@ class RuntimeService:
                     provider_group_id=provider_group_id, provider_generation=provider_generation,
                     intent="REBUILD_ORPHAN", error=cleanup_error,
                 )
+                return False
 
         if destroy_target:
+            agent = self.agent_factory(node.agent_url)
+            await self._capture_before_cleanup(agent, destroy_target, group_id)
             try:
-                cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+                cleanup_result = await agent.destroy(destroy_target)
                 self._validate_destroy_result(cleanup_result, destroy_target)
             except (ApiError, KeyError, TypeError, ValueError) as raw_error:
                 error = raw_error if isinstance(raw_error, ApiError) else ApiError("RUNTIME.REBUILD_CLEANUP_FAILED", "节点代理销毁响应无效", 503)
@@ -1125,11 +1317,25 @@ class RuntimeService:
             group.cleanup_not_before = group.cleanup_lease_expires_at
             self.session.commit()
 
+        new_group_created = False
         try:
             result = await self.agent_factory(node.agent_url).create_group(payload)
             self._validate_create_result(result, spec, provider_group_id)
+            new_group_created = True
+            try:
+                capture_result = await self.agent_factory(node.agent_url).capture_start(provider_group_id)
+                self._validate_capture_start_result(capture_result, provider_group_id)
+            except (ApiError, KeyError, TypeError, ValueError) as raw_capture_error:
+                capture_error = raw_capture_error if isinstance(raw_capture_error, ApiError) else ApiError(
+                    "RUNTIME.CAPTURE_RESPONSE_INVALID", "节点代理抓包启动响应无效", 503
+                )
+                raise ApiError(
+                    "RUNTIME.CAPTURE_START_FAILED", "重建后的实验流量采集启动失败", 503,
+                    {"provider_error": capture_error.code},
+                ) from raw_capture_error
         except (ApiError, KeyError, TypeError, ValueError) as raw_error:
             error = raw_error if isinstance(raw_error, ApiError) else ApiError("RUNTIME.PROVIDER_RESPONSE_INVALID", "计算节点代理创建响应无效", 503)
+            cleanup_completed = await compensate_rebuild_orphan(error) if new_group_created else False
             group = self.session.scalar(
                 select(models.RuntimeInstanceGroup).where(models.RuntimeInstanceGroup.runtime_group_id == group_id).with_for_update().execution_options(populate_existing=True)
             )
@@ -1140,14 +1346,19 @@ class RuntimeService:
                 lease_error = ApiError("RUNTIME.RECOVERY_LEASE_LOST", "实验重建执行权已失效", 409)
                 await compensate_rebuild_orphan(lease_error)
                 raise lease_error
-            group.status = "DESTROYING"
-            group.provider_group_id = provider_group_id
+            group.status = "FAILED" if cleanup_completed else "DESTROYING"
+            group.provider_group_id = None if cleanup_completed else provider_group_id
+            group.cleanup_intent = None if cleanup_completed else "REBUILD"
             group.cleanup_owner = None
             group.cleanup_lease_expires_at = None
-            group.cleanup_not_before = now()
-            group.cleanup_error_code = "RUNTIME.REBUILD_CREATE_FAILED"
+            group.cleanup_not_before = None if cleanup_completed else now()
+            group.cleanup_error_code = "RUNTIME.CAPTURE_START_FAILED" if error.code == "RUNTIME.CAPTURE_START_FAILED" else "RUNTIME.REBUILD_CREATE_FAILED"
             group.cleanup_error_message = error.message
             request.status, request.error_code, request.error_message, request.updated_at = "FAILED", group.cleanup_error_code, error.message, now()
+            if cleanup_completed:
+                for failed_instance in self.session.scalars(select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group_id)):
+                    failed_instance.status = "FAILED"
+                    failed_instance.ended_at = failed_instance.ended_at or now()
             self.session.commit()
             raise error from raw_error
 
@@ -1189,6 +1400,10 @@ class RuntimeService:
         request.provision_lease_expires_at = None
         request.error_code = request.error_message = None
         item = existing[next(instance.node_key for instance in instances if instance.runtime_instance_id == instance_id)]
+        self._event(
+            "runtime.capture.started", instance_id=instance_id, group_id=group.runtime_group_id,
+            detail={"provider_group_id": provider_group_id, "capture_id": capture_result["capture_id"], "started_at": capture_result["started_at"], "rebuild": True},
+        )
         self._event("lab.instance.started", instance_id=instance_id, group_id=group.runtime_group_id, detail=self._projection_payload(request, item, status="RUNNING", reason=reason, checkpoint_results_preserved=True), idempotency_key=f"lab.instance.started:{instance_id}:rebuild:{owner}")
         self.session.commit()
         return self.instance(instance_id)
@@ -2068,7 +2283,9 @@ class RuntimeService:
                 self.session.commit()
                 try:
                     destroy_target = group.provider_group_id or group.runtime_group_id
-                    cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+                    agent = self.agent_factory(node.agent_url)
+                    await self._capture_before_cleanup(agent, destroy_target, group.runtime_group_id)
+                    cleanup_result = await agent.destroy(destroy_target)
                     self._validate_destroy_result(cleanup_result, destroy_target)
                 except (ApiError, KeyError, TypeError, ValueError) as raw_error:
                     error = raw_error if isinstance(raw_error, ApiError) else ApiError(
@@ -2270,7 +2487,9 @@ class RuntimeService:
             destroy_target = group.provider_group_id or group.runtime_group_id
             self.session.commit()
             try:
-                cleanup_result = await self.agent_factory(node.agent_url).destroy(destroy_target)
+                agent = self.agent_factory(node.agent_url)
+                await self._capture_before_cleanup(agent, destroy_target, group_id)
+                cleanup_result = await agent.destroy(destroy_target)
                 self._validate_destroy_result(cleanup_result, destroy_target)
                 action = self._renew_admin_action(action)
                 ended = now()
@@ -2558,7 +2777,9 @@ class RuntimeService:
             cleanup_intent = task.intent
             self.session.commit()
             try:
-                cleanup_result = await self.agent_factory(node_url).destroy(provider_group_id)
+                agent = self.agent_factory(node_url)
+                await self._capture_before_cleanup(agent, provider_group_id, runtime_group_id)
+                cleanup_result = await agent.destroy(provider_group_id)
                 self._validate_destroy_result(cleanup_result, provider_group_id)
                 action = self._renew_admin_action(action)
                 finished = now()
