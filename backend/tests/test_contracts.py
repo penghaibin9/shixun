@@ -19,6 +19,8 @@ def test_frozen_openapi_is_valid_and_has_v1_contracts():
     contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
     assert contract["openapi"].startswith("3.1")
     assert "/api/v1/auth/context" in contract["paths"]
+    assert "/api/v1/auth/users" in contract["paths"]
+    assert "/api/v1/auth/reconciliation/scan" in contract["paths"]
     assert "/api/v1/classes/{class_id}/roster/freeze" in contract["paths"]
     assert "/api/v1/integration/outbox/dispatch" in contract["paths"]
     assert "Error" in contract["components"]["schemas"]
@@ -107,3 +109,16 @@ def test_production_rejects_development_identity_headers(monkeypatch):
     response = client.get("/api/v1/auth/context", headers={"X-User-Id": "spoofed", "X-Role": "admin", "X-Permissions": "audit:read"})
     assert response.status_code == 401
     assert response.json()["code"] == "AUTH.TRUSTED_IDENTITY_REQUIRED"
+
+
+def test_openapi_does_not_publish_development_identity_headers():
+    contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    header_names = {
+        parameter["name"].lower()
+        for operations in contract["paths"].values()
+        for operation in operations.values()
+        if isinstance(operation, dict)
+        for parameter in operation.get("parameters", [])
+        if parameter.get("in") == "header"
+    }
+    assert {"x-user-id", "x-role", "x-teacher-id", "x-student-id", "x-permissions", "x-course-ids", "x-class-ids"}.isdisjoint(header_names)

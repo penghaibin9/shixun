@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CourseCreate(BaseModel):
@@ -25,11 +25,10 @@ class ClassCreate(BaseModel):
 
 
 class MemberCreate(BaseModel):
-    student_id: str = Field(min_length=1, max_length=36)
+    model_config = ConfigDict(extra="forbid")
+
     student_number: str = Field(min_length=1, max_length=64)
     student_name: str = Field(min_length=1, max_length=80)
-    phone: str | None = Field(default=None, max_length=32)
-    email: str | None = Field(default=None, max_length=160)
 
 
 class AttendanceCreate(BaseModel):

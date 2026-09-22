@@ -4,7 +4,8 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 
-from .common.context import CurrentUser, UserContextResponse
+from .auth.api import router as auth_router
+from .common.context import CurrentUser, RequestStateTrustedIdentityResolver, UserContextResponse, configure_trusted_identity_resolver, resolve_development_identity_headers, resolve_trusted_identity
 from .common.errors import ApiError, api_error_handler, validation_error_handler
 from .grading.api import router as grading_router
 from .integration.api import router as integration_router
@@ -15,6 +16,7 @@ from .teaching.api import router as teaching_router
 from .runtime.api import router as runtime_router
 
 app = FastAPI(title="跃科网络空间安全实训平台 API", version="1.0.0", openapi_url="/api/v1/openapi.json")
+configure_trusted_identity_resolver(app, RequestStateTrustedIdentityResolver())
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(teaching_router)
@@ -24,6 +26,7 @@ app.include_router(runtime_router)
 app.include_router(classroom_router)
 app.include_router(grading_router)
 app.include_router(integration_router)
+app.include_router(auth_router)
 
 
 def frozen_openapi() -> dict:
@@ -62,6 +65,8 @@ app.openapi = frozen_openapi
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request.state.request_id = request.headers.get("X-Request-Id", f"req_{uuid4().hex}")
+    await resolve_trusted_identity(request)
+    resolve_development_identity_headers(request)
     response = await call_next(request)
     response.headers["X-Request-Id"] = request.state.request_id
     return response

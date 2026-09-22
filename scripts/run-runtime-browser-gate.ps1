@@ -32,9 +32,11 @@ $gateEnvironmentNames = @(
   'YUEKE_AGENT_GRADER_DIGEST',
   'YUEKE_ARTIFACT_STORAGE_SIGNING_KEY',
   'YUEKE_DATABASE_URL',
+  'YUEKE_ENV',
   'YUEKE_GATE_NODE_AGENT_URL',
   'YUEKE_GATE_API_URL',
   'YUEKE_GATE_IMAGE_DIGEST',
+  'YUEKE_ALLOW_DEV_IDENTITY_HEADERS',
   'YUEKE_GRADING_BASE_URL',
   'YUEKE_INTERNAL_RUNTIME_TOKEN',
   'YUEKE_LAB_CATALOG_TOKEN',
@@ -53,6 +55,8 @@ $captureImageBuilt = $false
 try {
   New-Item -ItemType Directory -Path $captureDirectory,$artifactDirectory -ErrorAction Stop | Out-Null
   $env:YUEKE_DATABASE_URL = "mysql+pymysql://yueke_dev:${escaped}@127.0.0.1:13384/${DatabaseName}?charset=utf8mb4"
+  $env:YUEKE_ENV = 'test'
+  $env:YUEKE_ALLOW_DEV_IDENTITY_HEADERS = '1'
   if ($StartLocalAgent) {
     $env:YUEKE_NODE_AGENT_TOKEN = [guid]::NewGuid().ToString('N')
   } elseif (-not $env:YUEKE_NODE_AGENT_TOKEN) {

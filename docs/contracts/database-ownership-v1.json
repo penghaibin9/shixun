@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "authority_contracts": {
     "curriculum": {
       "owner": "A",
@@ -20,8 +20,16 @@
   },
   "owners": {
     "00": [
+      "auth_permission",
+      "auth_role",
+      "auth_role_permission",
+      "auth_user",
+      "auth_user_role",
       "domain_event_outbox",
-      "file_object"
+      "file_object",
+      "identity_reconciliation_case",
+      "student_profile",
+      "teacher_profile"
     ],
     "A": [
       "assignment",

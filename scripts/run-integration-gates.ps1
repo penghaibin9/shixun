@@ -64,11 +64,13 @@ $gateEnvironmentNames = @(
   'YUEKE_AGENT_ALLOWED_DIGESTS',
   'YUEKE_AGENT_GRADER_DIGEST',
   'YUEKE_DATABASE_URL',
+  'YUEKE_ENV',
   'YUEKE_FFPROBE',
   'YUEKE_GATE_API_URL',
   'YUEKE_GATE_IMAGE_DIGEST',
   'YUEKE_GRADING_BASE_URL',
   'YUEKE_INTERNAL_RUNTIME_TOKEN',
+  'YUEKE_ALLOW_DEV_IDENTITY_HEADERS',
   'YUEKE_LAB_CATALOG_TOKEN',
   'YUEKE_LAB_CATALOG_URL',
   'YUEKE_NODE_AGENT_TOKEN',
@@ -83,6 +85,8 @@ foreach ($name in $gateEnvironmentNames) {
 try {
   $env:PYTHONPATH = Join-Path $repoRoot 'backend'
   $env:YUEKE_FFPROBE = $ffprobe
+  $env:YUEKE_ENV = 'test'
+  $env:YUEKE_ALLOW_DEV_IDENTITY_HEADERS = '1'
   $env:PATH = "$(Split-Path -Parent $ffprobe);$(Split-Path -Parent $python);$($previousEnvironment['PATH'])"
   $env:YUEKE_RESOURCE_UPLOAD_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "yueke-integration-$RunId"
   foreach ($databaseName in $databaseNames) { Initialize-GateDatabase $databaseName }

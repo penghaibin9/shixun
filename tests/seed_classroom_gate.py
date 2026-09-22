@@ -11,6 +11,7 @@ from app.common.models import DomainEventOutbox
 from app.lab_classroom import models as classroom
 from app.runtime import models as runtime
 from app.teaching import models as teaching
+from gate_identity_seed import ensure_gate_student, ensure_gate_teacher
 
 COURSE_ID = "course_g7_gate"
 CLASS_ID = "class_g7_gate"
@@ -46,6 +47,9 @@ def main() -> None:
         session.execute(delete(teaching.TeachingClass).where(teaching.TeachingClass.class_id == CLASS_ID))
         session.execute(delete(teaching.Course).where(teaching.Course.course_id == COURSE_ID))
 
+        ensure_gate_teacher(session, teacher_id="teacher-user", display_name="G7 门禁教师", stamp=stamp)
+        for number in range(1, 44):
+            ensure_gate_student(session, student_id=f"student_g7_{number:03d}", student_number=f"2026{number:03d}", full_name=f"验收学生{number}", stamp=stamp)
         session.add(teaching.Course(course_id=COURSE_ID, name="G7 真实课堂门禁课程", term="2026 秋季", owner_teacher_id="teacher-user", major="网络空间安全", description="43 人实验课堂验收", status="ACTIVE", created_at=stamp))
         session.add(teaching.TeachingClass(class_id=CLASS_ID, name="网络安全 2301 班", term="2026 秋季", owner_teacher_id="teacher-user", created_at=stamp, roster_frozen_at=stamp, roster_frozen_by="teacher-user", roster_snapshot_hash="g7-gate-snapshot"))
         session.flush()

@@ -14,6 +14,7 @@ from app.lab_classroom import models as classroom
 from app.resources.models import ResourceDeliveryManifest
 from app.runtime import models as runtime
 from app.teaching import models as teaching
+from gate_identity_seed import ensure_gate_student, ensure_gate_teacher
 
 COURSE_ID = "course_g8_gate"
 CLASS_ID = "class_g8_gate"
@@ -111,6 +112,9 @@ def main() -> None:
         session.execute(delete(teaching.TeachingClass).where(teaching.TeachingClass.class_id == CLASS_ID))
         session.execute(delete(teaching.Course).where(teaching.Course.course_id == COURSE_ID))
 
+        ensure_gate_teacher(session, teacher_id="teacher_f", display_name="G8 门禁教师", stamp=stamp)
+        for index, student_id in enumerate(STUDENTS, 1):
+            ensure_gate_student(session, student_id=student_id, student_number=f"G8{index:03d}", full_name=f"验收学生{index}", stamp=stamp)
         session.add(teaching.Course(course_id=COURSE_ID, name="G8 成绩归档门禁课程", term="2026 秋季", owner_teacher_id="teacher_f", major="网络空间安全", description="成绩到归档真实浏览器验收", status="ACTIVE", created_at=stamp))
         session.add(teaching.TeachingClass(class_id=CLASS_ID, name="G8 验收班", term="2026 秋季", owner_teacher_id="teacher_f", created_at=stamp, roster_frozen_at=stamp, roster_frozen_by="teacher_f", roster_snapshot_hash=roster_hash))
         session.flush()
