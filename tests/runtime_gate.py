@@ -2,6 +2,8 @@
 import asyncio
 import json
 import os
+import re
+from datetime import datetime, timezone
 from hashlib import sha256
 from uuid import uuid4
 from pathlib import Path
@@ -10,6 +12,8 @@ import httpx
 import websockets
 
 BASE = os.getenv("YUEKE_GATE_API_URL", "http://127.0.0.1:18080")
+AGENT_URL = os.getenv("YUEKE_GATE_NODE_AGENT_URL", "http://127.0.0.1:19443").rstrip("/")
+EXPECT_POSIX_PTY = os.getenv("YUEKE_GATE_EXPECT_POSIX_PTY") == "1"
 DIGEST = os.environ["YUEKE_GATE_IMAGE_DIGEST"]
 RUN = uuid4().hex[:8]
 TEACHER = {"X-User-Id": "teacher_d_gate", "X-Role": "teacher", "X-Teacher-Id": "teacher_d_gate", "X-Permissions": "labs.read,labs.write,labs.publish,labs.knowledge.write,runtime.read,runtime.preview,infrastructure.read,infrastructure.write", "X-Course-Ids": "course_data_security", "X-Class-Ids": "class_netsec_2301"}
@@ -31,34 +35,93 @@ def checked(response: httpx.Response) -> dict:
     return response.json()
 
 
-async def shell(instance_id: str, headers: dict[str, str], commands: str, marker: str) -> str:
+def terminal_url(instance_id: str) -> str:
+    return BASE.replace("http://", "ws://").replace("https://", "wss://") + f"/api/v1/runtime-instances/{instance_id}/terminal"
+
+
+async def issue_terminal_token(instance_id: str, headers: dict[str, str], idle_timeout_seconds: int = 300) -> dict:
     async with httpx.AsyncClient(base_url=BASE, timeout=30) as client:
-        token = checked(await client.post(f"/api/v1/runtime-instances/{instance_id}/terminal-token", headers=headers, json={"idle_timeout_seconds": 300}))["token"]
-    ws_url = BASE.replace("http://", "ws://").replace("https://", "wss://") + f"/api/v1/runtime-instances/{instance_id}/terminal"
+        return checked(await client.post(
+            f"/api/v1/runtime-instances/{instance_id}/terminal-token",
+            headers=headers,
+            json={"idle_timeout_seconds": idle_timeout_seconds},
+        ))
+
+
+async def read_until(socket, marker: str) -> str:
     output = b""
-    async with websockets.connect(ws_url, open_timeout=10) as socket:
+    while marker.encode() not in output:
+        frame = await asyncio.wait_for(socket.recv(), timeout=30)
+        output += frame if isinstance(frame, bytes) else frame.encode()
+    return output.decode(errors="replace")
+
+
+async def command_with_token(instance_id: str, token: str, commands: str, marker: str) -> str:
+    async with websockets.connect(terminal_url(instance_id), open_timeout=10) as socket:
         await socket.send(json.dumps({"token": token}))
         ready = json.loads(await socket.recv())
         if ready.get("type") != "ready":
             raise RuntimeError("终端未就绪")
-        await socket.send(json.dumps({"type": "resize", "cols": 100, "rows": 30}))
         await socket.send(commands + "\n")
-        while marker.encode() not in output:
-            frame = await asyncio.wait_for(socket.recv(), timeout=30)
-            output += frame if isinstance(frame, bytes) else frame.encode()
+        return await read_until(socket, marker)
+
+
+async def expect_terminal_rejected(instance_id: str, token: str, label: str, expected_code: int = 4403) -> None:
     try:
-        async with websockets.connect(ws_url, open_timeout=10) as replay:
-            await replay.send(json.dumps({"token": token}))
-            await replay.recv()
+        async with websockets.connect(terminal_url(instance_id), open_timeout=10) as rejected:
+            await rejected.send(json.dumps({"token": token}))
+            await rejected.recv()
     except websockets.ConnectionClosed as exc:
-        if exc.code != 4403:
-            raise RuntimeError(f"终端令牌重复使用返回了异常关闭码: {exc.code}") from exc
+        if exc.code != expected_code:
+            raise RuntimeError(f"{label}返回了异常关闭码: {exc.code}") from exc
     else:
-        raise RuntimeError("终端令牌可被重复使用")
-    return output.decode(errors="replace")
+        raise RuntimeError(f"{label}未被拒绝")
 
 
-async def main() -> None:
+async def shell(instance_id: str, headers: dict[str, str], commands: str, marker: str) -> str:
+    token = (await issue_terminal_token(instance_id, headers))["token"]
+    output = await command_with_token(instance_id, token, commands, marker)
+    await expect_terminal_rejected(instance_id, token, "终端令牌重复使用")
+    return output
+
+
+async def verify_terminal_resize(instance_id: str, headers: dict[str, str]) -> dict:
+    token = (await issue_terminal_token(instance_id, headers))["token"]
+    async with websockets.connect(terminal_url(instance_id), open_timeout=10) as socket:
+        await socket.send(json.dumps({"token": token}))
+        ready = json.loads(await socket.recv())
+        if ready.get("type") != "ready":
+            raise RuntimeError("终端尺寸门禁未就绪")
+        await socket.send("stty size 2>/dev/null || echo NO_POSIX_PTY\necho STTY_INITIAL_DONE\n")
+        initial = await read_until(socket, "STTY_INITIAL_DONE")
+        initial_size = re.search(r"(?:^|[\r\n])\s*(\d+)\s+(\d+)\s*(?:[\r\n]|$)", initial)
+        if not initial_size:
+            if EXPECT_POSIX_PTY:
+                raise RuntimeError(f"声明为 POSIX/PTTY 的节点未提供可查询终端尺寸: {initial}")
+            return {"status": "SKIPPED_WINDOWS_FALLBACK", "reason": "节点代理未提供 POSIX/PTTY，resize 未计为通过"}
+        before = [int(initial_size.group(1)), int(initial_size.group(2))]
+        if before != [24, 80]:
+            raise RuntimeError(f"终端初始尺寸不是 24x80: {before}")
+        await socket.send(json.dumps({"type": "resize", "cols": 100, "rows": 30}))
+        await asyncio.sleep(0.2)
+        await socket.send("stty size 2>/dev/null || echo RESIZE_FAILED\necho STTY_RESIZED_DONE\n")
+        resized = await read_until(socket, "STTY_RESIZED_DONE")
+        resized_size = re.search(r"(?:^|[\r\n])\s*(\d+)\s+(\d+)\s*(?:[\r\n]|$)", resized)
+        after = [int(resized_size.group(1)), int(resized_size.group(2))] if resized_size else None
+        if after != [30, 100]:
+            raise RuntimeError(f"终端 resize 后尺寸不是 30x100: {after}; output={resized}")
+    await expect_terminal_rejected(instance_id, token, "尺寸门禁令牌重复使用")
+    return {"status": "PASS", "before": before, "after": after}
+
+
+def seconds_until_expiry(expires_at: str) -> float:
+    expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    return max((expiry - datetime.now(timezone.utc)).total_seconds() + 0.5, 0)
+
+
+async def run_gate(starts: list[tuple[dict, dict, dict[str, str]]]) -> None:
     spec = json.loads((Path(__file__).parents[1] / "backend/app/labs/fixtures/rsa-v1.json").read_text(encoding="utf-8"))
     spec["lab_definition_id"] = "lab_rsa_d_gate_v3"
     spec["name"] = "RSA 真实运行门禁实验"
@@ -78,9 +141,8 @@ async def main() -> None:
             checked(await client.post(f"/api/v1/lab-versions/{version_id}/publish", headers={**TEACHER, "X-Idempotency-Key": "d-gate-lab-publish-v3"}))
         version_id = lab["latest_version"]["lab_version_id"]
         await client.post("/api/v1/infrastructure/images", headers=TEACHER, json={"image_id": "img_python_openssl_gate", "name": "Python OpenSSL 门禁镜像", "tag": "3.11-bookworm", "digest": DIGEST, "size_bytes": 0, "scan_status": "PASSED", "startup_check_status": "PASSED", "teaching_validation_status": "PASSED", "enabled": True})
-        checked(await client.post("/api/v1/infrastructure/nodes", headers=TEACHER, json={"node_id": "node_docker_desktop_gate", "name": "Docker Desktop Linux 门禁节点", "agent_url": "http://127.0.0.1:19443", "weight": 1000, "labels": {"environment": "gate"}}))
+        checked(await client.post("/api/v1/infrastructure/nodes", headers=TEACHER, json={"node_id": "node_docker_desktop_gate", "name": "Docker Desktop Linux 门禁节点", "agent_url": AGENT_URL, "weight": 1000, "labels": {"environment": "gate"}}))
 
-        starts = []
         for number in (1, 2):
             headers = student_headers(number)
             student_id = f"student_d_{RUN}_{number}"
@@ -93,9 +155,19 @@ async def main() -> None:
             starts.append((response, student_instance, headers))
 
     first_response, first_instance, first_headers = starts[0]
+    second_instance = starts[1][1]
     second_group = starts[1][0]["runtime_group_id"]
     second_student_name = runtime_container_name(second_group, "student-rsa")
     first_target_name = runtime_container_name(first_response["runtime_group_id"], "target-rsa")
+    expired_grant = await issue_terminal_token(first_instance["runtime_instance_id"], first_headers, 30)
+    scoped_grant = await issue_terminal_token(first_instance["runtime_instance_id"], first_headers)
+    await expect_terminal_rejected(second_instance["runtime_instance_id"], scoped_grant["token"], "终端令牌跨实例使用")
+    scoped_output = await command_with_token(
+        first_instance["runtime_instance_id"], scoped_grant["token"], "echo INSTANCE_SCOPE_OK", "INSTANCE_SCOPE_OK"
+    )
+    if "INSTANCE_SCOPE_OK" not in scoped_output:
+        raise RuntimeError("终端令牌正确实例连接失败")
+    await expect_terminal_rejected(first_instance["runtime_instance_id"], scoped_grant["token"], "终端令牌正确使用后的重放")
     commands = """set -e
 printf 'Yueke RSA runtime gate evidence' > source.txt
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private.pem >/dev/null 2>&1
@@ -123,7 +195,7 @@ echo NETWORK_DONE"""
         {"checkpoint_id": "cp_port_live", "judge_target": "student-rsa:18080", "judge_type": "PORT_LISTEN", "judge_config_json": {"host": "student-rsa", "port": 18080}, "failure_message": "服务端口未监听"},
         {"checkpoint_id": "cp_http_live", "judge_target": "student-rsa:/", "judge_type": "HTTP_RESPONSE", "judge_config_json": {"path": "/", "port": 18080, "status_code": 200}, "failure_message": "网页响应不符合要求"},
     ]
-    async with httpx.AsyncClient(base_url="http://127.0.0.1:19443", timeout=30) as agent_client:
+    async with httpx.AsyncClient(base_url=AGENT_URL, timeout=30) as agent_client:
         for checkpoint in network_judges:
             result = checked(await agent_client.post(
                 f"/runtime-groups/{first_response['runtime_group_id']}/exec",
@@ -151,6 +223,9 @@ echo NETWORK_DONE"""
         ))
         if symlink_result["passed"] or symlink_result["evidence"].get("grader") != "evidence_rejected":
             raise RuntimeError(f"符号链接证据未被拒绝: {symlink_result}")
+    resize_evidence = await verify_terminal_resize(first_instance["runtime_instance_id"], first_headers)
+    await asyncio.sleep(seconds_until_expiry(expired_grant["expires_at"]))
+    await expect_terminal_rejected(first_instance["runtime_instance_id"], expired_grant["token"], "过期终端令牌")
     async with httpx.AsyncClient(base_url=BASE, timeout=60) as client:
         judged = checked(await client.post(f"/api/v1/runtime-instances/{first_instance['runtime_instance_id']}/rejudge", headers=first_headers))
         if judged["score"] != 100 or len(judged["checkpoint_results"]) != 5:
@@ -163,7 +238,32 @@ echo NETWORK_DONE"""
             second = checked(await client.post(f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy", headers=headers, json={"reason": "幂等重复回收"}))
             if second["status"] != "DESTROYED":
                 raise RuntimeError("幂等销毁失败")
-    print(json.dumps({"G4": "PASS", "G5": "PASS", "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "judge_types_executed": ["FILE_EXISTS", "FILE_HASH", "COMMAND_EXIT", "PORT_LISTEN", "HTTP_RESPONSE"], "symlink_evidence_rejected": True, "network": sorted(required), "terminal_resize": True, "single_use_terminal_token": True, "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True}, ensure_ascii=False))
+    g5 = "PASS" if resize_evidence["status"] == "PASS" else "PARTIAL"
+    print(json.dumps({"G4": "PASS", "G5": g5, "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "judge_types_executed": ["FILE_EXISTS", "FILE_HASH", "COMMAND_EXIT", "PORT_LISTEN", "HTTP_RESPONSE"], "symlink_evidence_rejected": True, "network": sorted(required), "terminal_websocket": "PASS", "terminal_resize": resize_evidence, "single_use_terminal_token": True, "wrong_instance_token_rejected": True, "expired_token_rejected": True, "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True}, ensure_ascii=False))
+
+
+async def cleanup_started(starts: list[tuple[dict, dict, dict[str, str]]]) -> None:
+    if not starts:
+        return
+    async with httpx.AsyncClient(base_url=BASE, timeout=60) as client:
+        for _, instance, headers in starts:
+            try:
+                await client.post(
+                    f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy",
+                    headers=headers,
+                    json={"reason": "门禁异常退出回收"},
+                )
+            except httpx.HTTPError:
+                pass
+
+
+async def main() -> None:
+    starts: list[tuple[dict, dict, dict[str, str]]] = []
+    try:
+        await run_gate(starts)
+    except BaseException:
+        await cleanup_started(starts)
+        raise
 
 
 if __name__ == "__main__":
