@@ -38,6 +38,37 @@ class TerminalTokenInput(StrictModel):
     mode: Literal["STUDENT", "ASSIST"] = "STUDENT"
 
 
+class DistributionBundleAuthorization(StrictModel):
+    authorization: str = Field(min_length=40, max_length=32768)
+
+
+class DistributionDownloadClaims(StrictModel):
+    version: Literal[1]
+    issuer: Literal["lab-classroom"]
+    audience: Literal["lab-runtime"]
+    assignment_id: str = Field(min_length=1, max_length=36)
+    distribution_id: str = Field(min_length=1, max_length=36)
+    distribution_type: Literal["AUDIT", "TRAFFIC"]
+    student_id: str = Field(min_length=1, max_length=36)
+    course_id: str = Field(min_length=1, max_length=36)
+    class_id: str = Field(min_length=1, max_length=36)
+    lab_release_id: str = Field(min_length=1, max_length=36)
+    reference_ids: list[str] = Field(min_length=1, max_length=200)
+    nonce: str = Field(min_length=16, max_length=64)
+    issued_at: int = Field(ge=0)
+    expires_at: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_claims(self):
+        if len(self.reference_ids) != len(set(self.reference_ids)):
+            raise ValueError("日志引用不能重复")
+        if any(not value or len(value) > 36 for value in self.reference_ids):
+            raise ValueError("日志引用标识无效")
+        if self.expires_at <= self.issued_at or self.expires_at - self.issued_at > 120:
+            raise ValueError("日志下载授权有效期无效")
+        return self
+
+
 class RuntimeFacadeAction(StrictModel):
     minutes: int | None = Field(default=None, ge=1, le=240)
     reason: str | None = Field(default=None, max_length=500)

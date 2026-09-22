@@ -1,4 +1,6 @@
 from datetime import datetime
+from os import getenv
+from time import time
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -6,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.outbox import enqueue_event
+from app.common.signed_capability import sign_capability
 
 from . import models as m
 from .gateway import GatewayBundle
@@ -280,9 +283,43 @@ class ClassroomService:
     def assignment_download(self, assignment_id: str):
         self.require("classroom.logs.assignment.download"); student_id = self.require_student(); assignment = self.repo.assignment(assignment_id)
         if not assignment or assignment.student_id != student_id: raise ApiError("AUTH.SCOPE_DENIED", "不能下载他人的日志任务", 403)
+        task = self.repo.get(m.TeachingLogDistributionTask, assignment.distribution_id)
+        if not task or assignment.class_id != task.class_id:
+            raise ApiError("LOG_DISTRIBUTION.FACT_INVALID", "日志任务分发事实不完整", 409)
+        if task.class_id not in self.user.class_ids or task.course_id not in self.user.course_ids:
+            raise ApiError("AUTH.SCOPE_DENIED", "日志任务已超出当前课程或班级范围", 403)
         items = self.repo.distribution_items(assignment.distribution_id)
-        result = self.gateways.runtime.request("POST", "/api/v1/runtime/log-artifacts/bundle-url", self.user, json={"artifact_ids": [x.artifact_id for x in items], "student_id": student_id})
-        assignment.status = "DOWNLOADED"; assignment.downloaded_at = now(); self.session.commit(); return result
+        if not items:
+            raise ApiError("LOG_DISTRIBUTION.EMPTY_ASSIGNMENT", "日志任务没有可下载内容", 409)
+        secret = getenv("YUEKE_LOG_DISTRIBUTION_SIGNING_KEY", "")
+        if len(secret.encode("utf-8")) < 32:
+            raise ApiError("LOG_DISTRIBUTION.SIGNING_UNAVAILABLE", "日志分发签名密钥尚未安全配置", 503)
+        issued_at = int(time())
+        authorization = sign_capability({
+            "version": 1,
+            "issuer": "lab-classroom",
+            "audience": "lab-runtime",
+            "assignment_id": assignment.assignment_id,
+            "distribution_id": task.distribution_id,
+            "distribution_type": task.distribution_type,
+            "student_id": student_id,
+            "course_id": task.course_id,
+            "class_id": task.class_id,
+            "lab_release_id": task.lab_release_id,
+            "reference_ids": [item.artifact_id for item in items],
+            "nonce": uuid4().hex,
+            "issued_at": issued_at,
+            "expires_at": issued_at + 60,
+        }, secret)
+        result = self.gateways.runtime.request(
+            "POST",
+            "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+            self.user,
+            json={"authorization": authorization},
+        )
+        assignment.status = "DOWNLOADED"; assignment.downloaded_at = now()
+        self.audit("logs.assignment.downloaded", assignment.assignment_id, {"distribution_id": task.distribution_id, "student_id": student_id, "reference_count": len(items)})
+        self.session.commit(); return result
 
     def consume_event(self, event: RuntimeEventIn):
         self.require("classroom.events.consume")

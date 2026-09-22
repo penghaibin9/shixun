@@ -1,9 +1,10 @@
 import json
 import os
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
-from time import sleep
+from time import sleep, time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.common.errors import ApiError
 from app.common.context import UserContext
 from app.common.models import DomainEventOutbox
+from app.common.signed_capability import sign_capability
 from app.labs.database import get_session
 from app.main import app
 from app.runtime import models
@@ -182,6 +184,146 @@ def test_student_scope_terminal_token_and_destroy_twice(db_and_client):
     assert destroyed.status_code == 200 and destroyed.json()["status"] == "DESTROYED" and fake.destroyed
     repeated = client.post(f"/api/v1/runtime-instances/{instance_id}/destroy", headers=STUDENT, json={"reason": "重复回收"})
     assert repeated.status_code == 200 and repeated.json()["status"] == "DESTROYED"
+
+
+def test_distributed_artifact_download_is_signed_scoped_short_lived_and_idempotent(db_and_client, monkeypatch):
+    engine, client, _ = db_and_client
+    secret = "test-log-distribution-signing-key-32-bytes"
+    monkeypatch.setenv("YUEKE_LOG_DISTRIBUTION_SIGNING_KEY", secret)
+    monkeypatch.setenv("YUEKE_ARTIFACT_STORAGE_SIGNING_KEY", "test-artifact-storage-signing-key-32-bytes")
+    monkeypatch.setenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL", "https://artifact.test")
+    started = start(client, "runtime-start-distributed-artifact").json()
+    instance_id = started["instance_ids"][0]
+    with Session(engine) as session:
+        session.add(models.RuntimeArtifact(
+            runtime_artifact_id="artifact-distributed-1",
+            runtime_instance_id=instance_id,
+            student_id="student_2301001",
+            artifact_type="TRAFFIC",
+            file_id="file-distributed-1",
+            sha256="b" * 64,
+            size_bytes=4096,
+            capture_started_at=datetime.utcnow(),
+            capture_ended_at=datetime.utcnow(),
+        ))
+        session.commit()
+
+    issued_at = int(time())
+    claims = {
+        "version": 1,
+        "issuer": "lab-classroom",
+        "audience": "lab-runtime",
+        "assignment_id": "assignment-recipient-1",
+        "distribution_id": "distribution-a",
+        "distribution_type": "TRAFFIC",
+        "student_id": "student_recipient",
+        "course_id": "course_data_security",
+        "class_id": "class_netsec_2301",
+        "lab_release_id": "release_rsa",
+        "reference_ids": ["artifact-distributed-1"],
+        "nonce": "nonce-distribution-download-1",
+        "issued_at": issued_at,
+        "expires_at": issued_at + 60,
+    }
+    authorization = sign_capability(claims, secret)
+    recipient = {
+        "X-User-Id": "user_recipient",
+        "X-Role": "student",
+        "X-Student-Id": "student_recipient",
+        "X-Permissions": "classroom.logs.assignment.download,runtime.read",
+        "X-Course-Ids": "course_data_security",
+        "X-Class-Ids": "class_netsec_2301",
+        "X-Service-Origin": "lab-classroom",
+    }
+
+    first = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=recipient,
+        json={"authorization": authorization},
+    )
+    replay = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=recipient,
+        json={"authorization": authorization},
+    )
+    assert first.status_code == replay.status_code == 200
+    assert first.json() == replay.json()
+    assert first.json()["artifact_count"] == 1 and first.json()["status"] == "READY"
+    assert first.json()["download_url"].startswith("https://artifact.test/bundles/assignment-recipient-1?capability=")
+    with Session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(DomainEventOutbox).where(
+            DomainEventOutbox.event_type == "runtime.artifact.distribution_download_authorized",
+            DomainEventOutbox.idempotency_key == "assignment-recipient-1:nonce-distribution-download-1",
+        )) == 1
+
+    # The ordinary artifact API still enforces ownership and cannot be used as
+    # a blanket escape hatch by a distribution recipient.
+    direct = client.post(
+        "/api/v1/runtime/log-artifacts/bundle-url",
+        headers=recipient,
+        json={"artifact_ids": ["artifact-distributed-1"]},
+    )
+    assert direct.status_code == 403 and direct.json()["code"] == "AUTH.STUDENT_SCOPE_DENIED"
+
+    other_student = {**recipient, "X-User-Id": "user_other", "X-Student-Id": "student_other"}
+    crossed = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=other_student,
+        json={"authorization": authorization},
+    )
+    assert crossed.status_code == 403 and crossed.json()["code"] == "AUTH.STUDENT_SCOPE_DENIED"
+
+    # Rebinding the signed assignment/distribution payload or artifact set
+    # invalidates the signature, so another distribution cannot borrow it.
+    encoded, signature = authorization.split(".", 1)
+    payload = json.loads(urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    payload["distribution_id"] = "distribution-b"
+    payload["reference_ids"] = ["artifact-other"]
+    tampered_encoded = urlsafe_b64encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()).rstrip(b"=").decode()
+    tampered = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=recipient,
+        json={"authorization": f"{tampered_encoded}.{signature}"},
+    )
+    assert tampered.status_code == 403 and tampered.json()["code"] == "RUNTIME.DISTRIBUTION_AUTH_INVALID"
+
+    expired_claims = {**claims, "nonce": "nonce-distribution-expired-1", "issued_at": issued_at - 180, "expires_at": issued_at - 120}
+    expired = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=recipient,
+        json={"authorization": sign_capability(expired_claims, secret)},
+    )
+    assert expired.status_code == 403 and expired.json()["code"] == "RUNTIME.DISTRIBUTION_AUTH_EXPIRED"
+
+    wrong_scope_claims = {**claims, "nonce": "nonce-distribution-wrong-scope", "class_id": "class_other"}
+    wrong_scope_headers = {**recipient, "X-Class-Ids": "class_netsec_2301,class_other"}
+    wrong_scope = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=wrong_scope_headers,
+        json={"authorization": sign_capability(wrong_scope_claims, secret)},
+    )
+    assert wrong_scope.status_code == 403 and wrong_scope.json()["code"] == "RUNTIME.DISTRIBUTION_SOURCE_SCOPE_MISMATCH"
+
+    with Session(engine) as session:
+        event_id = session.scalar(select(models.RuntimeEvent.runtime_event_id).where(
+            models.RuntimeEvent.runtime_group_id == started["runtime_group_id"]
+        ).limit(1))
+    assert event_id
+    audit_claims = {
+        **claims,
+        "assignment_id": "assignment-audit-recipient",
+        "distribution_id": "distribution-audit",
+        "distribution_type": "AUDIT",
+        "reference_ids": [event_id],
+        "nonce": "nonce-distribution-audit-1",
+    }
+    audit_download = client.post(
+        "/api/v1/runtime/log-artifacts/distribution-bundle-url",
+        headers=recipient,
+        json={"authorization": sign_capability(audit_claims, secret)},
+    )
+    assert audit_download.status_code == 200
+    assert audit_download.json()["artifact_count"] == 1 and audit_download.json()["status"] == "READY"
 
 
 def test_rsa_five_checkpoints_score_and_e_read_models(db_and_client):

@@ -1,4 +1,7 @@
 import re
+import os
+from urllib.parse import quote
+from time import time
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from math import isfinite
@@ -11,12 +14,14 @@ from sqlalchemy.orm import Session
 
 from app.common.context import UserContext
 from app.common.errors import ApiError
+from app.common.models import DomainEventOutbox
 from app.common.outbox import enqueue_event
+from app.common.signed_capability import sign_capability, verify_capability
 
 from . import models
 from .catalog import LabCatalogClient
 from .provider import NodeAgentClient
-from .schemas import ImageRegister, NodeRegister, RuntimeExtend, RuntimeMaintenanceRun, RuntimeStart
+from .schemas import DistributionDownloadClaims, ImageRegister, NodeRegister, RuntimeExtend, RuntimeMaintenanceRun, RuntimeStart
 
 
 def now() -> datetime:
@@ -1316,6 +1321,134 @@ class RuntimeService:
             raise ApiError("RUNTIME.NOT_FOUND", "实验实例不存在", 404)
         self._instance_scope(item)
         return [{"artifact_id": x.runtime_artifact_id, "type": x.artifact_type, "file_id": x.file_id, "sha256": x.sha256, "size_bytes": x.size_bytes} for x in self.session.scalars(select(models.RuntimeArtifact).where(models.RuntimeArtifact.runtime_instance_id == instance_id))]
+
+    @staticmethod
+    def _distribution_signing_key() -> str:
+        secret = os.getenv("YUEKE_LOG_DISTRIBUTION_SIGNING_KEY", "")
+        if len(secret.encode("utf-8")) < 32:
+            raise ApiError("RUNTIME.DISTRIBUTION_SIGNING_UNAVAILABLE", "日志分发签名密钥尚未安全配置", 503)
+        return secret
+
+    @staticmethod
+    def _artifact_storage_signing_key() -> str:
+        secret = os.getenv("YUEKE_ARTIFACT_STORAGE_SIGNING_KEY", "")
+        if len(secret.encode("utf-8")) < 32:
+            raise ApiError("RUNTIME.ARTIFACT_STORAGE_SIGNING_UNAVAILABLE", "制品存储签名密钥尚未安全配置", 503)
+        return secret
+
+    def distribution_artifact_bundle(self, authorization: str) -> dict:
+        """Exchange E's narrow grant for a short-lived storage capability.
+
+        The student's ordinary runtime scope is deliberately not relaxed.  E
+        signs the exact assignment and reference set after checking its own
+        assignment facts; D verifies the signature and every D-owned source
+        fact before issuing the capability.
+        """
+        self._permission("runtime.distributed-artifact.download")
+        if self.user.role != "student" or not self.user.student_id:
+            raise ApiError("AUTH.STUDENT_REQUIRED", "仅日志任务的目标学生可下载", 403)
+        secret = self._distribution_signing_key()
+        try:
+            claims = DistributionDownloadClaims.model_validate(verify_capability(authorization, secret))
+        except ValueError as exc:
+            raise ApiError("RUNTIME.DISTRIBUTION_AUTH_INVALID", "日志分发下载授权无效", 403) from exc
+        epoch = int(time())
+        if claims.issued_at > epoch + 30 or claims.expires_at <= epoch:
+            raise ApiError("RUNTIME.DISTRIBUTION_AUTH_EXPIRED", "日志分发下载授权已过期", 403)
+        if claims.student_id != self.user.student_id:
+            raise ApiError("AUTH.STUDENT_SCOPE_DENIED", "日志分发下载授权不属于当前学生", 403)
+        if claims.class_id not in self.user.class_ids or claims.course_id not in self.user.course_ids:
+            raise ApiError("AUTH.SCOPE_DENIED", "日志分发下载授权超出当前课程或班级", 403)
+
+        storage_references: list[dict] = []
+        for reference_id in claims.reference_ids:
+            if claims.distribution_type == "TRAFFIC":
+                source = self.session.execute(
+                    select(models.RuntimeArtifact, models.RuntimeRequest)
+                    .join(models.RuntimeInstance, models.RuntimeInstance.runtime_instance_id == models.RuntimeArtifact.runtime_instance_id)
+                    .join(models.RuntimeInstanceGroup, models.RuntimeInstanceGroup.runtime_group_id == models.RuntimeInstance.runtime_group_id)
+                    .join(models.RuntimeRequest, models.RuntimeRequest.runtime_request_id == models.RuntimeInstanceGroup.runtime_request_id)
+                    .where(models.RuntimeArtifact.runtime_artifact_id == reference_id, models.RuntimeArtifact.artifact_type == "TRAFFIC")
+                ).one_or_none()
+                if not source:
+                    raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_NOT_FOUND", "分发的流量日志制品不存在", 404, {"reference_id": reference_id})
+                artifact, request = source
+                storage_references.append({"reference_id": reference_id, "file_id": artifact.file_id, "sha256": artifact.sha256})
+            else:
+                source = self.session.execute(
+                    select(models.RuntimeEvent, models.RuntimeRequest)
+                    .join(models.RuntimeInstanceGroup, models.RuntimeInstanceGroup.runtime_group_id == models.RuntimeEvent.runtime_group_id)
+                    .join(models.RuntimeRequest, models.RuntimeRequest.runtime_request_id == models.RuntimeInstanceGroup.runtime_request_id)
+                    .where(models.RuntimeEvent.runtime_event_id == reference_id)
+                ).one_or_none()
+                if not source:
+                    raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_NOT_FOUND", "分发的审计日志不存在", 404, {"reference_id": reference_id})
+                event, request = source
+                storage_references.append({"reference_id": reference_id, "event_type": event.event_type})
+            if (
+                request.course_id != claims.course_id
+                or request.class_id != claims.class_id
+                or request.lab_release_id != claims.lab_release_id
+            ):
+                raise ApiError("RUNTIME.DISTRIBUTION_SOURCE_SCOPE_MISMATCH", "分发日志来源超出授权实验范围", 403, {"reference_id": reference_id})
+
+        base = os.getenv("YUEKE_ARTIFACT_DOWNLOAD_BASE_URL", "")
+        if not base:
+            raise ApiError("RUNTIME.ARTIFACT_STORAGE_UNAVAILABLE", "制品存储下载服务尚未配置", 503)
+        reference_digest = sha256("\n".join(claims.reference_ids).encode("utf-8")).hexdigest()
+        storage_claims = {
+            "version": 1, "issuer": "lab-runtime", "audience": "artifact-storage",
+            "assignment_id": claims.assignment_id, "distribution_id": claims.distribution_id,
+            "student_id": claims.student_id, "reference_digest": reference_digest,
+            "nonce": claims.nonce, "expires_at": claims.expires_at,
+        }
+        capability = sign_capability(storage_claims, self._artifact_storage_signing_key())
+        download_url = f"{base.rstrip('/')}/bundles/{claims.assignment_id}?capability={quote(capability, safe='')}"
+        event_key = f"{claims.assignment_id}:{claims.nonce}"
+        already_audited = self.session.scalar(select(DomainEventOutbox.event_id).where(
+            DomainEventOutbox.event_type == "runtime.artifact.distribution_download_authorized",
+            DomainEventOutbox.idempotency_key == event_key,
+        ))
+        if not already_audited:
+            enqueue_event(
+                self.session,
+                event_type="runtime.artifact.distribution_download_authorized",
+                aggregate_type="student_log_assignment",
+                aggregate_id=claims.assignment_id,
+                actor_user_id=self.user.user_id,
+                idempotency_key=event_key,
+                payload={
+                    "distribution_id": claims.distribution_id,
+                    "student_id": claims.student_id,
+                    "course_id": claims.course_id,
+                    "class_id": claims.class_id,
+                    "lab_release_id": claims.lab_release_id,
+                    "distribution_type": claims.distribution_type,
+                    "reference_ids": claims.reference_ids,
+                    "reference_count": len(storage_references),
+                    "expires_at": claims.expires_at,
+                },
+            )
+            try:
+                self.session.commit()
+            except IntegrityError:
+                # A concurrent replay may win the outbox uniqueness race.  It
+                # is the same signed grant, so return the deterministic result
+                # after proving that the winner exists instead of surfacing a
+                # false failure or creating a second audit fact.
+                self.session.rollback()
+                replay_event = self.session.scalar(select(DomainEventOutbox.event_id).where(
+                    DomainEventOutbox.event_type == "runtime.artifact.distribution_download_authorized",
+                    DomainEventOutbox.idempotency_key == event_key,
+                ))
+                if not replay_event:
+                    raise
+        return {
+            "download_url": download_url,
+            "expires_in": max(0, claims.expires_at - epoch),
+            "artifact_count": len(storage_references),
+            "status": "READY",
+        }
 
     def nodes(self) -> list[dict]:
         self._permission("infrastructure.read")
