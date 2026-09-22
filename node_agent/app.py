@@ -5,14 +5,15 @@ import json
 import math
 import os
 import re
+import stat
 import subprocess
 import threading
 import time
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict, Field
 
 app = FastAPI(title="跃科实验节点代理", docs_url=None, redoc_url=None, openapi_url=None)
@@ -109,6 +110,35 @@ GENERIC_RUNTIME_PROFILE = {
 
 GROUP_PROVISION_LOCKS: dict[str, tuple[threading.Lock, int]] = {}
 GROUP_PROVISION_LOCKS_GUARD = threading.Lock()
+CAPTURE_ROLE = "traffic-capture"
+CAPTURE_FILE = "/captures/traffic.pcap"
+CAPTURE_START_SCRIPT = """umask 077
+tcpdump -i any -p -U -s 0 -w /captures/traffic.pcap &
+capture_pid=$!
+printf '%s\n' "$capture_pid" > /captures/tcpdump.pid
+wait "$capture_pid"
+"""
+CAPTURE_READY_SCRIPT = """pid="$(cat /captures/tcpdump.pid 2>/dev/null)"
+case "$pid" in ''|*[!0-9]*) exit 1;; esac
+kill -0 "$pid" 2>/dev/null && test -s /captures/traffic.pcap
+"""
+CAPTURE_STOP_SCRIPT = """pid="$(cat /captures/tcpdump.pid 2>/dev/null)"
+case "$pid" in ''|*[!0-9]*) exit 20;; esac
+kill -INT "$pid" 2>/dev/null || exit 21
+attempt=0
+while kill -0 "$pid" 2>/dev/null; do
+  attempt=$((attempt + 1))
+  test "$attempt" -lt 100 || exit 22
+  sleep 0.05
+done
+test -s /captures/traffic.pcap
+"""
+PCAP_MAGICS = {
+    b"\xd4\xc3\xb2\xa1": "little",
+    b"\x4d\x3c\xb2\xa1": "little",
+    b"\xa1\xb2\xc3\xd4": "big",
+    b"\xa1\xb2\x3c\x4d": "big",
+}
 
 EVIDENCE_ARCHIVE_SCRIPT = """
 import os, stat, sys, tarfile
@@ -1048,11 +1078,443 @@ async def terminal(websocket: WebSocket, group_id: str, node_key: str):
             os.close(master_fd)
 
 
+def capture_root() -> Path:
+    configured = os.getenv("YUEKE_AGENT_CAPTURE_DIR", "/var/lib/yueke-node-agent/captures")
+    root = Path(configured)
+    if not root.is_absolute() or root == Path(root.anchor):
+        raise HTTPException(503, "流量采集目录必须是独立的绝对目录")
+    try:
+        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if root.is_symlink() or not root.is_dir():
+            raise OSError("capture root is not a real directory")
+    except OSError as error:
+        raise HTTPException(503, "流量采集目录不可用") from error
+    return root
+
+
+def capture_manifest_path(group_id: str) -> Path:
+    if not SAFE_ID.fullmatch(group_id):
+        raise HTTPException(422, "实例组标识无效")
+    return capture_root() / f"group-{sha256(group_id.encode()).hexdigest()}.json"
+
+
+def read_capture_manifest(group_id: str) -> dict | None:
+    path = capture_manifest_path(group_id)
+    descriptor = None
+    try:
+        if path.is_symlink():
+            raise OSError("capture manifest is a symlink")
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 64 * 1024:
+            raise OSError("capture manifest is not a bounded regular file")
+        with os.fdopen(descriptor, "rb") as source:
+            descriptor = None
+            data = source.read(64 * 1024 + 1)
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise HTTPException(503, "流量采集状态无法读取") from error
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    try:
+        manifest = json.loads(data)
+    except (TypeError, json.JSONDecodeError) as error:
+        raise HTTPException(503, "流量采集状态损坏") from error
+    if not isinstance(manifest, dict) or manifest.get("runtime_group_id") != group_id:
+        raise HTTPException(503, "流量采集状态归属校验失败")
+    return manifest
+
+
+def write_capture_manifest(group_id: str, manifest: dict) -> None:
+    path = capture_manifest_path(group_id)
+    temporary = path.with_name(f".{path.name}.{os.urandom(8).hex()}.tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = None
+    try:
+        descriptor = os.open(temporary, flags, 0o600)
+        with os.fdopen(descriptor, "wb") as output:
+            descriptor = None
+            output.write(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    except OSError as error:
+        raise HTTPException(503, "流量采集状态无法保存") from error
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def capture_image_digest() -> str:
+    digest = os.getenv("YUEKE_AGENT_CAPTURE_DIGEST", "")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest) or digest not in allowed_digests():
+        raise HTTPException(503, "节点代理未配置白名单内的固定摘要抓包镜像")
+    inspected = docker("image", "inspect", digest, "--format", "{{.Id}}")
+    if inspected.returncode or inspected.stdout.strip() != digest:
+        raise HTTPException(503, "固定摘要抓包镜像尚未就绪")
+    return digest
+
+
+def capture_container_name(group_id: str) -> str:
+    return f"yk-cap-{group_id[:16]}-{sha256(group_id.encode()).hexdigest()[:10]}".lower()
+
+
+def capture_target(group_id: str) -> tuple[str, str, str]:
+    name = group_container_for_role(group_id, "STUDENT_WORKSTATION")
+    inspected = docker("inspect", name)
+    if inspected.returncode:
+        raise HTTPException(404, "实例组学生操作容器不存在")
+    try:
+        detail = json.loads(inspected.stdout)[0]
+        labels = detail["Config"]["Labels"] or {}
+        container_id = detail["Id"]
+        status = detail["State"]["Status"]
+        expiry = labels["io.yueke.expires-at"]
+    except (IndexError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise HTTPException(503, "实例组学生操作容器元数据不完整") from error
+    try:
+        expires_at = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+    except (AttributeError, ValueError) as error:
+        raise HTTPException(503, "实例组学生操作容器到期时间无效") from error
+    if (
+        labels.get("io.yueke.runtime-group") != group_id
+        or labels.get("io.yueke.role") != "STUDENT_WORKSTATION"
+        or not SAFE_ID.fullmatch(labels.get("io.yueke.node-key", ""))
+        or not re.fullmatch(r"[0-9a-f]{32}", labels.get("io.yueke.provision-id", ""))
+        or labels.get("io.yueke.startup-profile") not in {
+            GENERIC_RUNTIME_PROFILE["profile_id"],
+            *(profile["profile_id"] for profile in AUDITED_RUNTIME_PROFILES.values()),
+        }
+        or not re.fullmatch(r"[0-9a-f]{64}", container_id)
+        or status != "running"
+        or expires_at <= datetime.now(timezone.utc)
+    ):
+        raise HTTPException(409, "实例组学生操作容器未处于可采集状态")
+    return name, container_id, expiry
+
+
+def capture_response(manifest: dict, *, replay: bool) -> dict:
+    result = {
+        "provider_group_id": manifest["runtime_group_id"],
+        "capture_id": manifest["capture_id"],
+        "status": manifest["status"],
+        "started_at": manifest["started_at"],
+        "idempotent_replay": replay,
+    }
+    for key in ("ended_at", "file_id", "sha256", "size_bytes", "packet_count"):
+        if key in manifest:
+            result[key] = manifest[key]
+    if manifest.get("status") == "COMPLETED":
+        result["artifact_endpoint"] = f"/runtime-groups/{manifest['runtime_group_id']}/capture/artifact"
+    return result
+
+
+def completed_capture_bytes(manifest: dict) -> bytes:
+    root = capture_root()
+    descriptor = None
+    try:
+        capture_id = str(manifest["capture_id"])
+        file_id = str(manifest["file_id"])
+        if not re.fullmatch(r"cap_[0-9a-f]{32}", capture_id) or file_id != f"{capture_id}.pcap":
+            raise OSError("artifact identity mismatch")
+        path = root / file_id
+        if path.parent != root or path.is_symlink():
+            raise OSError("artifact escaped capture root")
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise OSError("artifact is not a regular file")
+        expected_size = int(manifest["size_bytes"])
+        expected_sha = str(manifest["sha256"])
+        if metadata.st_size != expected_size or expected_size > capture_max_bytes():
+            raise OSError("artifact size mismatch")
+        with os.fdopen(descriptor, "rb") as source:
+            descriptor = None
+            content = source.read(expected_size + 1)
+    except (KeyError, TypeError, ValueError, OSError) as error:
+        raise HTTPException(503, "已完成的流量采集产物不可用") from error
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if len(content) != expected_size or sha256(content).hexdigest() != expected_sha:
+        raise HTTPException(503, "已完成的流量采集产物完整性校验失败")
+    if pcap_packet_count(content) != int(manifest.get("packet_count", -1)):
+        raise HTTPException(503, "已完成的流量采集产物摘要不一致")
+    return content
+
+
+def validate_completed_capture(manifest: dict) -> None:
+    completed_capture_bytes(manifest)
+
+
+def capture_max_bytes() -> int:
+    try:
+        configured = int(os.getenv("YUEKE_AGENT_CAPTURE_MAX_BYTES", str(32 * 1024 * 1024)))
+    except ValueError as error:
+        raise HTTPException(503, "流量采集大小上限配置无效") from error
+    if not 1024 * 1024 <= configured <= 128 * 1024 * 1024:
+        raise HTTPException(503, "流量采集大小上限必须介于 1 MiB 与 128 MiB")
+    return configured
+
+
+def pcap_packet_count(content: bytes) -> int:
+    if len(content) < 24 or content[:4] not in PCAP_MAGICS:
+        raise HTTPException(503, "抓包产物不是受支持的 PCAP 文件")
+    byte_order = PCAP_MAGICS[content[:4]]
+    offset = 24
+    packets = 0
+    while offset < len(content):
+        if len(content) - offset < 16:
+            raise HTTPException(503, "抓包产物包含截断的数据包头")
+        included_length = int.from_bytes(content[offset + 8:offset + 12], byte_order)
+        offset += 16
+        if included_length > len(content) - offset:
+            raise HTTPException(503, "抓包产物包含截断的数据包")
+        offset += included_length
+        packets += 1
+    if packets == 0:
+        raise HTTPException(503, "采集期间没有捕获到真实网络数据包")
+    return packets
+
+
+def save_capture_artifact(capture_id: str, content: bytes) -> tuple[str, str]:
+    if not re.fullmatch(r"cap_[0-9a-f]{32}", capture_id):
+        raise HTTPException(503, "抓包产物标识无效")
+    file_id = f"{capture_id}.pcap"
+    path = capture_root() / file_id
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = None
+    try:
+        descriptor = os.open(path, flags, 0o600)
+        with os.fdopen(descriptor, "wb") as output:
+            descriptor = None
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+    except OSError as error:
+        raise HTTPException(503, "抓包产物无法安全保存") from error
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    return file_id, sha256(content).hexdigest()
+
+
+def remove_capture_container(group_id: str, capture_id: str, name: str) -> None:
+    inspected = docker(
+        "inspect", "--format",
+        "{{.Id}}|{{index .Config.Labels \"io.yueke.runtime-group\"}}|{{index .Config.Labels \"io.yueke.capture-id\"}}",
+        name,
+    )
+    if docker_object_not_found(inspected):
+        return
+    container_id, separator, ownership = inspected.stdout.strip().partition("|")
+    owner, capture_separator, actual_capture = ownership.partition("|")
+    if (
+        inspected.returncode
+        or not separator
+        or not capture_separator
+        or owner != group_id
+        or actual_capture != capture_id
+        or not re.fullmatch(r"[0-9a-f]{12,64}", container_id)
+    ):
+        raise HTTPException(503, "无法确认待清理抓包容器的归属")
+    removed = docker("rm", "-f", container_id)
+    if removed.returncode:
+        verified = docker("inspect", container_id)
+        if not docker_object_not_found(verified):
+            raise HTTPException(503, "抓包容器未能清理")
+
+
 @app.post("/runtime-groups/{group_id}/capture/start", dependencies=[Depends(require_control)])
 def capture_start(group_id: str):
-    raise HTTPException(501, "流量采集器尚未部署")
+    if not SAFE_ID.fullmatch(group_id):
+        raise HTTPException(422, "实例组标识无效")
+    deadline = time.monotonic() + 30
+    with group_operation_lock(group_id, deadline):
+        existing = read_capture_manifest(group_id)
+        if existing:
+            if existing.get("status") == "COMPLETED":
+                validate_completed_capture(existing)
+                return capture_response(existing, replay=True)
+            if existing.get("status") == "CAPTURING":
+                state = docker(
+                    "inspect", "--format",
+                    "{{.State.Status}}|{{index .Config.Labels \"io.yueke.runtime-group\"}}|{{index .Config.Labels \"io.yueke.capture-id\"}}",
+                    existing.get("capture_container_id", ""),
+                )
+                if state.returncode or state.stdout.strip() != f"running|{group_id}|{existing.get('capture_id')}":
+                    raise HTTPException(503, "既有流量采集进程异常结束，请先停止并检查产物")
+                return capture_response(existing, replay=True)
+            raise HTTPException(503, "实例组存在未恢复的流量采集失败状态")
+
+        _, target_id, expiry = capture_target(group_id)
+        capture_id = f"cap_{os.urandom(16).hex()}"
+        name = capture_container_name(group_id)
+        image_digest = capture_image_digest()
+        maximum = capture_max_bytes()
+        existing_sidecars = docker(
+            "ps", "-a",
+            "--filter", f"label=io.yueke.runtime-group={group_id}",
+            "--filter", f"label=io.yueke.role={CAPTURE_ROLE}",
+            "--format", "{{.ID}}",
+        )
+        if existing_sidecars.returncode:
+            raise HTTPException(503, "无法核验实例组抓包容器")
+        if existing_sidecars.stdout.strip():
+            raise HTTPException(503, "实例组已有未登记的抓包容器，拒绝重复启动")
+        created = docker(
+            "create", "--name", name,
+            "--network", f"container:{target_id}",
+            "--label", f"io.yueke.runtime-group={group_id}",
+            "--label", f"io.yueke.role={CAPTURE_ROLE}",
+            "--label", f"io.yueke.capture-id={capture_id}",
+            "--label", f"io.yueke.capture-target={target_id}",
+            "--label", f"io.yueke.expires-at={expiry}",
+            "--memory", "128m", "--cpus", "0.25", "--pids-limit", "64",
+            "--cap-drop", "ALL", "--cap-add", "NET_RAW",
+            "--security-opt", "no-new-privileges:true", "--read-only",
+            "--tmpfs", f"/captures:rw,noexec,nosuid,size={maximum + 1024 * 1024},mode=1777",
+            "--entrypoint", "sleep", image_digest, "infinity",
+        )
+        if created.returncode:
+            raise HTTPException(503, "受限抓包容器创建失败")
+        container_id = created.stdout.strip()
+        if not re.fullmatch(r"[0-9a-f]{64}", container_id):
+            remove_capture_container(group_id, capture_id, name)
+            raise HTTPException(503, "抓包容器标识无效")
+        try:
+            started = docker("start", container_id)
+            if started.returncode:
+                raise HTTPException(503, "抓包镜像缺少可用采集能力或启动失败")
+            launched = docker("exec", "-d", container_id, "/bin/sh", "-c", CAPTURE_START_SCRIPT)
+            if launched.returncode:
+                raise HTTPException(503, "抓包镜像缺少可用采集能力或启动失败")
+            ready = False
+            for _ in range(20):
+                state = docker("inspect", "--format", "{{.State.Status}}", container_id)
+                probe = docker("exec", container_id, "/bin/sh", "-c", CAPTURE_READY_SCRIPT)
+                if state.returncode == 0 and state.stdout.strip() == "running" and probe.returncode == 0:
+                    ready = True
+                    break
+                time.sleep(0.1)
+            if not ready:
+                raise HTTPException(503, "抓包镜像未能持续运行")
+            manifest = {
+                "runtime_group_id": group_id,
+                "capture_id": capture_id,
+                "status": "CAPTURING",
+                "capture_container_id": container_id,
+                "target_container_id": target_id,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            }
+            write_capture_manifest(group_id, manifest)
+            return capture_response(manifest, replay=False)
+        except Exception:
+            remove_capture_container(group_id, capture_id, name)
+            raise
 
 
 @app.post("/runtime-groups/{group_id}/capture/stop", dependencies=[Depends(require_control)])
 def capture_stop(group_id: str):
-    raise HTTPException(501, "流量采集器尚未部署")
+    if not SAFE_ID.fullmatch(group_id):
+        raise HTTPException(422, "实例组标识无效")
+    deadline = time.monotonic() + 45
+    with group_operation_lock(group_id, deadline):
+        manifest = read_capture_manifest(group_id)
+        if manifest and manifest.get("status") == "COMPLETED":
+            validate_completed_capture(manifest)
+            return capture_response(manifest, replay=True)
+        if not manifest:
+            # 区分未知实例组与已授权但尚未启动采集，避免用 stop 探测任意 Docker 资源。
+            capture_target(group_id)
+            raise HTTPException(409, "实例组尚未启动流量采集")
+        if manifest.get("status") != "CAPTURING":
+            raise HTTPException(503, "实例组存在未恢复的流量采集失败状态")
+        capture_id = str(manifest.get("capture_id", ""))
+        container_id = str(manifest.get("capture_container_id", ""))
+        name = capture_container_name(group_id)
+        inspected = docker(
+            "inspect", "--format",
+            "{{.State.Status}}|{{index .Config.Labels \"io.yueke.runtime-group\"}}|{{index .Config.Labels \"io.yueke.capture-id\"}}",
+            container_id,
+        )
+        if inspected.returncode:
+            raise HTTPException(503, "抓包容器已丢失，无法生成真实产物")
+        state, separator, ownership = inspected.stdout.strip().partition("|")
+        owner, capture_separator, actual_capture = ownership.partition("|")
+        if not separator or not capture_separator or owner != group_id or actual_capture != capture_id:
+            raise HTTPException(503, "抓包容器归属校验失败")
+        saved_file_id: str | None = None
+        try:
+            if state == "running":
+                stopped = docker("exec", container_id, "/bin/sh", "-c", CAPTURE_STOP_SCRIPT, timeout=10)
+                if stopped.returncode:
+                    raise HTTPException(503, "抓包进程无法安全停止")
+            copied = docker_bytes("exec", container_id, "cat", CAPTURE_FILE, timeout=30)
+            if copied.returncode:
+                diagnostic = copied.stderr.decode("utf-8", errors="replace").strip().replace("\n", " ")[:240]
+                raise HTTPException(503, f"抓包进程未生成可读取的 PCAP 产物：{diagnostic or '容器读取失败'}")
+            content = copied.stdout
+            if len(content) > capture_max_bytes():
+                raise HTTPException(503, "抓包产物超过节点配置上限")
+            packet_count = pcap_packet_count(content)
+            file_id, digest = save_capture_artifact(capture_id, content)
+            saved_file_id = file_id
+            completed = {
+                **manifest,
+                "status": "COMPLETED",
+                "ended_at": datetime.now(timezone.utc).isoformat(),
+                "file_id": file_id,
+                "sha256": digest,
+                "size_bytes": len(content),
+                "packet_count": packet_count,
+            }
+            write_capture_manifest(group_id, completed)
+        except Exception as error:
+            if saved_file_id:
+                try:
+                    (capture_root() / saved_file_id).unlink()
+                except OSError:
+                    pass
+            failed = {**manifest, "status": "FAILED", "ended_at": datetime.now(timezone.utc).isoformat()}
+            try:
+                write_capture_manifest(group_id, failed)
+            except HTTPException:
+                pass
+            remove_capture_container(group_id, capture_id, name)
+            raise error
+        remove_capture_container(group_id, capture_id, name)
+        return capture_response(completed, replay=False)
+
+
+@app.get("/runtime-groups/{group_id}/capture/artifact", dependencies=[Depends(require_control)])
+def capture_artifact(group_id: str):
+    if not SAFE_ID.fullmatch(group_id):
+        raise HTTPException(422, "实例组标识无效")
+    manifest = read_capture_manifest(group_id)
+    if not manifest or manifest.get("status") != "COMPLETED":
+        raise HTTPException(404, "实例组没有可取回的已完成抓包产物")
+    content = completed_capture_bytes(manifest)
+    digest = manifest["sha256"]
+    return Response(
+        content=content,
+        media_type="application/vnd.tcpdump.pcap",
+        headers={
+            "Content-Disposition": f'attachment; filename="{manifest["capture_id"]}.pcap"',
+            "ETag": f'"{digest}"',
+            "X-Content-SHA256": digest,
+            "X-Capture-ID": manifest["capture_id"],
+        },
+    )
