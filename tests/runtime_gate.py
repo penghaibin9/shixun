@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+from hashlib import sha256
 from uuid import uuid4
 from pathlib import Path
 
@@ -16,6 +17,12 @@ TEACHER = {"X-User-Id": "teacher_d_gate", "X-Role": "teacher", "X-Teacher-Id": "
 
 def student_headers(number: int) -> dict[str, str]:
     return {"X-User-Id": f"user_d_{RUN}_{number}", "X-Role": "student", "X-Student-Id": f"student_d_{RUN}_{number}", "X-Permissions": "runtime.read,runtime.start,runtime.destroy,runtime.rebuild,runtime.extend,runtime.rejudge,runtime.terminal", "X-Course-Ids": "course_data_security", "X-Class-Ids": "class_netsec_2301"}
+
+
+def runtime_container_name(group_id: str, node_key: str) -> str:
+    group_token = f"{group_id[:16]}-{sha256(group_id.encode()).hexdigest()[:10]}"
+    node_token = f"{node_key[:12]}-{sha256(node_key.encode()).hexdigest()[:8]}"
+    return f"yk-{group_token}-{node_token}".lower()
 
 
 def checked(response: httpx.Response) -> dict:
@@ -53,22 +60,22 @@ async def shell(instance_id: str, headers: dict[str, str], commands: str, marker
 
 async def main() -> None:
     spec = json.loads((Path(__file__).parents[1] / "backend/app/labs/fixtures/rsa-v1.json").read_text(encoding="utf-8"))
-    spec["lab_definition_id"] = "lab_rsa_d_gate"
+    spec["lab_definition_id"] = "lab_rsa_d_gate_v3"
     spec["name"] = "RSA 真实运行门禁实验"
     for node in spec["nodes"]:
         node["image_id"], node["image_digest"] = "img_python_openssl_gate", DIGEST
     for binding in spec["image_bindings"]:
         binding["infra_image_id"], binding["digest"] = "img_python_openssl_gate", DIGEST
     for checkpoint in spec["checkpoints"]:
-        checkpoint["checkpoint_id"] = f"{checkpoint['checkpoint_id']}_gate"
+        checkpoint["checkpoint_id"] = f"{checkpoint['checkpoint_id']}_gate_v3"
     async with httpx.AsyncClient(base_url=BASE, timeout=60) as client:
         labs = checked(await client.get("/api/v1/labs", headers=TEACHER))["items"]
         lab = next((x for x in labs if x["lab_definition_id"] == spec["lab_definition_id"]), None)
         if not lab:
-            lab = checked(await client.post("/api/v1/labs", headers={**TEACHER, "X-Idempotency-Key": "d-gate-lab-create-v1"}, json={"course_id": "course_data_security", "code": "EXP-RSA-D-GATE", "category": "密码学", "objective": "验证真实容器、终端、隔离和 RSA 判定闭环。", "spec": spec}))
+            lab = checked(await client.post("/api/v1/labs", headers={**TEACHER, "X-Idempotency-Key": "d-gate-lab-create-v3"}, json={"course_id": "course_data_security", "code": "EXP-RSA-D-GATE-V3", "category": "密码学", "objective": "验证真实容器、终端、隔离和五类判定闭环。", "spec": spec}))
             version_id = lab["latest_version"]["lab_version_id"]
-            checked(await client.post(f"/api/v1/lab-versions/{version_id}/validate", headers={**TEACHER, "X-Idempotency-Key": "d-gate-lab-validate-v1"}))
-            checked(await client.post(f"/api/v1/lab-versions/{version_id}/publish", headers={**TEACHER, "X-Idempotency-Key": "d-gate-lab-publish-v1"}))
+            checked(await client.post(f"/api/v1/lab-versions/{version_id}/validate", headers={**TEACHER, "X-Idempotency-Key": "d-gate-lab-validate-v3"}))
+            checked(await client.post(f"/api/v1/lab-versions/{version_id}/publish", headers={**TEACHER, "X-Idempotency-Key": "d-gate-lab-publish-v3"}))
         version_id = lab["latest_version"]["lab_version_id"]
         await client.post("/api/v1/infrastructure/images", headers=TEACHER, json={"image_id": "img_python_openssl_gate", "name": "Python OpenSSL 门禁镜像", "tag": "3.11-bookworm", "digest": DIGEST, "size_bytes": 0, "scan_status": "PASSED", "startup_check_status": "PASSED", "teaching_validation_status": "PASSED", "enabled": True})
         checked(await client.post("/api/v1/infrastructure/nodes", headers=TEACHER, json={"node_id": "node_docker_desktop_gate", "name": "Docker Desktop Linux 门禁节点", "agent_url": "http://127.0.0.1:19443", "weight": 1000, "labels": {"environment": "gate"}}))
@@ -87,8 +94,8 @@ async def main() -> None:
 
     first_response, first_instance, first_headers = starts[0]
     second_group = starts[1][0]["runtime_group_id"]
-    second_student_name = f"yk-{second_group[:24]}-student-rsa"
-    first_target_name = f"yk-{first_response['runtime_group_id'][:24]}-target-rsa"
+    second_student_name = runtime_container_name(second_group, "student-rsa")
+    first_target_name = runtime_container_name(first_response["runtime_group_id"], "target-rsa")
     commands = """set -e
 printf 'Yueke RSA runtime gate evidence' > source.txt
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private.pem >/dev/null 2>&1
@@ -98,6 +105,7 @@ openssl pkeyutl -decrypt -inkey private.pem -in cipher.bin -out plain.out
 openssl dgst -sha256 -sign private.pem -out signature.bin source.txt
 sha256sum source.txt plain.out
 cp source.txt report.pdf
+python3 -m http.server 18080 --bind 0.0.0.0 >http.log 2>&1 &
 echo RSA_DONE"""
     terminal_output = await shell(first_instance["runtime_instance_id"], first_headers, commands, "RSA_DONE")
     if "RSA_DONE" not in terminal_output:
@@ -110,6 +118,39 @@ echo NETWORK_DONE"""
     required = {"BUSINESS_DENY", "OTHER_DENY", "GRADER_ALLOW"}
     if not required.issubset(set(network_output.split())):
         raise RuntimeError(f"网络隔离失败: {network_output}")
+    agent_headers = {"Authorization": f"Bearer {os.environ['YUEKE_NODE_AGENT_TOKEN']}"}
+    network_judges = [
+        {"checkpoint_id": "cp_port_live", "judge_target": "student-rsa:18080", "judge_type": "PORT_LISTEN", "judge_config_json": {"host": "student-rsa", "port": 18080}, "failure_message": "服务端口未监听"},
+        {"checkpoint_id": "cp_http_live", "judge_target": "student-rsa:/", "judge_type": "HTTP_RESPONSE", "judge_config_json": {"path": "/", "port": 18080, "status_code": 200}, "failure_message": "网页响应不符合要求"},
+    ]
+    async with httpx.AsyncClient(base_url="http://127.0.0.1:19443", timeout=30) as agent_client:
+        for checkpoint in network_judges:
+            result = checked(await agent_client.post(
+                f"/runtime-groups/{first_response['runtime_group_id']}/exec",
+                headers=agent_headers,
+                json={"operation": "judge", "checkpoint": checkpoint, "timeout_seconds": 10, "output_limit_bytes": 8192},
+            ))
+            if not result["passed"] or result["evidence"].get("judge_type") != checkpoint["judge_type"]:
+                raise RuntimeError(f"{checkpoint['judge_type']} 真实判定失败: {result}")
+        await shell(first_instance["runtime_instance_id"], first_headers, "ln -s /etc evidence-link\necho SYMLINK_READY", "SYMLINK_READY")
+        symlink_result = checked(await agent_client.post(
+            f"/runtime-groups/{first_response['runtime_group_id']}/exec",
+            headers=agent_headers,
+            json={
+                "operation": "judge",
+                "checkpoint": {
+                    "checkpoint_id": "cp_symlink_reject",
+                    "judge_target": "student-rsa:evidence-link/passwd",
+                    "judge_type": "FILE_EXISTS",
+                    "judge_config_json": {"path": "evidence-link/passwd", "minimum_size": 1},
+                    "failure_message": "符号链接证据必须拒绝",
+                },
+                "timeout_seconds": 10,
+                "output_limit_bytes": 8192,
+            },
+        ))
+        if symlink_result["passed"] or symlink_result["evidence"].get("grader") != "evidence_rejected":
+            raise RuntimeError(f"符号链接证据未被拒绝: {symlink_result}")
     async with httpx.AsyncClient(base_url=BASE, timeout=60) as client:
         judged = checked(await client.post(f"/api/v1/runtime-instances/{first_instance['runtime_instance_id']}/rejudge", headers=first_headers))
         if judged["score"] != 100 or len(judged["checkpoint_results"]) != 5:
@@ -122,7 +163,7 @@ echo NETWORK_DONE"""
             second = checked(await client.post(f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy", headers=headers, json={"reason": "幂等重复回收"}))
             if second["status"] != "DESTROYED":
                 raise RuntimeError("幂等销毁失败")
-    print(json.dumps({"G4": "PASS", "G5": "PASS", "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "network": sorted(required), "terminal_resize": True, "single_use_terminal_token": True, "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True}, ensure_ascii=False))
+    print(json.dumps({"G4": "PASS", "G5": "PASS", "G6": "PASS", "rsa_score": 100, "checkpoint_count": 5, "judge_types_executed": ["FILE_EXISTS", "FILE_HASH", "COMMAND_EXIT", "PORT_LISTEN", "HTTP_RESPONSE"], "symlink_evidence_rejected": True, "network": sorted(required), "terminal_resize": True, "single_use_terminal_token": True, "idempotent_start": True, "idempotent_destroy": True, "rebuild_preserved_score": True}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

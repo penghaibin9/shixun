@@ -11,6 +11,7 @@ $escaped = [System.Uri]::EscapeDataString($passwordEntry.Substring('MYSQL_PASSWO
 $gateEnvironmentNames = @(
   'E2E_REAL_RUNTIME',
   'YUEKE_AGENT_ALLOWED_DIGESTS',
+  'YUEKE_AGENT_GRADER_DIGEST',
   'YUEKE_DATABASE_URL',
   'YUEKE_GATE_API_URL',
   'YUEKE_GATE_IMAGE_DIGEST',
@@ -41,6 +42,7 @@ try {
   $imageId = docker image inspect python:3.11-bookworm --format '{{.Id}}'
   if (-not $imageId.StartsWith('sha256:')) { throw 'Pinned Python OpenSSL image is missing' }
   $env:YUEKE_AGENT_ALLOWED_DIGESTS = $imageId
+  $env:YUEKE_AGENT_GRADER_DIGEST = $imageId
   $env:YUEKE_GATE_IMAGE_DIGEST = $imageId
   $agent = Start-Process python -ArgumentList '-m','uvicorn','app:app','--host','127.0.0.1','--port','19443' -WorkingDirectory (Join-Path $repoRoot 'node_agent') -PassThru -WindowStyle Hidden
   $ready = $false

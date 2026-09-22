@@ -135,9 +135,19 @@ class Checkpoint(StrictModel):
             JudgeType.PORT_LISTEN: {"host", "port"},
             JudgeType.HTTP_RESPONSE: {"path", "status_code"},
         }
+        allowed: dict[JudgeType, set[str]] = {
+            JudgeType.FILE_EXISTS: {"path", "additional_paths", "minimum_size", "format"},
+            JudgeType.FILE_HASH: {"left_path", "right_path", "algorithm"},
+            JudgeType.COMMAND_EXIT: {"command_ref", "expected_exit", "output_contains"},
+            JudgeType.PORT_LISTEN: {"host", "port"},
+            JudgeType.HTTP_RESPONSE: {"path", "port", "status_code"},
+        }
         missing = required[self.judge_type] - config.keys()
         if missing:
             raise ValueError(f"{self.judge_type} 缺少配置：{', '.join(sorted(missing))}")
+        unknown = config.keys() - allowed[self.judge_type]
+        if unknown:
+            raise ValueError(f"{self.judge_type} 包含未批准配置：{', '.join(sorted(unknown))}")
         if self.judge_type == JudgeType.FILE_HASH and config.get("algorithm") != "sha256":
             raise ValueError("文件哈希判定当前只允许 sha256")
         if self.judge_type == JudgeType.COMMAND_EXIT and not re.fullmatch(r"[a-z][a-z0-9_.-]{1,63}", str(config.get("command_ref", ""))):

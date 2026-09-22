@@ -138,3 +138,10 @@ def test_control_plane_rejects_raw_judge_script():
     data["checkpoints"][0]["judge_config_json"] = {"path": "x", "script": "rm -rf /"}
     with pytest.raises(ValidationError, match="可执行脚本"):
         LabDefinitionSpec.model_validate(data)
+
+
+def test_control_plane_rejects_fields_from_another_judge_type():
+    data = rsa_data()
+    data["checkpoints"][0]["judge_config_json"] = {"path": "x", "expected_exit": 1}
+    with pytest.raises(ValidationError, match="未批准配置"):
+        LabDefinitionSpec.model_validate(data)

@@ -175,7 +175,7 @@ class RuntimeService:
             "runtime_group_id": group_id,
             "expires_at": group.expires_at.isoformat(),
             "networks": spec["networks"],
-            "containers": [{"node_key": item["node_key"], "role": item["role"], "image_digest": item["image_digest"], "cpu_limit": item["cpu_limit"], "memory_mb": item["memory_mb"], "pids_limit": 128, "startup_command": item.get("startup_command", "")} for item in spec["nodes"]],
+            "containers": [{"node_key": item["node_key"], "role": item["role"], "image_digest": item["image_digest"], "cpu_limit": item["cpu_limit"], "memory_mb": item["memory_mb"], "pids_limit": 128, "startup_command": item.get("startup_command", ""), "network_keys": item["network_keys"]} for item in spec["nodes"]],
         }
         result = None
         last_error = None
@@ -309,7 +309,7 @@ class RuntimeService:
         if group.provider_group_id:
             await self.agent_factory(node.agent_url).destroy(group.provider_group_id)
         spec = request.spec_snapshot_json
-        result = await self.agent_factory(node.agent_url).create_group({"runtime_group_id": group.runtime_group_id, "expires_at": group.expires_at.isoformat(), "networks": spec["networks"], "containers": [{"node_key": x["node_key"], "role": x["role"], "image_digest": x["image_digest"], "cpu_limit": x["cpu_limit"], "memory_mb": x["memory_mb"], "pids_limit": 128, "startup_command": x.get("startup_command", "")} for x in spec["nodes"]]})
+        result = await self.agent_factory(node.agent_url).create_group({"runtime_group_id": group.runtime_group_id, "expires_at": group.expires_at.isoformat(), "networks": spec["networks"], "containers": [{"node_key": x["node_key"], "role": x["role"], "image_digest": x["image_digest"], "cpu_limit": x["cpu_limit"], "memory_mb": x["memory_mb"], "pids_limit": 128, "startup_command": x.get("startup_command", ""), "network_keys": x["network_keys"]} for x in spec["nodes"]]})
         group.provider_group_id, group.status = result["provider_group_id"], "RUNNING"
         existing = {x.node_key: x for x in self.session.scalars(select(models.RuntimeInstance).where(models.RuntimeInstance.runtime_group_id == group.runtime_group_id))}
         for container in result["containers"]:
