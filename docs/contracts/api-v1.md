@@ -46,6 +46,12 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 
 `POST /api/v1/integration/outbox/dispatch` 仅允许 `service_` 前缀的管理员服务身份并要求 `integration:dispatch` 权限。投递器从 `domain_event_outbox` 读取未发布事件：D 运行事件写入 E 课堂投影并送入 F 成绩事实，A/B 冻结事件送入 F 归档证据，C 的 `lab.release.published` 携带不可变实验规范快照写入 D 发布上下文。任一目标失败时事件保持未发布，可安全重试；各消费者按 `event_id` 幂等。
 
+## D/E 课堂运行事实读取
+
+教师页面 `GET /api/v1/classroom/lab-releases/{release_id}/summary` 与 `GET /api/v1/classroom/lab-releases/{release_id}/students` 固定以 D 的 `runtime/lab-releases/*` 冻结运行读模型作为状态、进度、得分和实例编号的唯一来源；E 仅用 A 的有效 `class_membership` 名单补齐未启动学生。响应固定标注 `runtime_fact_source: "D_RUNTIME_RELEASE_READ_MODEL"`；没有 D 运行记录的学生只能得到 `NOT_STARTED`，其 `current_step`、`total_steps`、`raw_score`、`max_score` 均为 `null`，不得补写默认步骤或 `0/100` 分数。
+
+E 的本地运行事件投影只用于学习汇总和 SSE（服务端事件流）刷新通知，不能覆盖教师课堂读接口的 D 运行事实。D 返回的课程、班级、实验发布或学生名单与当前冻结范围不一致时，E 返回明确的 `502` 错误，不把异常数据聚合为课堂统计。高风险运行处置只有在 D 成功接受后才写审计事件；日志分发只有在 D 返回同一课程、班级和实验发布范围内的足量来源后才创建任务、审计和发件箱事件。
+
 ## D/E 日志分发下载授权
 
 学生通过 E 的 `GET /api/v1/teaching-logs/my-assignments/{assignment_id}/download` 请求本人日志任务。E 校验分配事实、学生身份、课程、班级和实验发布后，向 D 的内部接口 `POST /api/v1/runtime/log-artifacts/distribution-bundle-url` 提交最长 60 秒的签名授权。授权精确绑定 `assignment_id`、`distribution_id`、日志类型、学生、课程、班级、实验发布、引用集合和随机数；D 重新验证签名、有效期、学生范围以及每个运行日志源事实后，才换取独立的短期存储能力。
