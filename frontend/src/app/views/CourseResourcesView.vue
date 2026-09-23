@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import YkDrawer from '../../components/common/YkDrawer.vue'
 import YkModal from '../../components/common/YkModal.vue'
@@ -20,6 +20,7 @@ const uploadOpen = ref(false), uploadName = ref(''), uploadType = ref('PPT'), up
 const questionTab = ref('overview'), questionImportOpen = ref(false), questionFile = ref<File | null>(null), questionImporting = ref(false), questionImportError = ref(''), questionImportMessage = ref('')
 const questionImportJob = ref<QuestionImportJob | null>(null), questionReviewItems = ref<QuestionReviewItem[]>([]), questionReviewTotal = ref(0), questionReviewLoading = ref(false)
 const selectedQuestion = ref<QuestionReviewItem | null>(null), reviewDecision = ref<'APPROVED' | 'REJECTED'>('APPROVED'), reviewComment = ref(''), reviewSubmitting = ref(false), reviewError = ref(''), reviewMessage = ref('')
+const previewResource = ref<Resource | null>(null), previewUrl = ref(''), previewLoading = ref(false), previewError = ref('')
 const titles: Record<string, [string, string]> = {
   overview: ['教学资源生产与课程建设中心', '每个课时应有什么、缺什么、由谁审核、能否交付均来自真实资源事实。'],
   blueprint: ['课程蓝图', '37 个理论课时按采购知识点结构展开，第 7 章固定为 4 节。'],
@@ -106,6 +107,22 @@ async function downloadResource(item: Resource) {
     link.href = url; link.download = item.name; link.click(); URL.revokeObjectURL(url)
   } catch (reason) { error.value = (reason as ApiError).message || '文件下载失败。' }
 }
+async function previewVideo(item: Resource) {
+  if (item.resource_type !== 'VIDEO') return
+  previewLoading.value = true; previewError.value = ''
+  try {
+    const blob = await resourceApi.download(item.resource_id)
+    if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = URL.createObjectURL(blob)
+    previewResource.value = item
+  } catch (reason) {
+    previewError.value = (reason as ApiError).message || '视频预览失败，请改用下载。'
+  } finally { previewLoading.value = false }
+}
+function closeVideoPreview() {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = ''; previewResource.value = null; previewError.value = ''
+}
 function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob), link = document.createElement('a')
   link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url)
@@ -177,7 +194,7 @@ async function submitQuestionReview() {
   } catch (reason) { reviewError.value = (reason as ApiError).message || '审核操作失败，请稍后重试。' }
   finally { reviewSubmitting.value = false }
 }
-onMounted(load); watch(page, load)
+onMounted(load); onUnmounted(closeVideoPreview); watch(page, load)
 </script>
 
 <template>
@@ -205,7 +222,10 @@ onMounted(load); watch(page, load)
       </template>
       <template v-else-if="page === 'ppt' || page === 'video'">
         <div class="grid grid-4 summary-grid"><div class="card kpi"><span>要求课时</span><b>{{ page === 'ppt' ? 37 : 49 }}</b></div><div class="card kpi"><span>已登记真实文件</span><b>{{ resources.filter(r => r.resource_type === (page === 'ppt' ? 'PPT' : 'VIDEO') && r.latest_version).length }}</b></div><div class="card kpi"><span>门禁通过</span><b>{{ page === 'ppt' ? readiness?.ppt.ready : (readiness?.theory_video.ready || 0) + (readiness?.lab_video.ready || 0) }}</b></div><div class="card kpi"><span>{{ page === 'ppt' ? '人工抽检' : '真实时长' }}</span><b>按证据核验</b></div></div><div class="state-panel">只有已上传、已解析、已独立审核并发布的真实教学{{ page === 'ppt' ? '演示文稿' : '视频' }}才计入门禁。</div>
-        <div v-if="page === 'video'" class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>视频名称</th><th>发布状态</th><th>媒体解析时长</th><th>画面</th></tr></thead><tbody><tr v-for="item in resources.filter(resource => resource.resource_type === 'VIDEO')" :key="item.resource_id"><td>{{ lessons.find(lesson => lesson.lesson_id === item.lesson_id)?.lesson_code || '课程级' }}</td><td>{{ item.name }}</td><td><span class="badge">{{ statusText(item.status) }}</span></td><td>{{ durationText(item.latest_version?.video?.duration_seconds) }}</td><td>{{ item.latest_version?.video?.width && item.latest_version?.video?.height ? `${item.latest_version.video.width}×${item.latest_version.video.height}` : '尚未解析' }}</td></tr><tr v-if="!resources.some(resource => resource.resource_type === 'VIDEO')"><td colspan="5" class="empty-cell">尚无真实视频资源。</td></tr></tbody></table></div>
+        <div v-if="page === 'video' && previewResource" class="card video-preview-card"><div class="section-head"><div><h3>正在预览：{{ previewResource.name }}</h3><p class="muted">{{ durationText(previewResource.latest_version?.video?.duration_seconds) }} · {{ previewResource.latest_version?.video?.width }}×{{ previewResource.latest_version?.video?.height }}</p></div><button class="yk-button" @click="closeVideoPreview">关闭预览</button></div><video class="video-preview" controls :src="previewUrl" preload="metadata"></video></div>
+        <p v-if="page === 'video' && previewLoading" class="state-panel">正在准备视频预览…</p>
+        <p v-if="page === 'video' && previewError" class="status-error">{{ previewError }}</p>
+        <div v-if="page === 'video'" class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>视频名称</th><th>发布状态</th><th>媒体解析时长</th><th>画面</th><th>操作</th></tr></thead><tbody><tr v-for="item in resources.filter(resource => resource.resource_type === 'VIDEO')" :key="item.resource_id"><td>{{ lessons.find(lesson => lesson.lesson_id === item.lesson_id)?.lesson_code || '课程级' }}</td><td>{{ item.name }}</td><td><span class="badge">{{ statusText(item.status) }}</span></td><td>{{ durationText(item.latest_version?.video?.duration_seconds) }}</td><td>{{ item.latest_version?.video?.width && item.latest_version?.video?.height ? `${item.latest_version.video.width}×${item.latest_version.video.height}` : '尚未解析' }}</td><td><button class="yk-button primary" @click="previewVideo(item)">播放</button><button class="yk-button" @click="downloadResource(item)">下载</button></td></tr><tr v-if="!resources.some(resource => resource.resource_type === 'VIDEO')"><td colspan="6" class="empty-cell">尚无真实视频资源。</td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'questions'">
         <p v-if="questionImportError" class="status-error">{{ questionImportError }}</p>
@@ -268,3 +288,8 @@ onMounted(load); watch(page, load)
     </YkDrawer>
   </div>
 </template>
+
+<style scoped>
+.video-preview-card { margin-top: 14px; }
+.video-preview { display: block; width: 100%; max-height: 560px; border-radius: 10px; background: #111; }
+</style>
