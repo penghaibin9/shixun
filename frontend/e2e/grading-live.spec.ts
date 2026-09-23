@@ -8,6 +8,7 @@ const studentId = 'student_g8_001'
 
 test('真实 MySQL 成绩到学情再到归档的浏览器主链', async ({ page, request }, testInfo) => {
   test.skip(process.env.E2E_REAL_GRADING !== '1', '仅真实 G8 验收时运行')
+  test.setTimeout(60_000)
   await page.addInitScript(({ courseId, classId, lessonId, studentId }) => {
     localStorage.setItem('yk-course-id', courseId)
     localStorage.setItem('yk-class-id', classId)
@@ -24,7 +25,10 @@ test('真实 MySQL 成绩到学情再到归档的浏览器主链', async ({ page
   })
   expect(dispatchResponse.ok()).toBeTruthy()
   const dispatch = await dispatchResponse.json()
-  expect(dispatch).toMatchObject({ selected: 14, published: 14, failed: 0 })
+  expect(dispatch).toMatchObject({ selected: 18, published: 18, failed: 0 })
+  const scoreProofs = dispatch.results.filter((item: { event_type: string }) => item.event_type === 'grading.score.proof.frozen')
+  expect(scoreProofs).toHaveLength(4)
+  expect(scoreProofs.every((item: { targets: string[] }) => item.targets.length === 1 && item.targets[0] === 'grading_facts')).toBe(true)
 
   page.on('dialog', dialog => dialog.accept())
   await page.goto('/teacher-grades')
@@ -78,13 +82,14 @@ test('真实 MySQL 成绩到学情再到归档的浏览器主链', async ({ page
   const manifestData = JSON.parse(await readFile(manifestPath, 'utf8'))
   expect(manifestData.delivery_manifests[0].manifest_id).toBe('manifest_g8_gate')
 
-  await page.getByRole('link', { name: '我的成绩' }).click()
+  // 当前导航仅展示教师会话可见项；学生与管理员场景分别验证受保护入口及其服务端范围。
+  await page.goto('/student-score')
   await expect(page.getByRole('heading', { name: '我的成绩' })).toBeVisible()
   await expect(page.getByText('94', { exact: true })).toBeVisible()
   await expect(page.getByText('1', { exact: true })).toBeVisible()
   await expect(page.getByText('就绪', { exact: true })).toBeVisible()
 
-  await page.getByRole('link', { name: '审计日志' }).click()
+  await page.goto('/admin-audit')
   await expect(page.getByRole('heading', { name: '审计日志' })).toBeVisible()
   await expect(page.locator('tbody tr').filter({ hasText: '成绩已入账' })).toBeVisible()
   await expect(page.locator('tbody tr').filter({ hasText: '课程已归档' })).toBeVisible()

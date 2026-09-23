@@ -59,9 +59,12 @@ async function submitImport() {
   <div v-else-if="!labs.length" class="card state-card">当前课程还没有实验定义。</div>
   <div v-else class="grid grid-3">
     <article v-for="lab in labs" :key="lab.lab_definition_id" class="card lab-card">
-      <span class="badge" :class="lab.latest_version.status === 'PUBLISHED' ? 'success' : ''">{{ lab.latest_version.status === 'PUBLISHED' ? '已发布' : '草稿' }}</span>
       <h2>{{ lab.name }}</h2>
-      <p class="muted">{{ lab.latest_version.spec.nodes.length }} 个节点 · {{ lab.latest_version.spec.steps.length }} 步 · {{ lab.latest_version.spec.checkpoints.length }} 个得分点 · {{ lab.latest_version.spec.total_score }} 分</p>
+      <template v-if="lab.latest_version">
+        <span class="badge" :class="lab.latest_version.status === 'PUBLISHED' ? 'success' : ''">{{ lab.latest_version.status === 'PUBLISHED' ? '已发布' : '草稿' }}</span>
+        <p class="muted">{{ lab.latest_version.spec.nodes.length }} 个节点 · {{ lab.latest_version.spec.steps.length }} 步 · {{ lab.latest_version.spec.checkpoints.length }} 个得分点 · {{ lab.latest_version.spec.total_score }} 分</p>
+      </template>
+      <p v-else class="muted">尚未创建实验版本，请先进入设计页完成定义。</p>
       <RouterLink class="yk-button primary" :to="`/lab-builder?lab=${lab.lab_definition_id}`">查看设计</RouterLink>
     </article>
   </div>

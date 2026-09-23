@@ -184,3 +184,83 @@ def test_dispatcher_publishes_frozen_score_proof_before_same_batch_score_event()
         assert session.get(DomainEventOutbox, proof_event_id).published_at
         assert session.get(DomainEventOutbox, score_event_id).published_at
     engine.dispose()
+
+
+def test_dispatcher_archives_registered_non_fact_events_without_creating_domain_facts():
+    """Current auth/C/D/E/F producers have an auditable terminal outbox route."""
+
+    engine = create_engine(os.environ["YUEKE_DATABASE_URL"], pool_pre_ping=True)
+    suffix = uuid4().hex[:10]
+    events = [
+        (
+            "auth.account.created",
+            "auth_user",
+            f"user_{suffix}",
+            {"user_id": f"user_{suffix}", "role": "student", "status": "ACTIVE"},
+        ),
+        (
+            "lab.definition.created",
+            "lab_definition",
+            f"definition_{suffix}",
+            {"course_id": f"course_{suffix}", "lab_version_id": f"version_{suffix}"},
+        ),
+        (
+            "runtime.artifact.direct_download_authorized",
+            "runtime_artifact_bundle",
+            f"bundle_{suffix}",
+            {"reference_ids": [f"artifact_{suffix}"], "reference_count": 1},
+        ),
+        (
+            "teaching.log.distributed",
+            "teaching_log_distribution",
+            f"distribution_{suffix}",
+            {"course_id": f"course_{suffix}", "class_id": f"class_{suffix}", "lab_release_id": f"release_{suffix}"},
+        ),
+        (
+            "grade.event.created",
+            "grade_event",
+            f"grade_{suffix}",
+            {"course_id": f"course_{suffix}", "class_id": f"class_{suffix}", "student_id": f"student_{suffix}"},
+        ),
+    ]
+    with Session(engine) as session:
+        event_ids = [
+            add_event(
+                session,
+                event_type,
+                aggregate_id,
+                payload,
+                aggregate_type=aggregate_type,
+            )
+            for event_type, aggregate_type, aggregate_id, payload in events
+        ]
+        unknown_event_id = add_event(
+            session,
+            "unknown.event",
+            f"unknown_{suffix}",
+            {"course_id": f"course_{suffix}"},
+            aggregate_type="unknown_aggregate",
+        )
+
+    response = TestClient(app).post("/api/v1/integration/outbox/dispatch", headers=SERVICE, params={"limit": 500})
+    assert response.status_code == 200, response.text
+    selected = {item["event_id"]: item for item in response.json()["results"]}
+    assert all(selected[event_id] == {
+        "event_id": event_id,
+        "event_type": event_type,
+        "status": "PUBLISHED",
+        "targets": ["audit_archive"],
+    } for event_id, (event_type, *_rest) in zip(event_ids, events))
+    assert selected[unknown_event_id]["status"] == "FAILED"
+    assert selected[unknown_event_id]["code"] == "INTEGRATION.EVENT_UNCONSUMED"
+
+    with Session(engine) as session:
+        audits = list(session.scalars(select(AuditEvent).where(AuditEvent.source_event_id.in_(event_ids))))
+        assert len(audits) == len(events)
+        assert {row.action for row in audits} == {"OUTBOX_EVENT_ARCHIVED"}
+        assert all(row.actor_user_id == "service_contract_dispatcher" and row.actor_role == "service" for row in audits)
+        assert {row.details_json["source_event"]["event_type"] for row in audits} == {event_type for event_type, *_ in events}
+        assert all(session.get(DomainEventOutbox, event_id).published_at is not None for event_id in event_ids)
+        assert session.get(DomainEventOutbox, unknown_event_id).published_at is None
+        assert session.scalar(select(AuditEvent).where(AuditEvent.source_event_id == unknown_event_id)) is None
+    engine.dispose()

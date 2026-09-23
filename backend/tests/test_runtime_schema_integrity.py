@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import create_engine, inspect
 
 from app.common.models import Base
+from app.main import app
 from app.runtime import models  # noqa: F401
 
 
@@ -93,6 +94,55 @@ def test_runtime_models_declare_fact_ownership_and_identity_constraints():
     }
     assert "ix_runtime_event_group_time" in {
         index.name for index in Base.metadata.tables["runtime_event"].indexes
+    }
+
+
+def _schema_refs(value: object) -> set[str]:
+    if isinstance(value, dict):
+        return ({value["$ref"]} if "$ref" in value else set()) | set().union(
+            *(_schema_refs(item) for item in value.values())
+        )
+    if isinstance(value, list):
+        return set().union(*(_schema_refs(item) for item in value))
+    return set()
+
+
+def test_runtime_read_and_classroom_facade_routes_have_named_response_contracts():
+    contract = app.openapi()
+    expected = {
+        ("/api/v1/runtime/release-contexts", "post", "200"): {"RuntimeReleaseSummaryResponse"},
+        ("/api/v1/runtime-instances/{instance_id}/destroy", "post", "200"): {"RuntimeInstanceDetailResponse"},
+        ("/api/v1/runtime-instances/{instance_id}/rebuild", "post", "200"): {"RuntimeInstanceDetailResponse"},
+        ("/api/v1/runtime-instances/{instance_id}/extend", "post", "200"): {"RuntimeInstanceDetailResponse"},
+        ("/api/v1/runtime-instances/{instance_id}/rejudge", "post", "200"): {"RuntimeInstanceDetailResponse"},
+        ("/api/v1/runtime/read-model/classes/{class_id}", "get", "200"): {"RuntimeClassReadModelResponse"},
+        ("/api/v1/runtime/read-model/students/{student_id}", "get", "200"): {"RuntimeStudentReadModelResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}/summary", "get", "200"): {"RuntimeReleaseSummaryResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}/students", "get", "200"): {"RuntimeReleaseStudentsResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}/students/{student_id}", "get", "200"): {"RuntimeInstanceDetailResponse", "RuntimeReleaseStudentPendingResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}", "get", "200"): {"RuntimeReleaseSummaryResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}/start", "post", "201"): {"RuntimeRequestResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}/start", "post", "202"): {"RuntimeRequestResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}/submit", "post", "200"): {"RuntimeInstanceDetailResponse", "RuntimeReleaseStudentPendingResponse"},
+        ("/api/v1/runtime/lab-releases/{release_id}/{action}", "post", "200"): {"RuntimeBulkActionResponse"},
+        ("/api/v1/runtime/instances/{instance_id}/{action}", "post", "200"): {"RuntimeInstanceDetailResponse", "RuntimeSignalActionResponse"},
+        ("/api/v1/runtime/logs/audit", "get", "200"): {"RuntimeAuditLogListResponse"},
+        ("/api/v1/runtime/logs/traffic", "get", "200"): {"RuntimeTrafficArtifactListResponse"},
+        ("/api/v1/runtime/log-artifacts/{artifact_id}", "get", "200"): {"RuntimeArtifactDetailResponse"},
+        ("/api/v1/runtime/log-artifacts/{artifact_id}/download-url", "post", "200"): {"RuntimeArtifactDownloadResponse"},
+        ("/api/v1/runtime/log-artifacts/bundle-url", "post", "200"): {"RuntimeArtifactBundleResponse"},
+        ("/api/v1/runtime/log-artifacts/distribution-bundle-url", "post", "200"): {"RuntimeArtifactBundleResponse"},
+    }
+    for (path, method, status), expected_schemas in expected.items():
+        response = contract["paths"][path][method]["responses"][status]
+        schema = response["content"]["application/json"]["schema"]
+        refs = _schema_refs(schema)
+        assert "#/components/schemas/ApiObjectResponse" not in refs
+        assert {f"#/components/schemas/{name}" for name in expected_schemas} <= refs
+
+    binary = contract["paths"]["/api/v1/artifact-storage/bundles/{assignment_id}"]["get"]["responses"]["200"]
+    assert binary["content"] == {
+        "application/zip": {"schema": {"type": "string", "format": "binary"}}
     }
 
 

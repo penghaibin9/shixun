@@ -18,6 +18,7 @@ CLASS_ID = "class_g7_gate"
 RELEASE_ID = "release_g7_gate"
 VERSION_ID = "labv_g7_gate"
 LIVE_EVENT_ID = "evt_g7_live_update"
+LIVE_CHECKPOINT_RESULT_ID = "cpr_g7_live"
 
 
 def main() -> None:
@@ -36,6 +37,7 @@ def main() -> None:
         session.execute(delete(classroom.RuntimeProjection).where(classroom.RuntimeProjection.lab_release_id == RELEASE_ID))
         session.execute(delete(classroom.ConsumedRuntimeEvent).where(classroom.ConsumedRuntimeEvent.event_id == LIVE_EVENT_ID))
         session.execute(delete(runtime.RuntimeEvent).where(runtime.RuntimeEvent.runtime_instance_id.in_(instance_ids)))
+        session.execute(delete(runtime.CheckpointResult).where(runtime.CheckpointResult.runtime_instance_id.in_(instance_ids)))
         session.execute(delete(runtime.RuntimeInstance).where(runtime.RuntimeInstance.runtime_instance_id.in_(instance_ids)))
         session.execute(delete(runtime.RuntimeInstanceGroup).where(runtime.RuntimeInstanceGroup.runtime_group_id.in_(group_ids)))
         session.execute(delete(runtime.RuntimeRequest).where(runtime.RuntimeRequest.runtime_request_id.in_(request_ids)))
@@ -67,7 +69,9 @@ def main() -> None:
             session.add(runtime.RuntimeRequest(runtime_request_id=request_ids[number-1], lab_release_id=RELEASE_ID, lab_version_id=VERSION_ID, course_id=COURSE_ID, class_id=CLASS_ID, student_id=f"student_g7_{number:03d}", mode="STUDENT", status=request_status, requested_by=f"user_g7_{number:03d}", idempotency_key=f"g7-gate-{number:03d}", spec_snapshot_json=spec, error_code="RUNTIME.GATE_FAILURE" if failed else None, error_message="门禁异常样本" if failed else None, submission_status="SUBMITTED" if submitted else "DRAFT", submitted_at=stamp if submitted else None, last_activity_at=stamp, created_at=stamp, updated_at=stamp))
             session.add(runtime.RuntimeInstanceGroup(runtime_group_id=group_ids[number-1], runtime_request_id=request_ids[number-1], node_id="node_g7_gate", provider_group_id=f"provider_g7_{number:03d}", status=request_status, scheduler_score=100, scheduler_reason="G7 门禁状态事实", scheduled_at=stamp, expires_at=stamp + timedelta(hours=1), destroyed_at=None))
             session.add(runtime.RuntimeInstance(runtime_instance_id=instance_ids[number-1], runtime_group_id=group_ids[number-1], student_id=f"student_g7_{number:03d}", node_key="student-rsa", role="STUDENT_WORKSTATION", status=request_status, started_at=stamp, expires_at=stamp + timedelta(hours=1), ended_at=None))
-        session.add(DomainEventOutbox(event_id=LIVE_EVENT_ID, event_type="lab.checkpoint.passed", aggregate_type="runtime_instance", aggregate_id="rti_g7_011", actor_user_id="grader-g7", occurred_at=stamp + timedelta(seconds=1), payload_json={"lab_release_id":RELEASE_ID,"course_id":COURSE_ID,"class_id":CLASS_ID,"student_id":"student_g7_011","runtime_instance_id":"rti_g7_011","status":"RUNNING","current_step":4,"total_steps":5,"raw_score":77,"max_score":100,"source_id":"checkpoint_g7_live","checkpoint_id":"cp_g7_live"}, idempotency_key="g7-live-update", published_at=None))
+        session.add(runtime.CheckpointResult(checkpoint_result_id=LIVE_CHECKPOINT_RESULT_ID, runtime_instance_id="rti_g7_011", student_id="student_g7_011", checkpoint_id="cp_g7_live", attempt=1, status="PASSED", score_awarded=77, max_score=100, evidence_json={"order_no": 4}, message="G7 课堂门禁检查点通过", judged_at=stamp + timedelta(seconds=1)))
+        session.add(runtime.RuntimeEvent(runtime_event_id="rte_g7_live", runtime_instance_id="rti_g7_011", runtime_group_id="rgp_g7_011", event_type="lab.checkpoint.passed", actor_user_id="grader-g7", detail_json={"lab_release_id": RELEASE_ID, "course_id": COURSE_ID, "class_id": CLASS_ID, "student_id": "student_g7_011", "runtime_instance_id": "rti_g7_011", "status": "RUNNING", "current_step": 4, "total_steps": 6, "raw_score": 77, "max_score": 100, "source_id": LIVE_CHECKPOINT_RESULT_ID, "checkpoint_id": "cp_g7_live", "checkpoint_status": "PASSED"}, occurred_at=stamp + timedelta(seconds=1)))
+        session.add(DomainEventOutbox(event_id=LIVE_EVENT_ID, event_type="lab.checkpoint.passed", aggregate_type="runtime_instance", aggregate_id="rti_g7_011", actor_user_id="grader-g7", occurred_at=stamp + timedelta(seconds=1), payload_json={"lab_release_id":RELEASE_ID,"course_id":COURSE_ID,"class_id":CLASS_ID,"student_id":"student_g7_011","runtime_instance_id":"rti_g7_011","status":"RUNNING","current_step":4,"total_steps":6,"raw_score":77,"max_score":100,"source_id":LIVE_CHECKPOINT_RESULT_ID,"checkpoint_id":"cp_g7_live","checkpoint_status":"PASSED"}, idempotency_key="g7-live-update", published_at=None))
         session.commit()
     engine.dispose()
     print(json.dumps({"course_id": COURSE_ID, "class_id": CLASS_ID, "release_id": RELEASE_ID, "students": 43, "submitted": 10, "running": 18, "failed": 2, "not_started": 13}, ensure_ascii=False))

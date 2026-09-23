@@ -19,6 +19,33 @@ from app.main import app
 
 class FakeClient:
     def __init__(self, domain: str): self.domain = domain
+
+    @staticmethod
+    def runtime_request() -> dict:
+        return {
+            "runtime_request_id": "request-a", "lab_release_id": "release-1", "lab_version_id": "version-1",
+            "course_id": "course-a", "class_id": "class-a", "mode": "STUDENT", "student_id": "student-a",
+            "status": "QUEUED", "display_status": "排队中", "error": None, "runtime_group_id": None,
+            "instance_ids": [], "submission_status": "DRAFT", "submitted_at": None, "started_at": None,
+            "last_activity_at": "2026-09-22T00:00:00", "created_at": "2026-09-22T00:00:00",
+            "updated_at": "2026-09-22T00:00:00",
+        }
+
+    @staticmethod
+    def runtime_instance() -> dict:
+        return {
+            "runtime_instance_id": "runtime-a", "runtime_group_id": "group-a", "runtime_request_id": "request-a",
+            "lab_release_id": "release-1", "lab_version_id": "version-1", "course_id": "course-a",
+            "class_id": "class-a", "student_id": "student-a", "node_key": "workstation",
+            "role": "STUDENT_WORKSTATION", "status": "RUNNING", "display_status": "运行中",
+            "submission_status": "DRAFT", "node_id": "node-a",
+            "scheduler": {"score": 1.0, "reason": "test", "scheduled_at": "2026-09-22T00:00:00"},
+            "started_at": "2026-09-22T00:00:00", "last_activity_at": "2026-09-22T00:00:00",
+            "expires_at": "2026-09-22T01:00:00", "network_checks": {}, "current_step": 3,
+            "total_steps": 6, "raw_score": 40.0, "max_score": 100, "score": 40.0,
+            "checkpoint_results": [],
+        }
+
     def request(self, method, path, user, *, params=None, json=None):
         if self.domain == "A":
             student_ids = ["student-a", "student-b", *[f"student-{i}" for i in range(3, 44)]]
@@ -33,7 +60,23 @@ class FakeClient:
         if "/students/" in path: return {"student_id":path.rsplit('/',1)[-1],"class_id":"class-a","status":"RUNNING","runtime_instance_id":"runtime-a","steps":[]}
         if path == "/api/v1/runtime/lab-releases/release-1": return {"lab_release_id":"release-1","class_id":"class-a"}
         if path == "/api/v1/runtime/instances/runtime-a": return {"runtime_instance_id":"runtime-a","class_id":"class-a","student_id":"student-a","status":"RUNNING"}
-        if path.endswith("/terminal-token"): return {"token":"short-lived","expires_in":30,"websocket_url":"ws://127.0.0.1:8010/ws/terminal"}
+        if path.endswith("/terminal-token"):
+            return {
+                "token": "short-lived", "expires_at": "2026-09-22T00:05:00", "runtime_instance_id": "runtime-a",
+                "websocket_path": "/api/v1/runtime-instances/runtime-a/terminal",
+                "expires_in": 30, "websocket_url": "ws://127.0.0.1:8010/ws/terminal", "token_transport": "FIRST_FRAME",
+            }
+        if method == "POST" and "/api/v1/runtime/lab-releases/" in path:
+            action = path.rsplit("/", 1)[-1]
+            if action == "start": return self.runtime_request()
+            if action == "submit": return self.runtime_instance()
+            if action in {"extend-all", "remind-idle"}:
+                return {"lab_release_id": "release-1", "action": action, "affected": 1, "status": "ACCEPTED"}
+        if method == "POST" and "/api/v1/runtime/instances/" in path:
+            action = path.rsplit("/", 1)[-1]
+            if action in {"remind", "unlock"}:
+                return {"runtime_instance_id": "runtime-a", "action": action, "status": "ACCEPTED"}
+            return self.runtime_instance()
         if path.endswith("/distribution-bundle-url"):
             claims = verify_capability(json["authorization"], "test-log-distribution-signing-key-32-bytes")
             assert claims["student_id"] == user.student_id

@@ -1166,6 +1166,81 @@ class TeachingService:
         if not item: raise ApiError("ASSIGNMENT.NOT_FOUND", "作业不存在", 404)
         self.require_class(item.class_id); item.status = "PUBLISHED"; self.audit("assignment.published", "assignment", assignment_id, {"course_id": item.course_id, "class_id": item.class_id}); self.session.commit(); return entity_dict(item)
 
+    def _student_task_questions(self, source_kind: str, source_id: str) -> list[dict]:
+        """Return a safe render projection of already frozen question facts.
+
+        A question reference stores the full immutable evidence, including the
+        answer key required for server scoring.  The browser must never receive
+        that evidence or be able to send it back.  We still validate the full
+        reference before projecting it so a corrupted snapshot fails closed
+        instead of becoming a misleading student task.
+        """
+
+        refs = self._frozen_refs(source_kind, source_id, self.session)
+        self._score_frozen_answers(refs, {})
+        questions: list[dict] = []
+        for ref in refs:
+            snapshot = ref.question_snapshot
+            options = snapshot.get("options")
+            if not isinstance(options, list) or any(
+                not isinstance(option, dict)
+                or set(option) != {"key", "text"}
+                or not isinstance(option["key"], str)
+                or not isinstance(option["text"], str)
+                for option in options
+            ):
+                raise ApiError("TEACHING.FROZEN_QUESTION_INVALID", "冻结题目选项无效，不能展示", 409, {"question_ref_id": ref.ref_id})
+            questions.append(
+                {
+                    "question_ref_id": ref.ref_id,
+                    "question_id": ref.question_id,
+                    "question_type": snapshot["question_type"],
+                    "stem": snapshot["stem"],
+                    "options": [{"key": option["key"], "text": option["text"]} for option in options],
+                }
+            )
+        return questions
+
+    def student_assignments(self):
+        self.require("teaching.assignment.submit"); student_id = self.require_student()
+        items = []
+        for assignment in self.repo.published_assignments(self.user.class_ids):
+            self.require_course(assignment.course_id)
+            membership = self.require_active_membership(assignment.class_id, student_id)
+            if not membership:
+                continue
+            submission = self.repo.submission(assignment.assignment_id, student_id)
+            items.append(
+                {
+                    "assignment_id": assignment.assignment_id,
+                    "course_id": assignment.course_id,
+                    "class_id": assignment.class_id,
+                    "lesson_id": assignment.lesson_id,
+                    "title": assignment.title,
+                    "due_at": assignment.due_at,
+                    "status": assignment.status,
+                    "submission_status": submission.status if submission else None,
+                }
+            )
+        return {"items": items}
+
+    def student_assignment_task(self, assignment_id: str):
+        self.require("teaching.assignment.submit"); student_id = self.require_student(); assignment = self.repo.get(m.Assignment, assignment_id)
+        if not assignment or assignment.status != "PUBLISHED": raise ApiError("ASSIGNMENT.NOT_OPEN", "作业未发布", 409)
+        self.require_course(assignment.course_id); self.require_class(assignment.class_id); self.require_active_membership(assignment.class_id, student_id)
+        submission = self.repo.submission(assignment.assignment_id, student_id)
+        return {
+            "assignment_id": assignment.assignment_id,
+            "course_id": assignment.course_id,
+            "class_id": assignment.class_id,
+            "lesson_id": assignment.lesson_id,
+            "title": assignment.title,
+            "due_at": assignment.due_at,
+            "status": assignment.status,
+            "submission_status": submission.status if submission else None,
+            "questions": self._student_task_questions("assignment", assignment.assignment_id),
+        }
+
     def submit_assignment(self, assignment_id: str, body: SubmissionIn):
         self.require("teaching.assignment.submit"); student_id = self.require_student(); item = self.repo.get(m.Assignment, assignment_id)
         if not item or item.status != "PUBLISHED": raise ApiError("ASSIGNMENT.NOT_OPEN", "作业未发布", 409)
@@ -1193,6 +1268,46 @@ class TeachingService:
         self.require("teaching.quiz.write"); quiz = self.repo.get(m.Quiz, quiz_id)
         if not quiz: raise ApiError("QUIZ.NOT_FOUND", "测验不存在", 404)
         self.require_class(quiz.class_id); quiz.status = "PUBLISHED"; self.audit("quiz.published", "quiz", quiz_id, {"course_id": quiz.course_id, "class_id": quiz.class_id}); self.session.commit(); return entity_dict(quiz)
+
+    def student_quizzes(self):
+        self.require("teaching.quiz.submit"); student_id = self.require_student()
+        items = []
+        for quiz in self.repo.published_quizzes(self.user.class_ids):
+            self.require_course(quiz.course_id)
+            membership = self.require_active_membership(quiz.class_id, student_id)
+            if not membership:
+                continue
+            attempt = self.repo.attempt(quiz.quiz_id, student_id)
+            items.append(
+                {
+                    "quiz_id": quiz.quiz_id,
+                    "course_id": quiz.course_id,
+                    "class_id": quiz.class_id,
+                    "lesson_id": quiz.lesson_id,
+                    "title": quiz.title,
+                    "time_limit_minutes": quiz.time_limit_minutes,
+                    "status": quiz.status,
+                    "attempt_status": attempt.status if attempt else None,
+                }
+            )
+        return {"items": items}
+
+    def student_quiz_task(self, quiz_id: str):
+        self.require("teaching.quiz.submit"); student_id = self.require_student(); quiz = self.repo.get(m.Quiz, quiz_id)
+        if not quiz or quiz.status != "PUBLISHED": raise ApiError("QUIZ.NOT_OPEN", "测验未发布", 409)
+        self.require_course(quiz.course_id); self.require_class(quiz.class_id); self.require_active_membership(quiz.class_id, student_id)
+        attempt = self.repo.attempt(quiz.quiz_id, student_id)
+        return {
+            "quiz_id": quiz.quiz_id,
+            "course_id": quiz.course_id,
+            "class_id": quiz.class_id,
+            "lesson_id": quiz.lesson_id,
+            "title": quiz.title,
+            "time_limit_minutes": quiz.time_limit_minutes,
+            "status": quiz.status,
+            "attempt_status": attempt.status if attempt else None,
+            "questions": self._student_task_questions("quiz", quiz.quiz_id),
+        }
 
     def start_quiz(self, quiz_id: str):
         self.require("teaching.quiz.submit"); student_id = self.require_student(); quiz = self.repo.get(m.Quiz, quiz_id)

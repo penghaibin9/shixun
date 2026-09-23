@@ -1,10 +1,375 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class RuntimeCapacityResponse(StrictModel):
+    cpu_available: float
+    memory_available_mb: int
+    running_groups: int
+    image_digests: list[str]
+
+
+class RuntimeNodeResponse(StrictModel):
+    node_id: str
+    name: str
+    status: str
+    scheduling_paused: bool
+    weight: int
+    cpu_total: float
+    memory_total_mb: int
+    last_seen_at: str | None = None
+    capacity: RuntimeCapacityResponse | None = None
+
+
+class RuntimeNodeListResponse(StrictModel):
+    items: list[RuntimeNodeResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeImageResponse(StrictModel):
+    image_id: str
+    name: str
+    tag: str
+    digest: str
+    size_bytes: int
+    scan_status: str
+    startup_check_status: str
+    teaching_validation_status: str
+    enabled: bool
+
+
+class RuntimeImageListResponse(StrictModel):
+    items: list[RuntimeImageResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeQueueItemResponse(StrictModel):
+    queue_id: str
+    runtime_request_id: str
+    status: str
+    priority: int
+    attempts: int
+    student_id: str | None = None
+    reason: str | None = None
+    enqueued_at: str
+
+
+class RuntimeQueueListResponse(StrictModel):
+    items: list[RuntimeQueueItemResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeInstanceSummaryResponse(StrictModel):
+    runtime_instance_id: str
+    student_id: str | None = None
+    lab_version_id: str
+    node_id: str
+    node_key: str
+    status: str
+    started_at: str | None = None
+    expires_at: str
+
+
+class RuntimeInstanceListResponse(StrictModel):
+    items: list[RuntimeInstanceSummaryResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeEventResponse(StrictModel):
+    event_type: str
+    runtime_instance_id: str | None = None
+    detail: dict[str, Any]
+    occurred_at: str
+
+
+class RuntimeEventListResponse(StrictModel):
+    items: list[RuntimeEventResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeOverviewResponse(StrictModel):
+    nodes_ready: int
+    running_instances: int
+    failed_instances: int
+    destroyed_instances: int
+    queued_groups: int
+
+
+class RuntimeRequestError(StrictModel):
+    code: str
+    message: str
+
+
+class RuntimeRequestResponse(StrictModel):
+    runtime_request_id: str
+    lab_release_id: str
+    lab_version_id: str
+    course_id: str | None = None
+    class_id: str | None = None
+    mode: str
+    student_id: str | None = None
+    status: str
+    display_status: str
+    error: RuntimeRequestError | None = None
+    runtime_group_id: str | None = None
+    instance_ids: list[str]
+    submission_status: str
+    submitted_at: str | None = None
+    started_at: str | None = None
+    last_activity_at: str
+    created_at: str
+    updated_at: str
+
+
+class RuntimeSchedulerResponse(StrictModel):
+    score: float
+    reason: str
+    scheduled_at: str
+
+
+class RuntimeCheckpointResultResponse(StrictModel):
+    checkpoint_result_id: str
+    checkpoint_id: str
+    attempt: int
+    status: str
+    score_awarded: float
+    max_score: float
+    evidence: dict[str, Any]
+    message: str
+    judged_at: str
+
+
+class RuntimeInstanceDetailResponse(StrictModel):
+    runtime_instance_id: str
+    runtime_group_id: str
+    runtime_request_id: str
+    lab_release_id: str
+    lab_version_id: str
+    course_id: str | None = None
+    class_id: str | None = None
+    student_id: str | None = None
+    node_key: str
+    role: str
+    status: str
+    display_status: str
+    submission_status: str
+    node_id: str
+    scheduler: RuntimeSchedulerResponse
+    started_at: str | None = None
+    last_activity_at: str
+    expires_at: str
+    network_checks: dict[str, dict[str, Any]]
+    current_step: int
+    total_steps: int
+    raw_score: float
+    max_score: int
+    score: float
+    checkpoint_results: list[RuntimeCheckpointResultResponse]
+
+
+class RuntimeLogResponse(StrictModel):
+    event_type: str
+    actor_user_id: str | None = None
+    detail: dict[str, Any]
+    occurred_at: str
+
+
+class RuntimeLogListResponse(StrictModel):
+    items: list[RuntimeLogResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeArtifactResponse(StrictModel):
+    artifact_id: str
+    type: str
+    file_id: str | None = None
+    sha256: str
+    size_bytes: int
+
+
+class RuntimeArtifactListResponse(StrictModel):
+    items: list[RuntimeArtifactResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeTerminalTokenResponse(StrictModel):
+    token: str
+    expires_at: str
+    runtime_instance_id: str
+    websocket_path: str
+    websocket_url: str
+    expires_in: int
+    token_transport: Literal["FIRST_FRAME"]
+
+
+class RuntimeReleaseStatusCountsResponse(StrictModel):
+    QUEUED: int
+    SCHEDULING: int
+    STARTING: int
+    RUNNING: int
+    FAILED: int
+    CANCELED: int
+
+
+class RuntimeReleaseSummaryResponse(StrictModel):
+    lab_release_id: str
+    lab_version_id: str
+    course_id: str | None = None
+    class_id: str | None = None
+    release_status: str
+    student_count: int
+    status_counts: RuntimeReleaseStatusCountsResponse
+    running_count: int
+    queued_count: int
+    failed_count: int
+    submitted_count: int
+    updated_at: str
+
+
+class RuntimeReleaseStudentPendingResponse(RuntimeRequestResponse):
+    """尚未生成学生工作站时的发布视图。"""
+
+    runtime_instance_id: None = None
+    current_step: int
+    total_steps: int
+    raw_score: float
+    max_score: int
+
+
+RuntimeReleaseStudentResponse = RuntimeInstanceDetailResponse | RuntimeReleaseStudentPendingResponse
+
+
+class RuntimeReleaseStudentsResponse(StrictModel):
+    items: list[RuntimeReleaseStudentResponse]
+    page: int
+    page_size: int
+    total: int
+    lab_release_id: str
+    course_id: str | None = None
+    class_id: str | None = None
+
+
+class RuntimeClassStatusSummaryResponse(StrictModel):
+    RUNNING: int
+    QUEUED: int
+    FAILED: int
+    DESTROYED: int
+
+
+class RuntimeClassStudentResponse(StrictModel):
+    student_id: str
+    runtime_request_id: str
+    status: str
+    updated_at: str
+
+
+class RuntimeClassReadModelResponse(StrictModel):
+    class_id: str
+    summary: RuntimeClassStatusSummaryResponse
+    students: list[RuntimeClassStudentResponse]
+
+
+class RuntimeStudentReadModelResponse(StrictModel):
+    student_id: str
+    total_requests: int
+    latest_status: str | None = None
+    checkpoint_score_awarded: int
+    checkpoint_score_possible: int
+    updated_at: str | None = None
+
+
+class RuntimeBulkActionResponse(StrictModel):
+    lab_release_id: str
+    action: Literal["extend-all", "remind-idle"]
+    affected: int
+    status: Literal["ACCEPTED"]
+
+
+class RuntimeSignalActionResponse(StrictModel):
+    runtime_instance_id: str
+    action: Literal["remind", "unlock"]
+    status: Literal["ACCEPTED"]
+
+
+class RuntimeAuditLogItemResponse(StrictModel):
+    event_id: str
+    event_type: str
+    runtime_instance_id: str | None = None
+    lab_release_id: str
+    course_id: str | None = None
+    class_id: str | None = None
+    student_id: str | None = None
+    detail: dict[str, Any]
+    occurred_at: str
+
+
+class RuntimeAuditLogListResponse(StrictModel):
+    items: list[RuntimeAuditLogItemResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeTrafficArtifactResponse(StrictModel):
+    artifact_id: str
+    name: str
+    runtime_instance_id: str
+    lab_release_id: str
+    course_id: str | None = None
+    class_id: str | None = None
+    student_id: str | None = None
+    file_id: str
+    sha256: str
+    size_bytes: int
+    occurred_at: str | None = None
+
+
+class RuntimeTrafficArtifactListResponse(StrictModel):
+    items: list[RuntimeTrafficArtifactResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class RuntimeArtifactDetailResponse(StrictModel):
+    artifact_id: str
+    file_id: str
+    sha256: str
+    size_bytes: int
+    student_id: str | None = None
+    lab_release_id: str
+    course_id: str | None = None
+    class_id: str | None = None
+
+
+class RuntimeArtifactBundleResponse(StrictModel):
+    download_url: str
+    expires_in: int
+    artifact_count: int
+    status: Literal["READY"]
+
+
+class RuntimeArtifactDownloadResponse(RuntimeArtifactBundleResponse):
+    artifact_id: str
 
 
 class RuntimeStart(StrictModel):
@@ -176,11 +541,6 @@ class RuntimeHeartbeatResult(StrictModel):
     memory_available_mb: int
     running_groups: int
     idempotent_replay: bool
-
-
-class RuntimeRequestError(StrictModel):
-    code: str
-    message: str
 
 
 class RuntimeQueueRetryResult(StrictModel):

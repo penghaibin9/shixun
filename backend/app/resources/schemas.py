@@ -17,6 +17,145 @@ class VersionCreate(BaseModel):
     lab_file_count: int | None = Field(default=None, ge=1)
 
 
+class ResourceVideoResponse(BaseModel):
+    duration_seconds: float
+    width: int | None = None
+    height: int | None = None
+    probed_at: str
+
+
+class ResourceVersionResponse(BaseModel):
+    resource_version_id: str
+    version_no: int
+    file_id: str
+    status: str
+    sha256: str
+    created_by: str
+    created_at: str
+    video: ResourceVideoResponse | None = None
+
+
+class ResourceResponse(BaseModel):
+    resource_id: str
+    course_id: str
+    lesson_id: str | None = None
+    name: str
+    resource_type: str
+    status: str
+    created_by: str
+    created_at: str
+    latest_version: ResourceVersionResponse | None = None
+
+
+class ResourceListResponse(BaseModel):
+    items: list[ResourceResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class ResourceFileResponse(BaseModel):
+    file_id: str
+    original_name: str
+    mime_type: str
+    size_bytes: int
+    sha256: str
+
+
+class ResourceReadinessCounterResponse(BaseModel):
+    ready: int
+    required: int
+
+
+class ResourceReadinessResponse(BaseModel):
+    course_id: str
+    theory_lessons: int
+    lab_lessons: int
+    ppt: ResourceReadinessCounterResponse
+    theory_video: ResourceReadinessCounterResponse
+    lab_file: ResourceReadinessCounterResponse
+    lab_video: ResourceReadinessCounterResponse
+    question_lessons: ResourceReadinessCounterResponse
+    published_questions: ResourceReadinessCounterResponse
+    blocking: int
+
+
+class ResourceLessonResponse(BaseModel):
+    course_id: str
+    lesson_id: str
+    lesson_kind: Literal["THEORY", "LAB"]
+    chapter_no: int | None = None
+    lesson_code: str
+    title: str
+    purpose: str | None = None
+    environment: str | None = None
+    principle: str | None = None
+    steps_summary: str | None = None
+    core_experiment: str | None = None
+    linked_file_pack_id: str | None = None
+    linked_video_resource_id: str | None = None
+    linked_lab_definition_id: str | None = None
+
+
+class ResourceLessonListResponse(BaseModel):
+    items: list[ResourceLessonResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class ResourceBlueprintResponse(ResourceLessonListResponse):
+    chapter_counts: dict[str, int]
+
+
+class ResourceAuditCheckResponse(BaseModel):
+    lesson_id: str
+    lesson_code: str
+    requirement: str
+    passed: bool
+    evidence: list[dict[str, Any]]
+
+
+class ProcurementMappingResponse(BaseModel):
+    requirement: str
+    owner: str
+    evidence: str
+
+
+class ResourceAuditResponse(BaseModel):
+    course_id: str
+    total: int
+    pass_: int = Field(alias="pass")
+    warning: int
+    blocking: int
+    blocking_items: list[str]
+    checks: list[ResourceAuditCheckResponse]
+    procurement_mapping: list[ProcurementMappingResponse]
+    checked_at: str
+
+    model_config = {"populate_by_name": True}
+
+
+class ResourceManifestResponse(BaseModel):
+    course_id: str
+    theory_lessons: int
+    lab_lessons: int
+    audit: ResourceAuditResponse
+    status: str
+    version_no: int | None = None
+    generated_at: str
+    content_declaration: str
+
+
+class PptQualityCheckResponse(BaseModel):
+    resource_version_id: str
+    result: str
+    knowledge_complete: bool
+    layout_overflow_passed: bool
+    animation_occlusion_passed: bool
+    copyright_noted: bool
+
+
 class PptQualityCheckInput(BaseModel):
     knowledge_complete: bool
     layout_overflow_passed: bool

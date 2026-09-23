@@ -16,6 +16,8 @@
 
 `docs/contracts/openapi-v1.json` 由 `scripts/freeze_openapi.py` 从当前 FastAPI（后端接口框架）真实路由生成，契约测试要求其与运行时规范逐字段一致。前端执行 `npm run contracts:generate` 生成 `frontend/src/app/api-contract.generated.ts`，共享错误信封和用户上下文类型必须直接引用生成结果；禁止手工维护第二份同名共享 DTO（数据传输对象）。
 
+冻结规则：每一个成功的 JSON（数据文本）响应必须引用具名响应模型，不允许空对象或“任意对象”兜底；文件下载必须明确标为对应二进制媒体类型，SSE（服务器推送事件）必须明确标为事件流。契约测试会阻止这三类接口退化为未说明的 JSON 响应。
+
 已落地的总控接口：`GET /api/v1/auth/context`，从身份提供方解析请求用户、角色、权限及课程/班级范围。`POST /api/v1/auth/users`、`GET /api/v1/auth/users`、`GET /api/v1/auth/users/{user_id}` 仅管理员可创建和查询不含密码/认证凭据的最小账号档案；创建必须提供外部主体标识或登录名，学生还必须提供学号。`POST /api/v1/auth/reconciliation/scan` 仅管理员可扫描历史名单差异，固定只新增核对事项而不改写 `class_membership`。生产身份由认证中间件注入；开发环境请求头仅在两个显式环境变量同时启用时用于契约测试，不能作为生产认证方案。
 
 ## 课程与课时权威目录
@@ -47,6 +49,17 @@ GET    /api/v1/classes/{class_id}/students/{student_id}/learning-summary
 ## A 作业、测验与服务端评分
 
 `POST /api/v1/assignments` 与 `POST /api/v1/quizzes` 的每个题目选择只接受已发布题目的 `question_id`（题目标识）。客户端传入 `question_version`（题目版本）、`question_snapshot`（题目快照）、`max_score`（满分）或其他未知字段固定返回 422（请求内容不合法）；A 从 B 的独立审核、已发布题目冻结版本、题目快照、分值和判分依据。未发布、跨课程、课时不匹配、重复、未独立审核或不可自动判分的题目均不创建教学任务。
+
+学生页面只能经以下受控只读接口读取本人已发布任务，不能从浏览器本地存储或页面常量拼接任务和题目：
+
+```text
+GET /api/v1/assignments/my
+GET /api/v1/assignments/{assignment_id}/student-task
+GET /api/v1/quizzes/my
+GET /api/v1/quizzes/{quiz_id}/student-task
+```
+
+任务详情的 `questions` 只返回服务端签发的 `question_ref_id`（冻结题目引用）、题干、题型和可见选项；绝不返回标准答案、完整题目快照、版本摘要或分值。学生提交仍只允许以该引用为键的 `answers`（作答），服务端重新读取并校验完整冻结事实后判分。
 
 `POST /api/v1/assignments/{assignment_id}/submit` 与 `POST /api/v1/quizzes/{quiz_id}/attempts/{attempt_id}/submit` 只接受 `answers`（作答）。`raw_score`（原始分）、`max_score`（满分）、`source_proof`（来源证明）和其他未知字段固定拒绝；服务端基于冻结题集和保存的作答重新计算分数，创建 A 自有 `teaching_score_proof`（教学评分证明事实）及配对的事务事件箱记录。作业或测验的历史提交如果没有服务端证明，重放固定返回 `TEACHING.LEGACY_SCORE_UNVERIFIED`（历史评分不可复核），不会将旧的客户端评分作为安全成绩返回。详细事件字段与可复核摘要规则见 `docs/contracts/teaching-score-proof-v1.md`。
 

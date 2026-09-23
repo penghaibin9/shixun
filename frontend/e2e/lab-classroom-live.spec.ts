@@ -33,14 +33,15 @@ test('真实 MySQL 的 43 人课堂聚合、实时更新与教师处置', async 
   await expect(page.getByRole('row', { name: /验收学生43/ })).toContainText('未开始')
 
   const row = page.getByRole('row', { name: /验收学生11/ })
-  await expect(row).not.toContainText('77 / 100')
+  await expect(row).toContainText('4 / 6')
+  await expect(row).toContainText('77 / 100')
   const dispatched = await request.post(`${apiBase}/api/v1/integration/outbox/dispatch?limit=500`, { headers: dispatcherHeaders })
   expect(dispatched.ok(), await dispatched.text()).toBeTruthy()
   const dispatchResult = (await dispatched.json()).results.find((item: any) => item.event_id === 'evt_g7_live_update')
   expect(dispatchResult?.status).toBe('PUBLISHED')
   expect(dispatchResult?.targets).toEqual(['classroom_projection', 'grading_facts'])
   await expect(page.getByTestId('live-state')).toHaveText('实时更新中', { timeout: 10_000 })
-  await expect(row).toContainText('4 / 5')
+  await expect(row).toContainText('4 / 6')
   await expect(row).toContainText('77 / 100')
 
   await row.getByRole('button', { name: '查看' }).click()

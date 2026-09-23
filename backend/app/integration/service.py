@@ -50,6 +50,34 @@ COURSE_RESOURCE_AUDIT_EVENTS = {
     "question.created", "question.updated", "question.published", "question.rejected",
     "question.import.completed", "question.import.validation_failed",
 }
+# These are deliberately exact names rather than namespace wildcards.  An
+# outbox row is a cross-domain contract, so accepting an unregistered new
+# event merely because it looks like a known domain would hide a missing
+# consumer behind a successful dispatch.
+AUDIT_ARCHIVE_EVENTS = {
+    "auth.account.created",
+    "auth.identity.reconciliation.scanned",
+    "lesson.lab_definition.linked",
+    "lab.definition.created",
+    "lab.version.cloned",
+    "lab.version.updated",
+    "lab.version.validated",
+    "lab.version.published",
+    "lab.template.created",
+    "lab.knowledge.created",
+    "lab.knowledge.updated",
+    "lab.release.created",
+    "lab.release.preflighted",
+    "lab.release.preview.requested",
+    "teaching.log.distributed",
+    "runtime.artifact.distribution_download_authorized",
+    "runtime.artifact.distribution_bundle_downloaded",
+    "runtime.artifact.direct_download_authorized",
+    "runtime.artifact.direct_bundle_downloaded",
+    "grade.event.created",
+    "gradebook.posted",
+    "course.archived",
+}
 
 
 class OutboxDispatcher:
@@ -87,6 +115,44 @@ class OutboxDispatcher:
             "idempotency_key": event.idempotency_key,
             "payload": event.payload_json or {},
         }
+
+    def archive_frozen_event(self, event: DomainEventOutbox, envelope: dict) -> None:
+        """Record a terminal delivery for a registered event with no fact consumer.
+
+        This is intentionally an audit of the dispatcher action, not an
+        attempt to reinterpret the source event as a new business fact.  The
+        original immutable envelope remains in the audit details, while the
+        audit actor truthfully identifies the trusted archive consumer.
+        """
+
+        GradingService(self.session, self.service_user(event), self.request_id, "internal").ingest_audit(
+            AuditIngest(
+                source_event_id=event.event_id,
+                actor_user_id="service_contract_dispatcher",
+                actor_role="service",
+                action="OUTBOX_EVENT_ARCHIVED",
+                resource_type=event.aggregate_type,
+                resource_id=event.aggregate_id,
+                course_id=(event.payload_json or {}).get("course_id"),
+                class_id=(event.payload_json or {}).get("class_id"),
+                student_id=(event.payload_json or {}).get("student_id"),
+                result="SUCCESS",
+                occurred_at=event.occurred_at,
+                details={
+                    "archive_policy": "OUTBOX_AUDIT_ARCHIVE_V1",
+                    "source_event": {
+                        "event_id": envelope["event_id"],
+                        "event_type": envelope["event_type"],
+                        "aggregate_type": envelope["aggregate_type"],
+                        "aggregate_id": envelope["aggregate_id"],
+                        "actor_user_id": envelope["actor_user_id"],
+                        "occurred_at": event.occurred_at.isoformat(),
+                        "idempotency_key": envelope["idempotency_key"],
+                        "payload": envelope["payload"],
+                    },
+                },
+            )
+        )
 
     async def dispatch(self, limit: int = 100) -> dict:
         self.authorize()
@@ -185,6 +251,9 @@ class OutboxDispatcher:
                         details={"event_type": event.event_type, "payload": payload},
                     ))
                     targets.append("audit_event")
+                if event.event_type in AUDIT_ARCHIVE_EVENTS:
+                    self.archive_frozen_event(event, envelope)
+                    targets.append("audit_archive")
                 if not targets:
                     raise ApiError("INTEGRATION.EVENT_UNCONSUMED", "事件没有已登记的消费者，已保留待处理", 422, {"event_type": event.event_type})
                 event.published_at = datetime.utcnow()

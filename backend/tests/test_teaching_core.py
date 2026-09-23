@@ -397,6 +397,68 @@ def test_assignment_quiz_events_and_cross_student_isolation(test_context):
     assert {"assignment.submitted", "quiz.completed", "grading.score.proof.frozen", "teaching.audit"} <= event_types
 
 
+def test_student_task_reads_are_scoped_and_do_not_expose_frozen_answer_evidence(test_context):
+    client, sessions = test_context
+    course_id, class_id = build_course_class(client)
+    teacher = headers("teaching.members.import", "teaching.assignment.write", "teaching.quiz.write", course_id=course_id, class_id=class_id)
+    client.post(
+        f"/api/v1/classes/{class_id}/members/import",
+        headers={**teacher, "Idempotency-Key": "student-task-read"},
+        files={"file": ("one.xlsx", workbook_bytes([["2301001", "张三", "", "", ""]]))},
+    )
+    with sessions() as db:
+        student_id = db.scalar(select(ClassMembership.student_id))
+    question_id = seed_published_question(sessions, course_id)
+    due_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+    assignment = client.post(
+        "/api/v1/assignments",
+        headers=teacher,
+        json={"course_id": course_id, "class_id": class_id, "title": "真实作业", "due_at": due_at, "questions": [{"question_id": question_id}]},
+    ).json()
+    quiz = client.post(
+        "/api/v1/quizzes",
+        headers=teacher,
+        json={"course_id": course_id, "class_id": class_id, "title": "真实测验", "time_limit_minutes": 10, "questions": [{"question_id": question_id}]},
+    ).json()
+    assert client.post(f"/api/v1/assignments/{assignment['assignment_id']}/publish", headers=teacher).status_code == 200
+    assert client.post(f"/api/v1/quizzes/{quiz['quiz_id']}/publish", headers=teacher).status_code == 200
+    student = headers("teaching.assignment.submit", "teaching.quiz.submit", student_id=student_id, teacher_id="", course_id=course_id, class_id=class_id)
+
+    assignment_list = client.get("/api/v1/assignments/my", headers=student)
+    assert assignment_list.status_code == 200
+    assert [item["assignment_id"] for item in assignment_list.json()["items"]] == [assignment["assignment_id"]]
+    assignment_task = client.get(f"/api/v1/assignments/{assignment['assignment_id']}/student-task", headers=student)
+    assert assignment_task.status_code == 200
+    assignment_question = assignment_task.json()["questions"][0]
+    assert assignment_question["question_id"] == question_id
+    assert assignment_question["options"] == [{"key": "A", "text": "公钥"}, {"key": "B", "text": "私钥"}]
+    assert {"answer", "question_snapshot", "question_version", "max_score"}.isdisjoint(assignment_question)
+
+    quiz_list = client.get("/api/v1/quizzes/my", headers=student)
+    assert quiz_list.status_code == 200
+    assert [item["quiz_id"] for item in quiz_list.json()["items"]] == [quiz["quiz_id"]]
+    quiz_task = client.get(f"/api/v1/quizzes/{quiz['quiz_id']}/student-task", headers=student)
+    assert quiz_task.status_code == 200
+    quiz_question = quiz_task.json()["questions"][0]
+    assert quiz_question["question_ref_id"] != question_id
+    assert {"answer", "question_snapshot", "question_version", "max_score"}.isdisjoint(quiz_question)
+
+    # Answers are keyed by the server-issued frozen reference, never a client
+    # snapshot/version.  The original question ID remains an accepted legacy
+    # alias on the write endpoint, but the browser uses the safer reference.
+    submitted = client.post(
+        f"/api/v1/assignments/{assignment['assignment_id']}/submit",
+        headers=student,
+        json={"answers": {assignment_question["question_ref_id"]: "A"}},
+    )
+    assert submitted.status_code == 201
+    assert client.get("/api/v1/assignments/my", headers=student).json()["items"][0]["submission_status"] == "SUBMITTED"
+
+    intruder = headers("teaching.assignment.submit", "teaching.quiz.submit", student_id="not-in-class", teacher_id="", course_id=course_id, class_id=class_id)
+    assert client.get(f"/api/v1/assignments/{assignment['assignment_id']}/student-task", headers=intruder).status_code == 403
+    assert client.get(f"/api/v1/quizzes/{quiz['quiz_id']}/student-task", headers=intruder).status_code == 403
+
+
 def test_server_scored_submission_freezes_question_and_emits_paired_proof_events(test_context):
     client, sessions = test_context
     course_id, class_id = build_course_class(client)

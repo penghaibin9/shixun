@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -24,7 +24,17 @@ from .schemas import (
     QuestionReviewDecision,
     QuestionReviewQueueResponse,
     QuestionStatusResponse,
+    PptQualityCheckResponse,
+    ResourceAuditResponse,
+    ResourceBlueprintResponse,
     ResourceCreate,
+    ResourceFileResponse,
+    ResourceLessonListResponse,
+    ResourceListResponse,
+    ResourceManifestResponse,
+    ResourceReadinessResponse,
+    ResourceResponse,
+    ResourceVersionResponse,
     ReviewDecision,
     VersionCreate,
 )
@@ -53,37 +63,37 @@ async def read_question_upload(file: UploadFile) -> bytes:
     return bytes(content)
 
 
-@router.get("/resources")
+@router.get("/resources", response_model=ResourceListResponse)
 def list_resources(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID, status: str | None = None, name: str | None = None, resource_type: str | None = None):
     return service(session, user).list_resources(course_id, status, name, resource_type)
 
 
-@router.post("/resources", status_code=201)
+@router.post("/resources", status_code=201, response_model=ResourceResponse)
 def create_resource(data: ResourceCreate, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).create_resource(data)
 
 
-@router.post("/resources/files", status_code=201)
+@router.post("/resources/files", status_code=201, response_model=ResourceFileResponse)
 async def upload_resource_file(user: CurrentUser, course_id: str = Form(...), file: UploadFile = File(...), session: Session = Depends(get_session)):
     return await service(session, user).upload_file(course_id, file)
 
 
-@router.get("/resources/readiness")
+@router.get("/resources/readiness", response_model=ResourceReadinessResponse)
 def resource_readiness(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
     return service(session, user).readiness(course_id)
 
 
-@router.get("/resources/theory-lessons")
+@router.get("/resources/theory-lessons", response_model=ResourceLessonListResponse)
 def theory_lessons(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
     return service(session, user).lessons(course_id, "THEORY")
 
 
-@router.get("/resources/lab-lessons")
+@router.get("/resources/lab-lessons", response_model=ResourceLessonListResponse)
 def lab_lessons(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
     return service(session, user).lessons(course_id, "LAB")
 
 
-@router.get("/resources/course-blueprint/{course_id}")
+@router.get("/resources/course-blueprint/{course_id}", response_model=ResourceBlueprintResponse)
 def blueprint(course_id: str, user: CurrentUser, session: Session = Depends(get_session)):
     result = service(session, user).lessons(course_id)
     result["chapter_counts"] = {
@@ -93,76 +103,81 @@ def blueprint(course_id: str, user: CurrentUser, session: Session = Depends(get_
     return result
 
 
-@router.post("/resources/audit/run")
+@router.post("/resources/audit/run", response_model=ResourceAuditResponse)
 def run_audit(data: AuditRequest, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).audit(data.course_id)
 
 
-@router.get("/resources/audit/latest")
+@router.get("/resources/audit/latest", response_model=ResourceAuditResponse)
 def latest_audit(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
     return service(session, user).latest_audit(course_id)
 
 
-@router.post("/resources/delivery/freeze")
+@router.post("/resources/delivery/freeze", response_model=ResourceManifestResponse)
 def freeze(data: FreezeRequest, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).freeze(data.course_id)
 
 
-@router.get("/resources/delivery/manifest.json")
+@router.get("/resources/delivery/manifest.json", response_model=ResourceManifestResponse)
 def manifest_json(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
     return service(session, user).manifest(course_id)
 
 
-@router.get("/resources/delivery/manifest.xlsx")
+@router.get("/resources/delivery/manifest.xlsx", response_class=StreamingResponse, responses=XLSX_RESPONSE)
 def manifest_xlsx(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
     content = service(session, user).manifest_xlsx(course_id)
     return StreamingResponse(BytesIO(content), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=course-resource-manifest.xlsx"})
 
 
-@router.get("/resources/{resource_id}")
+@router.get("/resources/{resource_id}", response_model=ResourceResponse)
 def get_resource(resource_id: str, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).get_resource(resource_id)
 
 
-@router.get("/resources/{resource_id}/download")
+@router.get("/resources/{resource_id}/download", response_class=FileResponse)
 def download_resource(resource_id: str, user: CurrentUser, session: Session = Depends(get_session)):
     path, name, mime_type = service(session, user).download(resource_id)
     return FileResponse(path, filename=name, media_type=mime_type)
 
 
-@router.post("/resources/{resource_id}/versions", status_code=201)
+@router.post("/resources/{resource_id}/versions", status_code=201, response_model=ResourceVersionResponse)
 def create_version(resource_id: str, data: VersionCreate, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).create_version(resource_id, data)
 
 
-@router.post("/resources/{resource_id}/versions/{version_id}/quality-check")
+@router.post("/resources/{resource_id}/versions/{version_id}/quality-check", response_model=PptQualityCheckResponse)
 def ppt_quality_check(resource_id: str, version_id: str, data: PptQualityCheckInput, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).check_ppt_quality(resource_id, version_id, data)
 
 
-@router.post("/resources/{resource_id}/submit-review")
+@router.post("/resources/{resource_id}/submit-review", response_model=ResourceResponse)
 def submit_review(resource_id: str, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).transition(resource_id, "submit-review")
 
 
-@router.post("/resources/{resource_id}/approve")
+@router.post("/resources/{resource_id}/approve", response_model=ResourceResponse)
 def approve(resource_id: str, data: ReviewDecision, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).transition(resource_id, "approve", data.comment)
 
 
-@router.post("/resources/{resource_id}/reject")
+@router.post("/resources/{resource_id}/reject", response_model=ResourceResponse)
 def reject(resource_id: str, data: ReviewDecision, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).transition(resource_id, "reject", data.comment)
 
 
-@router.post("/resources/{resource_id}/publish")
+@router.post("/resources/{resource_id}/publish", response_model=ResourceResponse)
 def publish(resource_id: str, user: CurrentUser, session: Session = Depends(get_session)):
     return service(session, user).transition(resource_id, "publish")
 
 
 @router.get("/questions", response_model=QuestionListResponse, response_model_exclude_none=True)
-def list_questions(user: CurrentUser, session: Session = Depends(get_session), course_id: str = COURSE_ID):
-    return service(session, user).list_questions(course_id)
+def list_questions(
+    user: CurrentUser,
+    session: Session = Depends(get_session),
+    course_id: str = COURSE_ID,
+    status: Literal["DRAFT", "PENDING_REVIEW", "PUBLISHED", "REJECTED"] | None = None,
+):
+    return service(session, user).list_questions(course_id, status=status)
 
 
 @router.post("/questions", status_code=201, response_model=QuestionResponse)

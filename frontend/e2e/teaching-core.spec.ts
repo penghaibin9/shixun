@@ -55,6 +55,62 @@ test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page,
   await expect(page.getByRole('dialog', { name: '学生详情' })).toContainText('数据待汇总')
   await page.getByRole('button', { name: '关闭' }).click()
 
+  const teachingScope = await page.evaluate(() => ({
+    courseId: localStorage.getItem('yk-course-id'),
+    classId: localStorage.getItem('yk-class-id'),
+  }))
+  expect(teachingScope.courseId).toBeTruthy()
+  expect(teachingScope.classId).toBeTruthy()
+  const lessonResponse = await request.get(`/api/v1/courses/${teachingScope.courseId}/lessons`, {
+    headers: {
+      'X-User-Id': 'teacher-a',
+      'X-Role': 'teacher',
+      'X-Teacher-Id': 'teacher-a',
+      'X-Permissions': 'teaching.course.read',
+      'X-Course-Ids': teachingScope.courseId!,
+      'X-Class-Ids': teachingScope.classId!,
+    },
+  })
+  expect(lessonResponse.ok(), await lessonResponse.text()).toBeTruthy()
+  const lessonId = (await lessonResponse.json()).items[0]?.lesson_id
+  expect(lessonId).toBeTruthy()
+  const questionAuthorHeaders = {
+    'X-User-Id': `browser-question-author-${run}`,
+    'X-Role': 'teacher',
+    'X-Teacher-Id': `browser-question-author-${run}`,
+    'X-Permissions': 'resources:read,resources:write',
+    'X-Course-Ids': teachingScope.courseId!,
+  }
+  const createdQuestion = await request.post('/api/v1/questions', {
+    headers: questionAuthorHeaders,
+    data: {
+      course_id: teachingScope.courseId,
+      lesson_id: lessonId,
+      question_type: 'SINGLE',
+      stem: `浏览器真实题目 ${run}：RSA 中公开给通信对方的是哪一类密钥？`,
+      answer: ['A'],
+      explanation: '公开给通信对方的是公钥。',
+      options: [
+        { key: 'A', text: '公钥', is_correct: true },
+        { key: 'B', text: '私钥', is_correct: false },
+      ],
+    },
+  })
+  expect(createdQuestion.ok(), await createdQuestion.text()).toBeTruthy()
+  const questionId = (await createdQuestion.json()).question_id
+  expect(questionId).toBeTruthy()
+  const reviewedQuestion = await request.post(`/api/v1/questions/${questionId}/review`, {
+    headers: {
+      'X-User-Id': `browser-question-reviewer-${run}`,
+      'X-Role': 'teacher',
+      'X-Teacher-Id': `browser-question-reviewer-${run}`,
+      'X-Permissions': 'resources:read,resources:review',
+      'X-Course-Ids': teachingScope.courseId!,
+    },
+    data: { decision: 'APPROVED' },
+  })
+  expect(reviewedQuestion.ok(), await reviewedQuestion.text()).toBeTruthy()
+
   await page.goto('/attendance-management')
   await page.getByRole('button', { name: '发布签到' }).click()
   await expect(page.getByTestId('attendance-message')).toContainText('签到已发布')
@@ -77,11 +133,24 @@ test('G1/G2 与学生管理、投票、作业测验真实主链', async ({ page,
   await page.goto('/teacher-assignments')
   await page.getByRole('button', { name: '发布投票' }).click()
   await expect(page.getByTestId('work-message')).toContainText('投票已发布')
+  const questionChoice = page.getByTestId(`published-question-${questionId}`)
+  await expect(questionChoice).toBeVisible()
+  await questionChoice.getByRole('checkbox').click()
   await page.getByRole('button', { name: '＋ 发布课后作业与小测' }).click()
   await expect(page.getByTestId('work-message')).toContainText('作业与测验已发布')
   await page.goto('/student-quiz')
-  await page.getByRole('button', { name: '提交投票、作业与测验' }).click()
-  await expect(page.getByTestId('student-work-message')).toContainText('均已提交')
+  await page.getByRole('button', { name: '提交当前课堂投票' }).click()
+  await expect(page.getByTestId('student-work-message')).toContainText('课堂投票已提交')
+  const assignmentTask = page.locator('[data-testid^="assignment-task-"]').first()
+  await expect(assignmentTask).toBeVisible()
+  await assignmentTask.getByRole('radio', { name: 'A. 公钥' }).click()
+  await assignmentTask.getByRole('button', { name: '提交作业' }).click()
+  await expect(page.getByTestId('student-work-message')).toContainText('作业已提交')
+  const quizTask = page.locator('[data-testid^="quiz-task-"]').first()
+  await expect(quizTask).toBeVisible()
+  await quizTask.getByRole('radio', { name: 'A. 公钥' }).click()
+  await quizTask.getByRole('button', { name: '开始并提交测验' }).click()
+  await expect(page.getByTestId('student-work-message')).toContainText('课堂小测已提交')
   await page.goto('/teacher-assignments')
   await page.getByRole('button', { name: '查看统计' }).click()
   await expect(page.getByText('1 人')).toBeVisible()

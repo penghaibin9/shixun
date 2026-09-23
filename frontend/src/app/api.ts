@@ -3,19 +3,10 @@ import type { components } from './api-contract.generated'
 export type ApiError = components['schemas']['Error']
 export type UserContext = components['schemas']['UserContextResponse']
 
-export type LabSpec = {
-  lab_definition_id: string; version: number; name: string; duration_minutes: number; total_score: number
-  nodes: Array<{ node_key: string; display_name: string; role: string; network_env: string; network_keys: string[]; device_model: string; image_id: string; image_digest: string; cpu_limit: number; memory_mb: number; ip_policy: string; ports: number[]; startup_command: string; mounts: string[]; position_x: number; position_y: number }>
-  networks: Array<{ network_key: string; cidr_policy: string; internet_access: boolean; egress_allowlist: string[]; student_isolation: boolean }>
-  image_bindings: Array<{ node_key: string; infra_image_id: string; digest: string }>
-  steps: Array<{ node_key: string; name: string; description: string; order_no: number }>
-  edges: Array<{ from_node_key: string; to_node_key: string }>
-  checkpoints: Array<{ checkpoint_id: string; dag_node_id: string; name: string; score: number; judge_type: string; judge_target: string; judge_config_json: Record<string, unknown>; failure_message: string; timeout_seconds: number; order_no: number }>
-  runtime_policy: { max_attempts: number; timeout_minutes: number }
-}
-export type LabVersion = { lab_version_id: string; lab_definition_id: string; version: number; status: string; spec: LabSpec; validation_errors: Array<{ code: string; message: string }>; published_at: string | null }
-export type Lab = { lab_definition_id: string; course_id: string; lesson_id: string | null; code: string; name: string; category: string; objective: string; latest_version: LabVersion }
-export type LabRelease = { lab_release_id: string; lab_version_id: string; course_id: string; class_id: string; status: string; publish_config: { preflight: Record<string, unknown>; preview_request_id: string | null } }
+export type LabSpec = components['schemas']['LabDefinitionSpec']
+export type LabVersion = components['schemas']['LabVersionResponse']
+export type Lab = components['schemas']['LabDefinitionResponse']
+export type LabRelease = components['schemas']['LabReleaseResponse']
 
 const devHeaders: HeadersInit = import.meta.env.DEV ? {
   'X-User-Id': 'user_teacher_demo', 'X-Role': 'teacher', 'X-Teacher-Id': 'teacher_demo',
@@ -62,12 +53,15 @@ async function readBlobBytes(blob: Blob): Promise<ArrayBuffer> {
 }
 export async function fileIdempotencyKey(prefix:string,file:File):Promise<string>{const digest=await crypto.subtle.digest('SHA-256',await readBlobBytes(file));const hex=Array.from(new Uint8Array(digest),value=>value.toString(16).padStart(2,'0')).join('');return `${prefix}-${hex}`}
 
-export type LessonResource = { course_id: string; lesson_id: string; lesson_kind: 'THEORY' | 'LAB'; chapter_no: number | null; lesson_code: string; title: string; purpose: string | null; environment: string | null; principle: string | null; steps_summary: string | null; core_experiment: string | null }
-export type ResourceVersion = { resource_version_id: string; version_no: number; file_id: string; status: string; sha256: string; video?: { duration_seconds: number; width: number | null; height: number | null; probed_at: string } }
-export type Resource = { resource_id: string; course_id: string; lesson_id: string | null; name: string; resource_type: string; status: string; created_at: string; latest_version: ResourceVersion | null }
-export type Audit = { course_id: string; total: number; pass: number; warning: number; blocking: number; blocking_items: string[]; procurement_mapping: { requirement: string; owner: string; evidence: string }[] }
-export type ResourceReadiness = { course_id: string; theory_lessons: number; lab_lessons: number; ppt: { ready: number; required: number }; theory_video: { ready: number; required: number }; lab_file: { ready: number; required: number }; lab_video: { ready: number; required: number }; question_lessons: { ready: number; required: number }; published_questions: { ready: number; required: number }; blocking: number }
-export type ResourceFile = { file_id: string; original_name: string; mime_type: string; size_bytes: number; sha256: string }
+export type LessonResource = components['schemas']['ResourceLessonResponse']
+export type ResourceVersion = components['schemas']['ResourceVersionResponse']
+export type Resource = components['schemas']['ResourceResponse']
+export type Audit = components['schemas']['ResourceAuditResponse']
+export type ResourceReadiness = components['schemas']['ResourceReadinessResponse']
+export type ResourceFile = components['schemas']['ResourceFileResponse']
+export type ResourceManifest = Omit<components['schemas']['ResourceManifestResponse'], 'version_no'> & {
+  version_no: number | null
+}
 export type QuestionRowError = components['schemas']['QuestionImportErrorResponse'] & { row_number: number | null }
 export type QuestionImportJob = components['schemas']['QuestionImportJobResponse'] & { error_rows: QuestionRowError[] }
 export type QuestionOption = components['schemas']['QuestionOptionResponse']
@@ -75,6 +69,7 @@ export type QuestionReviewItem = components['schemas']['QuestionReviewQueueItem'
   answer: string[]; explanation: string; options: QuestionOption[]
 }
 export type QuestionReviewQueue = components['schemas']['QuestionReviewQueueResponse'] & { items: QuestionReviewItem[] }
+export type PublishedCourseQuestionList = components['schemas']['QuestionListResponse']
 
 const DEFAULT_RESOURCE_COURSE_ID = 'course_data_security'
 export function selectedResourceCourseId(): string {
@@ -110,15 +105,19 @@ async function resourceDownload(path: string): Promise<Blob> {
   if (!response.ok) throw await response.json() as ApiError
   return response.blob()
 }
+function normalizeResourceManifest(manifest: components['schemas']['ResourceManifestResponse']): ResourceManifest {
+  return { ...manifest, version_no: manifest.version_no ?? null }
+}
 export const resourceApi = {
-  blueprint: () => resourceRequest<{ items: LessonResource[]; total: number; chapter_counts: Record<string, number> }>(`/api/v1/resources/course-blueprint/${encodeURIComponent(selectedResourceCourseId())}`),
-  resources: () => resourceRequest<{ items: Resource[]; total: number }>(resourceQuery('/api/v1/resources')),
+  blueprint: () => resourceRequest<components['schemas']['ResourceBlueprintResponse']>(`/api/v1/resources/course-blueprint/${encodeURIComponent(selectedResourceCourseId())}`),
+  resources: () => resourceRequest<components['schemas']['ResourceListResponse']>(resourceQuery('/api/v1/resources')),
+  publishedQuestions: () => resourceRequest<PublishedCourseQuestionList>(resourceQuery('/api/v1/questions?status=PUBLISHED')),
   readiness: () => resourceRequest<ResourceReadiness>(resourceQuery('/api/v1/resources/readiness')),
   uploadFile: (file: File) => { const body = new FormData(); body.append('course_id', selectedResourceCourseId()); body.append('file', file); return resourceRequest<ResourceFile>('/api/v1/resources/files', { method: 'POST', body }) },
   createResource: (data: { lesson_id: string; name: string; resource_type: string }) => resourceRequest<Resource>('/api/v1/resources', { method: 'POST', body: JSON.stringify({ course_id: selectedResourceCourseId(), ...data }) }),
   createVersion: (resourceId: string, data: { file_id: string; sha256: string; lab_file_count?: number }) => resourceRequest<ResourceVersion>(`/api/v1/resources/${resourceId}/versions`, { method: 'POST', body: JSON.stringify(data) }),
   download: (resourceId: string) => resourceDownload(`/api/v1/resources/${resourceId}/download`),
-  coverage: () => resourceRequest<{ items: { lesson_id: string; lesson_code: string; types: string[]; passed: boolean }[]; total: number; passed: number }>(resourceQuery('/api/v1/questions/coverage')),
+  coverage: () => resourceRequest<components['schemas']['QuestionCoverageResponse']>(resourceQuery('/api/v1/questions/coverage')),
   questionImportTemplate: () => resourceDownload(resourceQuery('/api/v1/questions/import-template.xlsx')),
   importQuestions: async (file: File) => {
     const body = new FormData(); body.append('course_id', selectedResourceCourseId()); body.append('file', file)
@@ -128,24 +127,24 @@ export const resourceApi = {
   questionImportJob: (jobId: string) => resourceRequest<QuestionImportJob>(`/api/v1/questions/import-jobs/${jobId}`),
   questionImportErrors: (jobId: string) => resourceDownload(`/api/v1/questions/import-jobs/${jobId}/error-rows.xlsx`),
   questionReviewQueue: () => resourceRequest<QuestionReviewQueue>(resourceQuery('/api/v1/questions/review-queue?page_size=200')),
-  reviewQuestion: (questionId: string, decision: 'APPROVED' | 'REJECTED', comment?: string) => resourceRequest<{ question_id: string; status: string; reviewed_by?: string; reviewed_at?: string }>(`/api/v1/questions/${questionId}/review`, { method: 'POST', body: JSON.stringify({ decision, comment: comment?.trim() || null }) }),
+  reviewQuestion: (questionId: string, decision: 'APPROVED' | 'REJECTED', comment?: string) => resourceRequest<components['schemas']['QuestionStatusResponse']>(`/api/v1/questions/${questionId}/review`, { method: 'POST', body: JSON.stringify({ decision, comment: comment?.trim() || null }) }),
   audit: () => resourceRequest<Audit>('/api/v1/resources/audit/run', { method: 'POST', body: JSON.stringify({ course_id: selectedResourceCourseId() }) }),
   latestAudit: () => resourceRequest<Audit>(resourceQuery('/api/v1/resources/audit/latest')),
-  manifest: () => resourceRequest<{ status: string; version_no: number | null; theory_lessons: number; lab_lessons: number; audit: Audit; content_declaration: string }>(resourceQuery('/api/v1/resources/delivery/manifest.json')),
+  manifest: async () => normalizeResourceManifest(await resourceRequest<components['schemas']['ResourceManifestResponse']>(resourceQuery('/api/v1/resources/delivery/manifest.json'))),
   manifestXlsx: () => resourceDownload(resourceQuery('/api/v1/resources/delivery/manifest.xlsx')),
-  freeze: () => resourceRequest('/api/v1/resources/delivery/freeze', { method: 'POST', body: JSON.stringify({ course_id: selectedResourceCourseId() }) }),
+  freeze: async () => normalizeResourceManifest(await resourceRequest<components['schemas']['ResourceManifestResponse']>('/api/v1/resources/delivery/freeze', { method: 'POST', body: JSON.stringify({ course_id: selectedResourceCourseId() }) })),
 }
 
-export async function listLabs(): Promise<Lab[]> { return (await request<{ items: Lab[] }>('/api/v1/labs')).items }
+export async function listLabs(): Promise<Lab[]> { return (await request<components['schemas']['LabDefinitionListResponse']>('/api/v1/labs')).items }
 export async function importLab(file: File, metadata: { course_id: string; code: string; category: string; objective: string }): Promise<Lab> {
   const body = new FormData()
   body.append('file', file)
   for (const [key, value] of Object.entries(metadata)) body.append(key, value)
   const key = await fileIdempotencyKey(`lab-import-${metadata.course_id}-${metadata.code}`, file)
-  return request('/api/v1/labs/import', { method: 'POST', headers: { 'X-Idempotency-Key': key }, body })
+  return request<Lab>('/api/v1/labs/import', { method: 'POST', headers: { 'X-Idempotency-Key': key }, body })
 }
-export async function listTemplates(): Promise<Array<{ template_id: string; name: string; description: string; spec: Record<string, unknown> }>> { return (await request<{ items: Array<{ template_id: string; name: string; description: string; spec: Record<string, unknown> }> }>('/api/v1/lab-templates')).items }
-export async function listKnowledge(): Promise<Array<{ knowledge_point_id: string; title: string; explain_text: string; question_ids: string[]; diagrams: Array<{ diagram_id: string; file_id: string; title: string }> }>> { return (await request<{ items: Array<{ knowledge_point_id: string; title: string; explain_text: string; question_ids: string[]; diagrams: Array<{ diagram_id: string; file_id: string; title: string }> }> }>('/api/v1/lab-knowledge')).items }
+export async function listTemplates(): Promise<components['schemas']['LabTemplateResponse'][]> { return (await request<components['schemas']['LabTemplateListResponse']>('/api/v1/lab-templates')).items }
+export async function listKnowledge(): Promise<components['schemas']['LabKnowledgeResponse'][]> { return (await request<components['schemas']['LabKnowledgeListResponse']>('/api/v1/lab-knowledge')).items }
 export async function downloadKnowledgeDiagram(knowledgeId: string, diagramId: string): Promise<Blob> {
   const response = await fetch(`/api/v1/lab-knowledge/${knowledgeId}/diagrams/${diagramId}/download`, { headers: new Headers(devHeaders) })
   if (!response.ok) throw await response.json() as ApiError
@@ -166,23 +165,23 @@ export async function createRelease(versionId: string, scope: { course_id: strin
   const closesAt = new Date(opensAt.getTime() + 60 * 60_000)
   return request('/api/v1/lab-releases', { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('release') }, body: JSON.stringify({ lab_version_id: versionId, ...scope, opens_at: opensAt.toISOString(), closes_at: closesAt.toISOString(), max_attempts: 3, timeout_minutes: 60, teacher_preview_required: true }) })
 }
-export async function preflightRelease(releaseId: string): Promise<{ passed: boolean; checks: Record<string, boolean> }> { return request(`/api/v1/lab-releases/${releaseId}/preflight`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preflight') } }) }
-export async function teacherPreview(releaseId: string): Promise<{ status: string; runtime_request_id: string }> { return request(`/api/v1/lab-releases/${releaseId}/teacher-preview`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preview') } }) }
+export async function preflightRelease(releaseId: string): Promise<components['schemas']['LabReleasePreflightResponse']> { return request(`/api/v1/lab-releases/${releaseId}/preflight`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preflight') } }) }
+export async function teacherPreview(releaseId: string): Promise<components['schemas']['LabTeacherPreviewResponse']> { return request(`/api/v1/lab-releases/${releaseId}/teacher-preview`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('preview') } }) }
 export async function publishRelease(releaseId: string): Promise<LabRelease> { return request(`/api/v1/lab-releases/${releaseId}/publish`, { method: 'POST', headers: { 'X-Idempotency-Key': idempotencyKey('release-publish') } }) }
 
-export type RuntimeNode = { node_id: string; name: string; status: string; scheduling_paused: boolean; weight: number; cpu_total: number; memory_total_mb: number; last_seen_at: string | null; capacity: null | { cpu_available: number; memory_available_mb: number; running_groups: number; image_digests: string[] } }
-export type RuntimeImage = { image_id: string; name: string; tag: string; digest: string; size_bytes: number; scan_status: string; startup_check_status: string; teaching_validation_status: string; enabled: boolean }
-export type RuntimeInstanceSummary = { runtime_instance_id: string; student_id: string | null; lab_version_id: string; node_id: string; node_key: string; status: string; started_at: string | null; expires_at: string }
-export type RuntimeQueueItem = { queue_id: string; runtime_request_id: string; status: string; priority: number; attempts: number; student_id: string | null; reason: string | null; enqueued_at: string }
-export type RuntimeEvent = { event_type: string; runtime_instance_id: string | null; detail: Record<string, unknown>; occurred_at: string }
-export type RuntimeOverview = { nodes_ready: number; running_instances: number; failed_instances: number; destroyed_instances: number; queued_groups: number }
+export type RuntimeNode = components['schemas']['RuntimeNodeResponse']
+export type RuntimeImage = components['schemas']['RuntimeImageResponse']
+export type RuntimeInstanceSummary = components['schemas']['RuntimeInstanceSummaryResponse']
+export type RuntimeQueueItem = components['schemas']['RuntimeQueueItemResponse']
+export type RuntimeEvent = components['schemas']['RuntimeEventResponse']
+export type RuntimeOverview = components['schemas']['RuntimeOverviewResponse']
 
 export async function runtimeOverview(): Promise<RuntimeOverview> { return request('/api/v1/infrastructure/overview') }
-export async function runtimeNodes(): Promise<RuntimeNode[]> { return (await request<{ items: RuntimeNode[] }>('/api/v1/infrastructure/nodes')).items }
-export async function runtimeImages(): Promise<RuntimeImage[]> { return (await request<{ items: RuntimeImage[] }>('/api/v1/infrastructure/images')).items }
-export async function runtimeInstances(): Promise<RuntimeInstanceSummary[]> { return (await request<{ items: RuntimeInstanceSummary[] }>('/api/v1/runtime-instances')).items }
-export async function runtimeQueue(): Promise<RuntimeQueueItem[]> { return (await request<{ items: RuntimeQueueItem[] }>('/api/v1/infrastructure/queue')).items }
-export async function runtimeEvents(): Promise<RuntimeEvent[]> { return (await request<{ items: RuntimeEvent[] }>('/api/v1/infrastructure/events')).items }
+export async function runtimeNodes(): Promise<RuntimeNode[]> { return (await request<components['schemas']['RuntimeNodeListResponse']>('/api/v1/infrastructure/nodes')).items }
+export async function runtimeImages(): Promise<RuntimeImage[]> { return (await request<components['schemas']['RuntimeImageListResponse']>('/api/v1/infrastructure/images')).items }
+export async function runtimeInstances(): Promise<RuntimeInstanceSummary[]> { return (await request<components['schemas']['RuntimeInstanceListResponse']>('/api/v1/runtime-instances')).items }
+export async function runtimeQueue(): Promise<RuntimeQueueItem[]> { return (await request<components['schemas']['RuntimeQueueListResponse']>('/api/v1/infrastructure/queue')).items }
+export async function runtimeEvents(): Promise<RuntimeEvent[]> { return (await request<components['schemas']['RuntimeEventListResponse']>('/api/v1/infrastructure/events')).items }
 
 const classroomTeacherPermissions = [
   'classroom.release.read','classroom.runtime.remind','classroom.runtime.rejudge','classroom.runtime.extend',
@@ -302,23 +301,23 @@ async function gradingDownload(path:string,role:'teacher'|'admin'='teacher'):Pro
   return response.blob()
 }
 export const gradingApi={
-  policy:()=>{ const { courseId } = gradingScope(); return gradingRequest<any>(`/api/v1/grading/policies/${courseId}`) },
-  gradebook:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/gradebook/courses/${courseId}?class_id=${classId}`) },
-  trace:(studentId:string)=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/gradebook/courses/${courseId}/trace/${studentId}?class_id=${classId}`) },
-  recalculate:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/grading/courses/${courseId}/recalculate`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
-  post:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/grading/courses/${courseId}/post?class_id=${classId}`,{method:'POST'}) },
-  overview:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/overview?class_id=${classId}`) },
-  section:(lessonId?:string)=>{ const scope = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${scope.courseId}/sections/${lessonId || scope.lessonId}?class_id=${scope.classId}`) },
-  labsStudent:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/labs/by-student?class_id=${classId}`) },
-  labsLab:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/labs/by-lab?class_id=${classId}`) },
-  risks:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/risks?class_id=${classId}`) },
-  precheck:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/archives/courses/${courseId}/precheck`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
-  freeze:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/archives/courses/${courseId}/freeze`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
-  archive:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<any>(`/api/v1/archives/courses/${courseId}?class_id=${classId}`) },
+  policy:()=>{ const { courseId } = gradingScope(); return gradingRequest<components['schemas']['GradingPolicyResponse']>(`/api/v1/grading/policies/${courseId}`) },
+  gradebook:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['GradebookResponse']>(`/api/v1/gradebook/courses/${courseId}?class_id=${classId}`) },
+  trace:(studentId:string)=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['GradebookTraceResponse']>(`/api/v1/gradebook/courses/${courseId}/trace/${studentId}?class_id=${classId}`) },
+  recalculate:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['GradebookResponse']>(`/api/v1/grading/courses/${courseId}/recalculate`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
+  post:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['GradebookResponse']>(`/api/v1/grading/courses/${courseId}/post?class_id=${classId}`,{method:'POST'}) },
+  overview:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['AnalyticsOverviewResponse']>(`/api/v1/analytics/courses/${courseId}/overview?class_id=${classId}`) },
+  section:(lessonId?:string)=>{ const scope = gradingScope(); return gradingRequest<components['schemas']['AnalyticsSectionResponse']>(`/api/v1/analytics/courses/${scope.courseId}/sections/${lessonId || scope.lessonId}?class_id=${scope.classId}`) },
+  labsStudent:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['AnalyticsStudentLabListResponse']>(`/api/v1/analytics/courses/${courseId}/labs/by-student?class_id=${classId}`) },
+  labsLab:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['AnalyticsLabListResponse']>(`/api/v1/analytics/courses/${courseId}/labs/by-lab?class_id=${classId}`) },
+  risks:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['StudentRiskListResponse']>(`/api/v1/analytics/courses/${courseId}/risks?class_id=${classId}`) },
+  precheck:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['ArchivePrecheckResponse']>(`/api/v1/archives/courses/${courseId}/precheck`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
+  freeze:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['ArchiveManifestPayloadResponse']>(`/api/v1/archives/courses/${courseId}/freeze`,{method:'POST',body:JSON.stringify({class_id:classId})}) },
+  archive:()=>{ const { courseId, classId } = gradingScope(); return gradingRequest<components['schemas']['ArchiveResponse']>(`/api/v1/archives/courses/${courseId}?class_id=${classId}`) },
   gradebookExport:()=>{ const { courseId, classId } = gradingScope(); return gradingDownload(`/api/v1/gradebook/courses/${courseId}/export.xlsx?class_id=${classId}`) },
   analyticsExport:()=>{ const { courseId, classId } = gradingScope(); return gradingDownload(`/api/v1/analytics/courses/${courseId}/export.xlsx?class_id=${classId}`) },
   archiveArtifact:(artifactType:string)=>{ const { courseId, classId } = gradingScope(); return gradingDownload(`/api/v1/archives/courses/${courseId}/artifacts/${encodeURIComponent(artifactType)}?class_id=${classId}`) },
-  studentScore:()=>{ const { courseId, classId, studentId } = gradingScope(); return gradingRequest<any>(`/api/v1/analytics/courses/${courseId}/learning-summary?class_id=${classId}&student_id=${studentId}`,{},'student') },
-  audit:()=>gradingRequest<any>('/api/v1/audit/events',{},'admin'),
+  studentScore:()=>{ const { courseId, classId, studentId } = gradingScope(); return gradingRequest<components['schemas']['LearningSummaryResponse']>(`/api/v1/analytics/courses/${courseId}/learning-summary?class_id=${classId}&student_id=${studentId}`,{},'student') },
+  audit:()=>gradingRequest<components['schemas']['AuditEventListResponse']>('/api/v1/audit/events',{},'admin'),
   auditExport:(format:'xlsx'|'csv')=>gradingDownload(`/api/v1/audit/events/export.${format}`,'admin'),
 }

@@ -16,7 +16,48 @@ from app.labs.database import create_session_factory, get_session
 
 from . import models
 from .catalog import LabCatalogClient
-from .schemas import ArtifactBundleRequest, DistributionBundleAuthorization, ImageRegister, NodeRegister, ReleaseContextInput, ReleaseStudentInput, RuntimeAction, RuntimeExtend, RuntimeFacadeAction, RuntimeHeartbeatResult, RuntimeMaintenanceResult, RuntimeMaintenanceRun, RuntimeQueueRetryResult, RuntimeStart, TerminalTokenInput
+from .schemas import (
+    ArtifactBundleRequest,
+    DistributionBundleAuthorization,
+    ImageRegister,
+    NodeRegister,
+    ReleaseContextInput,
+    ReleaseStudentInput,
+    RuntimeAction,
+    RuntimeArtifactBundleResponse,
+    RuntimeArtifactDetailResponse,
+    RuntimeArtifactDownloadResponse,
+    RuntimeArtifactListResponse,
+    RuntimeAuditLogListResponse,
+    RuntimeBulkActionResponse,
+    RuntimeClassReadModelResponse,
+    RuntimeEventListResponse,
+    RuntimeExtend,
+    RuntimeFacadeAction,
+    RuntimeHeartbeatResult,
+    RuntimeImageListResponse,
+    RuntimeImageResponse,
+    RuntimeInstanceDetailResponse,
+    RuntimeInstanceListResponse,
+    RuntimeLogListResponse,
+    RuntimeMaintenanceResult,
+    RuntimeMaintenanceRun,
+    RuntimeNodeListResponse,
+    RuntimeNodeResponse,
+    RuntimeOverviewResponse,
+    RuntimeQueueListResponse,
+    RuntimeQueueRetryResult,
+    RuntimeReleaseStudentsResponse,
+    RuntimeReleaseStudentResponse,
+    RuntimeReleaseSummaryResponse,
+    RuntimeRequestResponse,
+    RuntimeSignalActionResponse,
+    RuntimeStart,
+    RuntimeStudentReadModelResponse,
+    RuntimeTerminalTokenResponse,
+    RuntimeTrafficArtifactListResponse,
+    TerminalTokenInput,
+)
 from .service import RuntimeService, new_id, now
 
 router = APIRouter(prefix="/api/v1", tags=["实验运行时"])
@@ -48,13 +89,23 @@ def service(request: Request, session: Session, user: UserContext) -> RuntimeSer
     return RuntimeService(session, user, catalog=catalog, agent_factory=agent_factory)
 
 
-@router.post("/runtime/start", status_code=201)
+@router.post(
+    "/runtime/start",
+    status_code=201,
+    response_model=RuntimeRequestResponse,
+    responses={202: {"model": RuntimeRequestResponse}},
+)
 async def start_runtime(data: RuntimeStart, request: Request, session: DbSession, user: CurrentUser, idempotency_key: IdempotencyKey):
     result = await service(request, session, user).start(data, idempotency_key)
     return JSONResponse(result, status_code=202 if result["status"] == "QUEUED" else 201)
 
 
-@router.post("/runtime/preview-requests", status_code=201)
+@router.post(
+    "/runtime/preview-requests",
+    status_code=201,
+    response_model=RuntimeRequestResponse,
+    responses={202: {"model": RuntimeRequestResponse}},
+)
 async def preview_runtime(data: RuntimeStart, request: Request, session: DbSession, authorization: Annotated[str | None, Header()] = None):
     expected = getenv("YUEKE_INTERNAL_RUNTIME_TOKEN")
     if not expected or authorization != f"Bearer {expected}":
@@ -65,7 +116,7 @@ async def preview_runtime(data: RuntimeStart, request: Request, session: DbSessi
     return await service(request, session, user).start(data, data.idempotency_key)
 
 
-@router.post("/runtime/release-contexts")
+@router.post("/runtime/release-contexts", response_model=RuntimeReleaseSummaryResponse)
 async def register_release_context(data: ReleaseContextInput, request: Request, session: DbSession, authorization: Annotated[str | None, Header()] = None):
     expected = getenv("YUEKE_INTERNAL_RUNTIME_TOKEN")
     if not expected or authorization != f"Bearer {expected}":
@@ -74,54 +125,54 @@ async def register_release_context(data: ReleaseContextInput, request: Request, 
     return await service(request, session, user).register_release_context(release_id=data.lab_release_id, version_id=data.lab_version_id, course_id=data.course_id, class_id=data.class_id, status=data.status)
 
 
-@router.get("/runtime/requests/{request_id}")
+@router.get("/runtime/requests/{request_id}", response_model=RuntimeRequestResponse)
 def get_request(request_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).request(request_id)
 
 
-@router.post("/runtime/requests/{request_id}/cancel")
+@router.post("/runtime/requests/{request_id}/cancel", response_model=RuntimeRequestResponse)
 def cancel_request(request_id: str, data: RuntimeAction, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).cancel_request(request_id, data.reason)
 
 
-@router.get("/runtime-instances/{instance_id}")
+@router.get("/runtime-instances/{instance_id}", response_model=RuntimeInstanceDetailResponse)
 def get_instance(instance_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).instance(instance_id)
 
 
-@router.post("/runtime-instances/{instance_id}/destroy")
+@router.post("/runtime-instances/{instance_id}/destroy", response_model=RuntimeInstanceDetailResponse)
 async def destroy_instance(instance_id: str, data: RuntimeAction, request: Request, session: DbSession, user: CurrentUser):
     return await service(request, session, user).destroy(instance_id, data.reason)
 
 
-@router.post("/runtime-instances/{instance_id}/rebuild")
+@router.post("/runtime-instances/{instance_id}/rebuild", response_model=RuntimeInstanceDetailResponse)
 async def rebuild_instance(instance_id: str, data: RuntimeAction, request: Request, session: DbSession, user: CurrentUser):
     return await service(request, session, user).rebuild(instance_id, data.reason)
 
 
-@router.post("/runtime-instances/{instance_id}/extend")
+@router.post("/runtime-instances/{instance_id}/extend", response_model=RuntimeInstanceDetailResponse)
 def extend_instance(instance_id: str, data: RuntimeExtend, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).extend(instance_id, data)
 
 
-@router.post("/runtime-instances/{instance_id}/rejudge")
+@router.post("/runtime-instances/{instance_id}/rejudge", response_model=RuntimeInstanceDetailResponse)
 async def rejudge_instance(instance_id: str, request: Request, session: DbSession, user: CurrentUser):
     return await service(request, session, user).rejudge(instance_id)
 
 
-@router.get("/runtime-instances/{instance_id}/logs")
+@router.get("/runtime-instances/{instance_id}/logs", response_model=RuntimeLogListResponse)
 def instance_logs(instance_id: str, request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).logs(instance_id)
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 
-@router.get("/runtime-instances/{instance_id}/traffic-artifacts")
+@router.get("/runtime-instances/{instance_id}/traffic-artifacts", response_model=RuntimeArtifactListResponse)
 def traffic_artifacts(instance_id: str, request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).artifacts(instance_id)
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 
-@router.post("/runtime-instances/{instance_id}/terminal-token")
+@router.post("/runtime-instances/{instance_id}/terminal-token", response_model=RuntimeTerminalTokenResponse)
 def issue_terminal_token(instance_id: str, data: TerminalTokenInput, request: Request, session: DbSession, user: CurrentUser):
     result = service(request, session, user).terminal_token(instance_id, data.idle_timeout_seconds)
     result["websocket_url"] = getenv("YUEKE_PUBLIC_RUNTIME_WS_URL", "") + result["websocket_path"]
@@ -130,13 +181,13 @@ def issue_terminal_token(instance_id: str, data: TerminalTokenInput, request: Re
     return result
 
 
-@router.get("/infrastructure/nodes")
+@router.get("/infrastructure/nodes", response_model=RuntimeNodeListResponse)
 def list_nodes(request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).nodes()
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 
-@router.post("/infrastructure/nodes", status_code=201)
+@router.post("/infrastructure/nodes", status_code=201, response_model=RuntimeNodeResponse)
 async def register_node(data: NodeRegister, request: Request, session: DbSession, user: CurrentUser):
     return await service(request, session, user).register_node(data)
 
@@ -146,18 +197,18 @@ async def refresh_node_heartbeat(node_id: RuntimeId, request: Request, session: 
     return await service(request, session, user).refresh_node_heartbeat(node_id, idempotency_key)
 
 
-@router.get("/infrastructure/images")
+@router.get("/infrastructure/images", response_model=RuntimeImageListResponse)
 def list_images(request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).images()
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 
-@router.post("/infrastructure/images", status_code=201)
+@router.post("/infrastructure/images", status_code=201, response_model=RuntimeImageResponse)
 def register_image(data: ImageRegister, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).register_image(data)
 
 
-@router.get("/infrastructure/queue")
+@router.get("/infrastructure/queue", response_model=RuntimeQueueListResponse)
 def list_queue(request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).queue()
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
@@ -173,66 +224,74 @@ async def run_runtime_maintenance(data: RuntimeMaintenanceRun, request: Request,
     return await service(request, session, user).run_maintenance(data, idempotency_key)
 
 
-@router.get("/infrastructure/overview")
+@router.get("/infrastructure/overview", response_model=RuntimeOverviewResponse)
 def infrastructure_overview(request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).infrastructure_overview()
 
 
-@router.get("/infrastructure/events")
+@router.get("/infrastructure/events", response_model=RuntimeEventListResponse)
 def infrastructure_events(request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).recent_events()
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 
-@router.get("/runtime-instances")
+@router.get("/runtime-instances", response_model=RuntimeInstanceListResponse)
 def list_instances(request: Request, session: DbSession, user: CurrentUser):
     items = service(request, session, user).instances()
     return {"items": items, "page": 1, "page_size": len(items), "total": len(items)}
 
 
-@router.get("/runtime/read-model/classes/{class_id}")
+@router.get("/runtime/read-model/classes/{class_id}", response_model=RuntimeClassReadModelResponse)
 def class_runtime_read_model(class_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).class_read_model(class_id)
 
 
-@router.get("/runtime/read-model/students/{student_id}")
+@router.get("/runtime/read-model/students/{student_id}", response_model=RuntimeStudentReadModelResponse)
 def student_runtime_read_model(student_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).student_read_model(student_id)
 
 
 # E 课堂线兼容 façade：保留 D 的冻结资源路由，同时消除跨线拼装字段。
-@router.get("/runtime/lab-releases/{release_id}/summary")
+@router.get("/runtime/lab-releases/{release_id}/summary", response_model=RuntimeReleaseSummaryResponse)
 def release_summary(release_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).release_summary(release_id)
 
 
-@router.get("/runtime/lab-releases/{release_id}/students")
+@router.get("/runtime/lab-releases/{release_id}/students", response_model=RuntimeReleaseStudentsResponse)
 def release_students(release_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).release_students(release_id)
 
 
-@router.get("/runtime/lab-releases/{release_id}/students/{student_id}")
+@router.get("/runtime/lab-releases/{release_id}/students/{student_id}", response_model=RuntimeReleaseStudentResponse)
 def release_student(release_id: str, student_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).release_student(release_id, student_id)
 
 
-@router.get("/runtime/lab-releases/{release_id}")
+@router.get("/runtime/lab-releases/{release_id}", response_model=RuntimeReleaseSummaryResponse)
 def release_detail(release_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).release_summary(release_id)
 
 
-@router.post("/runtime/lab-releases/{release_id}/start")
+@router.post(
+    "/runtime/lab-releases/{release_id}/start",
+    status_code=201,
+    response_model=RuntimeRequestResponse,
+    responses={202: {"model": RuntimeRequestResponse}},
+)
 async def release_start(release_id: str, data: ReleaseStudentInput, request: Request, session: DbSession, user: CurrentUser):
     result = await service(request, session, user).start_release(release_id, data.student_id)
     return JSONResponse(result, status_code=202 if result["status"] == "QUEUED" else 201)
 
 
-@router.post("/runtime/lab-releases/{release_id}/submit")
+@router.post(
+    "/runtime/lab-releases/{release_id}/submit",
+    response_model=RuntimeReleaseStudentResponse,
+)
 def release_submit(release_id: str, data: ReleaseStudentInput, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).submit_release(release_id, data.student_id, data.runtime_instance_id)
 
 
-@router.post("/runtime/lab-releases/{release_id}/{action}")
+@router.post("/runtime/lab-releases/{release_id}/{action}", response_model=RuntimeBulkActionResponse)
 def release_bulk_action(release_id: str, action: str, data: RuntimeFacadeAction, request: Request, session: DbSession, user: CurrentUser):
     runtime = service(request, session, user)
     if action not in {"extend-all", "remind-idle"}:
@@ -251,17 +310,20 @@ def release_bulk_action(release_id: str, action: str, data: RuntimeFacadeAction,
     return {"lab_release_id": release_id, "action": action, "affected": changed, "status": "ACCEPTED"}
 
 
-@router.get("/runtime/instances/{instance_id}")
+@router.get("/runtime/instances/{instance_id}", response_model=RuntimeInstanceDetailResponse)
 def facade_instance(instance_id: str, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).instance(instance_id)
 
 
-@router.post("/runtime/instances/{instance_id}/terminal-token")
+@router.post("/runtime/instances/{instance_id}/terminal-token", response_model=RuntimeTerminalTokenResponse)
 def facade_terminal_token(instance_id: str, data: TerminalTokenInput, request: Request, session: DbSession, user: CurrentUser):
     return issue_terminal_token(instance_id, data, request, session, user)
 
 
-@router.post("/runtime/instances/{instance_id}/{action}")
+@router.post(
+    "/runtime/instances/{instance_id}/{action}",
+    response_model=RuntimeInstanceDetailResponse | RuntimeSignalActionResponse,
+)
 async def facade_instance_action(instance_id: str, action: str, data: RuntimeFacadeAction, request: Request, session: DbSession, user: CurrentUser):
     runtime = service(request, session, user)
     if action == "destroy": return await runtime.destroy(instance_id, data.reason or "课堂销毁")
@@ -272,17 +334,17 @@ async def facade_instance_action(instance_id: str, action: str, data: RuntimeFac
     raise ApiError("REQUEST.NOT_FOUND", "操作不存在", 404)
 
 
-@router.get("/runtime/logs/audit")
+@router.get("/runtime/logs/audit", response_model=RuntimeAuditLogListResponse)
 def audit_log_query(request: Request, session: DbSession, user: CurrentUser, class_id: str = "", lab_release_id: str = "", student_id: str = ""):
     return service(request, session, user).runtime_logs(class_id=class_id, release_id=lab_release_id, student_id=student_id)
 
 
-@router.get("/runtime/logs/traffic")
+@router.get("/runtime/logs/traffic", response_model=RuntimeTrafficArtifactListResponse)
 def traffic_log_query(request: Request, session: DbSession, user: CurrentUser, class_id: str = "", lab_release_id: str = "", student_id: str = ""):
     return service(request, session, user).traffic_logs(class_id=class_id, release_id=lab_release_id, student_id=student_id)
 
 
-@router.get("/runtime/log-artifacts/{artifact_id}")
+@router.get("/runtime/log-artifacts/{artifact_id}", response_model=RuntimeArtifactDetailResponse)
 def artifact_detail(artifact_id: str, request: Request, session: DbSession, user: CurrentUser):
     runtime = service(request, session, user)
     runtime._permission("runtime.read")
@@ -296,18 +358,18 @@ def artifact_detail(artifact_id: str, request: Request, session: DbSession, user
     return {"artifact_id": artifact_id, "file_id": artifact.file_id, "sha256": artifact.sha256, "size_bytes": artifact.size_bytes, "student_id": source.student_id, "lab_release_id": source.lab_release_id, "course_id": source.course_id, "class_id": source.class_id}
 
 
-@router.post("/runtime/log-artifacts/{artifact_id}/download-url")
+@router.post("/runtime/log-artifacts/{artifact_id}/download-url", response_model=RuntimeArtifactDownloadResponse)
 def artifact_download_url(artifact_id: str, request: Request, session: DbSession, user: CurrentUser):
     result = service(request, session, user).direct_artifact_bundle([artifact_id])
     return {"artifact_id": artifact_id, **result}
 
 
-@router.post("/runtime/log-artifacts/bundle-url")
+@router.post("/runtime/log-artifacts/bundle-url", response_model=RuntimeArtifactBundleResponse)
 def artifact_bundle_url(data: ArtifactBundleRequest, request: Request, session: DbSession, user: CurrentUser):
     return service(request, session, user).direct_artifact_bundle(data.artifact_ids)
 
 
-@router.post("/runtime/log-artifacts/distribution-bundle-url")
+@router.post("/runtime/log-artifacts/distribution-bundle-url", response_model=RuntimeArtifactBundleResponse)
 def distribution_artifact_bundle_url(
     data: DistributionBundleAuthorization,
     request: Request,

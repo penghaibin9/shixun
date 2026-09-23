@@ -101,6 +101,22 @@ class TeachingRepository:
     def attempt(self, quiz_id: str, student_id: str):
         return self.session.scalar(select(m.QuizAttempt).where(m.QuizAttempt.quiz_id == quiz_id, m.QuizAttempt.student_id == student_id))
 
+    def published_assignments(self, class_ids: frozenset[str]):
+        stmt = (
+            select(m.Assignment)
+            .where(m.Assignment.class_id.in_(class_ids), m.Assignment.status == "PUBLISHED")
+            .order_by(m.Assignment.due_at, m.Assignment.assignment_id)
+        )
+        return list(self.session.scalars(stmt))
+
+    def published_quizzes(self, class_ids: frozenset[str]):
+        stmt = (
+            select(m.Quiz)
+            .where(m.Quiz.class_id.in_(class_ids), m.Quiz.status == "PUBLISHED")
+            .order_by(m.Quiz.quiz_id)
+        )
+        return list(self.session.scalars(stmt))
+
     def published_questions_for_freeze(self, course_id: str, question_ids: list[str]):
         """Read and lock the B-owned question facts A is allowed to freeze.
 

@@ -282,13 +282,19 @@ echo NETWORK_DONE"""
             raise RuntimeError("重建未保留检查点成绩")
         traffic_artifacts = []
         for index, (_, instance, headers) in enumerate(starts):
+            # 单次 UDP（用户数据报协议）发送在 Docker Desktop 的短生命周期容器中可能
+            # 尚未被侧车读取就进入销毁流程。重复发送并等待抓包进程落盘，同时把实际
+            # 解析出的目标地址写回终端输出，避免把仅有 echo 的就绪标记误判为真实流量。
+            traffic_command = """python3 -c "import socket,time; address=socket.gethostbyname('target-rsa'); sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); [(sock.sendto(b'capture-gate',(address,9)),time.sleep(0.15)) for _ in range(5)]; sock.close(); print('CAPTURE_TRAFFIC_SENT:'+address)"
+sleep 1
+echo CAPTURE_TRAFFIC_READY"""
             traffic_output = await shell(
                 instance["runtime_instance_id"], headers,
-                "python3 -c \"import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.sendto(b'capture-gate',('target-rsa',9))\"\necho CAPTURE_TRAFFIC_READY",
+                traffic_command,
                 "CAPTURE_TRAFFIC_READY",
             )
-            if "CAPTURE_TRAFFIC_READY" not in traffic_output:
-                raise RuntimeError("未能生成销毁前真实实验网络流量")
+            if not re.search(r"CAPTURE_TRAFFIC_SENT:(?:\d{1,3}\.){3}\d{1,3}", traffic_output):
+                raise RuntimeError(f"未能生成销毁前真实实验网络流量: {traffic_output[-500:]}")
             checked(await client.post(f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy", headers=headers, json={"reason": "门禁完成回收"}))
             second = checked(await client.post(f"/api/v1/runtime-instances/{instance['runtime_instance_id']}/destroy", headers=headers, json={"reason": "幂等重复回收"}))
             if second["status"] != "DESTROYED":

@@ -537,6 +537,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assignments/my": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Assignments */
+        get: operations["list_my_assignments_api_v1_assignments_my_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assignments/{assignment_id}/student-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Assignment Task */
+        get: operations["get_my_assignment_task_api_v1_assignments__assignment_id__student_task_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assignments/{assignment_id}/submit": {
         parameters: {
             query?: never;
@@ -582,6 +616,40 @@ export interface paths {
         put?: never;
         /** Publish Quiz */
         post: operations["publish_quiz_api_v1_quizzes__quiz_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quizzes/my": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Quizzes */
+        get: operations["list_my_quizzes_api_v1_quizzes_my_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quizzes/{quiz_id}/student-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Quiz Task */
+        get: operations["get_my_quiz_task_api_v1_quizzes__quiz_id__student_task_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3042,10 +3110,208 @@ export interface components {
             /** Email */
             email?: string | null;
         };
+        /** AnalyticsLabListResponse */
+        AnalyticsLabListResponse: {
+            /** Status */
+            status: string;
+            /** Items */
+            items: components["schemas"]["AnalyticsLabResponse"][];
+        };
+        /** AnalyticsLabResponse */
+        AnalyticsLabResponse: {
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Max Score */
+            max_score: number;
+            /** Submitted Students */
+            submitted_students: number;
+            /** Unsubmitted Students */
+            unsubmitted_students: number;
+            /** Avg Score */
+            avg_score: number;
+        };
+        /** AnalyticsOverviewResponse */
+        AnalyticsOverviewResponse: {
+            /** Status */
+            status: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Student Count */
+            student_count?: number | null;
+            /** Avg Assignment */
+            avg_assignment?: number | null;
+            /** Avg Quiz */
+            avg_quiz?: number | null;
+            /** Attendance Rate */
+            attendance_rate?: number | null;
+            /** Course Average */
+            course_average?: number | null;
+            /** Ranking */
+            ranking?: components["schemas"]["AnalyticsRankingResponse"][] | null;
+            /** Student Rank */
+            student_rank?: number | null;
+            /** Source Event Ids */
+            source_event_ids?: string[] | null;
+        };
+        /** AnalyticsRankingResponse */
+        AnalyticsRankingResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Total Score */
+            total_score?: number | null;
+            /** Completeness */
+            completeness?: string | null;
+            /** Score */
+            score?: number | null;
+        };
+        /** AnalyticsSectionDistributionResponse */
+        AnalyticsSectionDistributionResponse: {
+            /** 0-59 */
+            "0-59": number;
+            /** 60-69 */
+            "60-69": number;
+            /** 70-79 */
+            "70-79": number;
+            /** 80-89 */
+            "80-89": number;
+            /** 90-100 */
+            "90-100": number;
+        };
+        /** AnalyticsSectionResponse */
+        AnalyticsSectionResponse: {
+            /** Status */
+            status: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Average */
+            average?: number | null;
+            distribution?: components["schemas"]["AnalyticsSectionDistributionResponse"] | null;
+            /** Ranking */
+            ranking?: components["schemas"]["AnalyticsRankingResponse"][] | null;
+        };
+        /** AnalyticsStudentLabListResponse */
+        AnalyticsStudentLabListResponse: {
+            /** Status */
+            status: string;
+            /** Items */
+            items: components["schemas"]["AnalyticsStudentLabResponse"][];
+        };
+        /** AnalyticsStudentLabResponse */
+        AnalyticsStudentLabResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Sum Lab Score */
+            sum_lab_score: number;
+            /** Submitted Count */
+            submitted_count: number;
+            /** Unsubmitted Count */
+            unsubmitted_count: number;
+        };
+        /** ArchiveArtifactResponse */
+        ArchiveArtifactResponse: {
+            /** Type */
+            type: string;
+            /** File Id */
+            file_id?: string | null;
+            /** Evidence Ref */
+            evidence_ref: string;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size Bytes */
+            size_bytes?: number | null;
+        };
         /** ArchiveInput */
         ArchiveInput: {
             /** Class Id */
             class_id: string;
+        };
+        /** ArchiveManifestPayloadResponse */
+        ArchiveManifestPayloadResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Gradebook Id */
+            gradebook_id: string;
+            /** Policy Version */
+            policy_version: number;
+            roster_snapshot: components["schemas"]["RosterSnapshotResponse"];
+            resource_manifest: components["schemas"]["ArchiveResourceManifestResponse"];
+            /** Source Event Ids */
+            source_event_ids: string[];
+            /** Artifacts */
+            artifacts: components["schemas"]["ArchiveArtifactResponse"][];
+            /**
+             * Archived At
+             * Format: date-time
+             */
+            archived_at: string;
+        };
+        /** ArchiveManifestReadResponse */
+        ArchiveManifestReadResponse: {
+            /** Status */
+            status?: string | null;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Gradebook Id */
+            gradebook_id?: string | null;
+            /** Policy Version */
+            policy_version?: number | null;
+            roster_snapshot?: components["schemas"]["RosterSnapshotResponse"] | null;
+            resource_manifest?: components["schemas"]["ArchiveResourceManifestResponse"] | null;
+            /** Source Event Ids */
+            source_event_ids?: string[] | null;
+            /** Artifacts */
+            artifacts?: components["schemas"]["ArchiveArtifactResponse"][] | null;
+            /** Archived At */
+            archived_at?: string | null;
+        };
+        /** ArchivePrecheckResponse */
+        ArchivePrecheckResponse: {
+            /** Status */
+            status: string;
+            /** Checks */
+            checks: {
+                [key: string]: boolean;
+            };
+            /** Blocking */
+            blocking: number;
+            /** Blocking Items */
+            blocking_items: string[];
+            roster_snapshot: components["schemas"]["RosterSnapshotResponse"] | null;
+            resource_manifest: components["schemas"]["ArchiveResourceManifestResponse"] | null;
+            gradebook_integrity: components["schemas"]["GradebookIntegrityResponse"];
+        };
+        /** ArchiveResourceManifestResponse */
+        ArchiveResourceManifestResponse: {
+            /** Source Event Id */
+            source_event_id: string;
+            /** Aggregate Id */
+            aggregate_id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Course Id */
+            course_id: string;
+            /** Manifest Id */
+            manifest_id: string;
+            /** Version No */
+            version_no: number;
+        };
+        /** ArchiveResponse */
+        ArchiveResponse: {
+            /** Status */
+            status: string;
+            precheck?: components["schemas"]["ArchivePrecheckResponse"] | null;
+            manifest?: components["schemas"]["ArchiveManifestPayloadResponse"] | null;
         };
         /** ArtifactBundleRequest */
         ArtifactBundleRequest: {
@@ -3075,6 +3341,54 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["QuestionRefIn"][];
         };
+        /** AssignmentResponse */
+        AssignmentResponse: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Random Order */
+            random_order: boolean;
+            /** Status */
+            status: string;
+            /** Created By */
+            created_by: string;
+        };
+        /** AssignmentSubmissionResponse */
+        AssignmentSubmissionResponse: {
+            /** Submission Id */
+            submission_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /** Student Id */
+            student_id: string;
+            /** Answers Json */
+            answers_json: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Raw Score */
+            raw_score: number;
+            /** Max Score */
+            max_score: number;
+            /** Status */
+            status: string;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
         /** AttendanceCreate */
         AttendanceCreate: {
             /** Course Id */
@@ -3100,6 +3414,210 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** AttendanceLinkResponse */
+        AttendanceLinkResponse: {
+            /** Task Id */
+            task_id: string;
+            /** Title */
+            title: string;
+            /** Task Type */
+            task_type: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Status */
+            status: string;
+        };
+        /** AttendancePublishedResponse */
+        AttendancePublishedResponse: {
+            /** Task Id */
+            task_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Task Type */
+            task_type: string;
+            /** Title */
+            title: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Status */
+            status: string;
+            /** Created By */
+            created_by: string;
+            /** Sign Token */
+            sign_token: string;
+            /** Sign Url */
+            sign_url: string;
+        };
+        /** AttendanceRecordListResponse */
+        AttendanceRecordListResponse: {
+            /** Items */
+            items: components["schemas"]["AttendanceRecordResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** AttendanceRecordResponse */
+        AttendanceRecordResponse: {
+            /** Record Id */
+            record_id: string;
+            /** Task Id */
+            task_id: string;
+            /** Student Id */
+            student_id: string;
+            /**
+             * Signed At
+             * Format: date-time
+             */
+            signed_at: string;
+            /** Result */
+            result: string;
+            /** Source */
+            source: string;
+        };
+        /** AttendanceSectionSummaryItemResponse */
+        AttendanceSectionSummaryItemResponse: {
+            /** Task Id */
+            task_id: string;
+            /** Lesson */
+            lesson?: string | null;
+            /** Task Type */
+            task_type: string;
+            /** Expected */
+            expected: number;
+            /** Present */
+            present: number;
+            /** Late */
+            late: number;
+            /** Absent */
+            absent: number;
+            /** Status */
+            status: string;
+        };
+        /** AttendanceSectionSummaryResponse */
+        AttendanceSectionSummaryResponse: {
+            /** Items */
+            items: components["schemas"]["AttendanceSectionSummaryItemResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** AttendanceTaskListResponse */
+        AttendanceTaskListResponse: {
+            /** Items */
+            items: components["schemas"]["AttendanceTaskResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** AttendanceTaskResponse */
+        AttendanceTaskResponse: {
+            /** Task Id */
+            task_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Task Type */
+            task_type: string;
+            /** Title */
+            title: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Status */
+            status: string;
+            /** Created By */
+            created_by: string;
+        };
+        /** AuditEventListResponse */
+        AuditEventListResponse: {
+            /** Items */
+            items: components["schemas"]["AuditEventResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** AuditEventResponse */
+        AuditEventResponse: {
+            /** Audit Event Id */
+            audit_event_id: string;
+            /** Source Event Id */
+            source_event_id?: string | null;
+            /** Actor User Id */
+            actor_user_id: string;
+            /** Actor Role */
+            actor_role: string;
+            /** Action */
+            action: string;
+            /** Resource Type */
+            resource_type: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Request Id */
+            request_id: string;
+            /** Ip */
+            ip: string;
+            /** Result */
+            result: string;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Details */
+            details: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
         };
         /** AuditIngest */
         AuditIngest: {
@@ -3137,6 +3655,13 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+        };
+        /** AuditIngestResponse */
+        AuditIngestResponse: {
+            /** Status */
+            status: string;
+            /** Audit Event Id */
+            audit_event_id: string;
         };
         /** AuditRequest */
         AuditRequest: {
@@ -3208,6 +3733,359 @@ export interface components {
             /** Course Id */
             course_id: string;
         };
+        /** ClassMemberListResponse */
+        ClassMemberListResponse: {
+            /** Items */
+            items: components["schemas"]["ClassMemberResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** ClassMemberResponse */
+        ClassMemberResponse: {
+            /** Class Membership Id */
+            class_membership_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Student Id */
+            student_id: string;
+            /** Student Number */
+            student_number: string;
+            /** Student Name */
+            student_name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Joined At
+             * Format: date-time
+             */
+            joined_at: string;
+        };
+        /** ClassroomExperimentSummaryResponse */
+        ClassroomExperimentSummaryResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "READY";
+            /** Label */
+            label?: string | null;
+            /** Total */
+            total?: number | null;
+            /** Started */
+            started?: number | null;
+            /** Completed */
+            completed?: number | null;
+            /** Running */
+            running?: number | null;
+            /** Failed */
+            failed?: number | null;
+        };
+        /** ClassroomGradeSummaryResponse */
+        ClassroomGradeSummaryResponse: {
+            /** Status */
+            status: string;
+            /** Label */
+            label?: string | null;
+            /** Score */
+            score?: number | null;
+        };
+        /** ClassroomLearningSummaryResponse */
+        ClassroomLearningSummaryResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Class Id */
+            class_id: string;
+            experiment: components["schemas"]["ClassroomExperimentSummaryResponse"];
+            grade: components["schemas"]["ClassroomGradeSummaryResponse"];
+            risk: components["schemas"]["ClassroomRiskSummaryResponse"];
+            source: components["schemas"]["ClassroomLearningSummarySourceResponse"];
+        };
+        /** ClassroomLearningSummarySourceResponse */
+        ClassroomLearningSummarySourceResponse: {
+            /**
+             * Experiment
+             * @constant
+             */
+            experiment: "D_EVENT_PROJECTION";
+            /**
+             * Grade Risk
+             * @constant
+             */
+            grade_risk: "F_CONTRACT";
+        };
+        /** ClassroomReleaseEventResponse */
+        ClassroomReleaseEventResponse: {
+            /** Event Sequence */
+            event_sequence: number;
+            /** Event Id */
+            event_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Event Type */
+            event_type: string;
+            /** Payload Json */
+            payload_json: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
+        /** ClassroomReleaseStudentListResponse */
+        ClassroomReleaseStudentListResponse: {
+            /** Items */
+            items: components["schemas"]["ClassroomStudentRuntimeResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /**
+             * Dependency
+             * @constant
+             */
+            dependency: "A+D";
+            /**
+             * Runtime Fact Source
+             * @constant
+             */
+            runtime_fact_source: "D_RUNTIME_RELEASE_READ_MODEL";
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "EMPTY" | "READY";
+        };
+        /** ClassroomReleaseSummaryResponse */
+        ClassroomReleaseSummaryResponse: {
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Student Count */
+            student_count: number;
+            /** Started */
+            started: number;
+            /** Completed */
+            completed: number;
+            /** Running */
+            running: number;
+            /** Failed */
+            failed: number;
+            /** Not Started */
+            not_started: number;
+            /** Status Counts */
+            status_counts: {
+                [key: string]: number;
+            };
+            /** Runtime Student Count */
+            runtime_student_count: number;
+            /**
+             * Runtime Fact Source
+             * @constant
+             */
+            runtime_fact_source: "D_RUNTIME_RELEASE_READ_MODEL";
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "EMPTY" | "READY";
+            /** Lab Version Id */
+            lab_version_id?: string | null;
+            /** Release Status */
+            release_status?: string | null;
+            /** Running Count */
+            running_count?: number | null;
+            /** Queued Count */
+            queued_count?: number | null;
+            /** Failed Count */
+            failed_count?: number | null;
+            /** Submitted Count */
+            submitted_count?: number | null;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** ClassroomRiskSummaryResponse */
+        ClassroomRiskSummaryResponse: {
+            /** Status */
+            status: string;
+            /** Label */
+            label?: string | null;
+            /** Level */
+            level?: string | null;
+        };
+        /** ClassroomRuntimeCheckpointResultResponse */
+        ClassroomRuntimeCheckpointResultResponse: {
+            /** Checkpoint Result Id */
+            checkpoint_result_id: string;
+            /** Checkpoint Id */
+            checkpoint_id: string;
+            /** Attempt */
+            attempt: number;
+            /** Status */
+            status: string;
+            /** Score Awarded */
+            score_awarded: number;
+            /** Max Score */
+            max_score: number;
+            /** Evidence */
+            evidence: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Message */
+            message: string;
+            /**
+             * Judged At
+             * Format: date-time
+             */
+            judged_at: string;
+        };
+        /** ClassroomRuntimeEventConsumptionResponse */
+        ClassroomRuntimeEventConsumptionResponse: {
+            /** Event Id */
+            event_id: string;
+            /** Status */
+            status: string;
+        };
+        /** ClassroomRuntimeLogResponse */
+        ClassroomRuntimeLogResponse: {
+            /** Event Type */
+            event_type: string;
+            /** Actor User Id */
+            actor_user_id?: string | null;
+            /** Detail */
+            detail?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Occurred At */
+            occurred_at?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Action */
+            action?: string | null;
+        };
+        /** ClassroomRuntimeSchedulerResponse */
+        ClassroomRuntimeSchedulerResponse: {
+            /** Score */
+            score: number;
+            /** Reason */
+            reason: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+        };
+        /** ClassroomRuntimeStepResponse */
+        ClassroomRuntimeStepResponse: {
+            /** Node Key */
+            node_key?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Order No */
+            order_no?: number | null;
+        };
+        /** ClassroomStudentRuntimeResponse */
+        ClassroomStudentRuntimeResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Student Name */
+            student_name: string;
+            /** Student No */
+            student_no: string;
+            /** Status */
+            status: string;
+            /**
+             * Runtime Fact Source
+             * @constant
+             */
+            runtime_fact_source: "D_RUNTIME_RELEASE_READ_MODEL";
+            /** Current Step */
+            current_step: number | null;
+            /** Total Steps */
+            total_steps: number | null;
+            /** Raw Score */
+            raw_score: number | null;
+            /** Max Score */
+            max_score: number | null;
+            /** Runtime Instance Id */
+            runtime_instance_id: string | null;
+            /** Lab Release Id */
+            lab_release_id?: string | null;
+            /** Lab Version Id */
+            lab_version_id?: string | null;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Runtime Request Id */
+            runtime_request_id?: string | null;
+            /** Mode */
+            mode?: string | null;
+            /** Display Status */
+            display_status?: string | null;
+            error?: components["schemas"]["RuntimeErrorResponse"] | null;
+            /** Runtime Group Id */
+            runtime_group_id?: string | null;
+            /** Instance Ids */
+            instance_ids?: string[] | null;
+            /** Submission Status */
+            submission_status?: string | null;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Last Activity At */
+            last_activity_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Node Key */
+            node_key?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Node Id */
+            node_id?: string | null;
+            scheduler?: components["schemas"]["ClassroomRuntimeSchedulerResponse"] | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Network Checks */
+            network_checks?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Score */
+            score?: number | null;
+            /** Checkpoint Results */
+            checkpoint_results?: components["schemas"]["ClassroomRuntimeCheckpointResultResponse"][] | null;
+            /** Steps */
+            steps?: components["schemas"]["ClassroomRuntimeStepResponse"][] | null;
+            /** Logs */
+            logs?: components["schemas"]["ClassroomRuntimeLogResponse"][] | null;
+        };
         /** CloneVersionInput */
         CloneVersionInput: {
             /** Source Lab Version Id */
@@ -3224,6 +4102,49 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** CourseLessonListResponse */
+        CourseLessonListResponse: {
+            /** Items */
+            items: components["schemas"]["CourseLessonResponse"][];
+            /** Total */
+            total: number;
+            /** Theory Count */
+            theory_count: number;
+            /** Lab Count */
+            lab_count: number;
+        };
+        /** CourseLessonResponse */
+        CourseLessonResponse: {
+            /** Lesson Id */
+            lesson_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Chapter Id */
+            chapter_id: string;
+            /** Lesson Code */
+            lesson_code: string;
+            /** Title */
+            title: string;
+            /** Sequence */
+            sequence: number;
+            /** Lesson Type */
+            lesson_type: string;
+            /** Chapter Title */
+            chapter_title: string;
+            /** Chapter Sequence */
+            chapter_sequence: number;
+        };
+        /** CourseListResponse */
+        CourseListResponse: {
+            /** Items */
+            items: components["schemas"]["CourseSummaryResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** CoursePatch */
         CoursePatch: {
             /** Name */
@@ -3234,6 +4155,54 @@ export interface components {
             description?: string | null;
             /** Status */
             status?: ("DRAFT" | "ACTIVE" | "ARCHIVED") | null;
+        };
+        /** CourseResponse */
+        CourseResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Name */
+            name: string;
+            /** Term */
+            term: string;
+            /** Owner Teacher Id */
+            owner_teacher_id: string;
+            /** Major */
+            major?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** CourseSummaryResponse */
+        CourseSummaryResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Name */
+            name: string;
+            /** Term */
+            term: string;
+            /** Owner Teacher Id */
+            owner_teacher_id: string;
+            /** Major */
+            major?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Theory Lesson Count */
+            theory_lesson_count: number;
+            /** Lab Lesson Count */
+            lab_lesson_count: number;
         };
         /** DagEdge */
         DagEdge: {
@@ -3298,6 +4267,19 @@ export interface components {
             /** Due At */
             due_at?: string | null;
         };
+        /** EventConsumptionResponse */
+        EventConsumptionResponse: {
+            /** Status */
+            status: string;
+            /** Event Id */
+            event_id?: string | null;
+            /** Grade Event Id */
+            grade_event_id?: string | null;
+            /** Source Proof Event Id */
+            source_proof_event_id?: string | null;
+            /** Score Event Id */
+            score_event_id?: string | null;
+        };
         /** EventEnvelope */
         EventEnvelope: {
             /** Event Id */
@@ -3329,6 +4311,202 @@ export interface components {
         FreezeRequest: {
             /** Course Id */
             course_id: string;
+        };
+        /** GradeEventSourceResponse */
+        GradeEventSourceResponse: {
+            /** Grade Event Id */
+            grade_event_id: string;
+            /** Source Type */
+            source_type: string;
+            /** Source Id */
+            source_id: string;
+            /** Lab Release Id */
+            lab_release_id?: string | null;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Raw Score */
+            raw_score: number;
+            /** Max Score */
+            max_score: number;
+            /** Normalized Score */
+            normalized_score: number;
+            /** Source Verification Status */
+            source_verification_status: string;
+            /** Source Proof Issuer */
+            source_proof_issuer?: string | null;
+            /** Source Proof Digest */
+            source_proof_digest?: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Event Id */
+            event_id: string;
+        };
+        /** GradebookIncompleteStudentResponse */
+        GradebookIncompleteStudentResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Missing Components */
+            missing_components: string[];
+        };
+        /** GradebookIntegrityResponse */
+        GradebookIntegrityResponse: {
+            /** Student Count */
+            student_count: number;
+            /** Enabled Components */
+            enabled_components: string[];
+            /** Incomplete Students */
+            incomplete_students: components["schemas"]["GradebookIncompleteStudentResponse"][];
+            /** Source Snapshot Present */
+            source_snapshot_present: boolean;
+            /** Source Event Ids */
+            source_event_ids: string[];
+            /** Unapplied Source Event Ids */
+            unapplied_source_event_ids: string[];
+            /** Missing Source Event Ids */
+            missing_source_event_ids: string[];
+        };
+        /** GradebookResponse */
+        GradebookResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Status */
+            status: string;
+            /** Items */
+            items: components["schemas"]["GradebookScoreResponse"][];
+            /** Class Id */
+            class_id?: string | null;
+            /** Gradebook Id */
+            gradebook_id?: string | null;
+            /** Policy Version */
+            policy_version?: number | null;
+            /** Calculated At */
+            calculated_at?: string | null;
+            /** Posted At */
+            posted_at?: string | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** GradebookScoreResponse */
+        GradebookScoreResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Total Score */
+            total_score: number;
+            /** Completeness */
+            completeness: string;
+        };
+        /** GradebookStateResponse */
+        GradebookStateResponse: {
+            /** Gradebook Id */
+            gradebook_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Policy Version */
+            policy_version: number;
+            /** Status */
+            status: string;
+            /**
+             * Calculated At
+             * Format: date-time
+             */
+            calculated_at: string;
+            /** Posted At */
+            posted_at: string | null;
+        };
+        /** GradebookTraceComponentResponse */
+        GradebookTraceComponentResponse: {
+            /** Component */
+            component: string;
+            /** Score */
+            score: number;
+            /** Weight Percent */
+            weight_percent: number | null;
+            /** Weighted Score */
+            weighted_score: number;
+            /** Sources */
+            sources: components["schemas"]["GradeEventSourceResponse"][];
+        };
+        /** GradebookTraceResponse */
+        GradebookTraceResponse: {
+            /** Status */
+            status: string;
+            /** Student Id */
+            student_id: string;
+            /** Total Score */
+            total_score?: number | null;
+            /** Policy Version */
+            policy_version?: number | null;
+            /** Source Snapshot Event Ids */
+            source_snapshot_event_ids?: string[] | null;
+            /** Components */
+            components?: components["schemas"]["GradebookTraceComponentResponse"][] | null;
+            /** Sources */
+            sources?: components["schemas"]["GradeEventSourceResponse"][] | null;
+        };
+        /** GradingAuditLogItemResponse */
+        GradingAuditLogItemResponse: {
+            /** Audit Event Id */
+            audit_event_id: string;
+            /** Source Event Id */
+            source_event_id?: string | null;
+            /** Actor User Id */
+            actor_user_id: string;
+            /** Actor Role */
+            actor_role: string;
+            /** Action */
+            action: string;
+            /** Resource Type */
+            resource_type: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Request Id */
+            request_id: string;
+            /** Ip */
+            ip: string;
+            /** Result */
+            result: string;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Details */
+            details: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        };
+        /** GradingPolicyItemResponse */
+        GradingPolicyItemResponse: {
+            /** Component */
+            component: string;
+            /** Weight Percent */
+            weight_percent: number;
+        };
+        /** GradingPolicyResponse */
+        GradingPolicyResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Status */
+            status: string;
+            /** Version No */
+            version_no: number | null;
+            /** Items */
+            items: components["schemas"]["GradingPolicyItemResponse"][];
+            /** Effective At */
+            effective_at?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3391,6 +4569,7 @@ export interface components {
              */
             enabled: boolean;
         };
+        JsonValue: unknown;
         /**
          * JudgeType
          * @enum {string}
@@ -3421,6 +4600,35 @@ export interface components {
             objective: string;
             spec: components["schemas"]["LabDefinitionSpec"];
         };
+        /** LabDefinitionListResponse */
+        LabDefinitionListResponse: {
+            /** Items */
+            items: components["schemas"]["LabDefinitionResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** LabDefinitionResponse */
+        LabDefinitionResponse: {
+            /** Lab Definition Id */
+            lab_definition_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Objective */
+            objective: string;
+            latest_version?: components["schemas"]["LabVersionResponse"] | null;
+        };
         /** LabDefinitionSpec */
         LabDefinitionSpec: {
             /** Lab Definition Id */
@@ -3447,9 +4655,190 @@ export interface components {
             checkpoints: components["schemas"]["Checkpoint"][];
             runtime_policy: components["schemas"]["RuntimePolicy"];
         };
+        /** LabExplainDiagramResponse */
+        LabExplainDiagramResponse: {
+            /** Diagram Id */
+            diagram_id: string;
+            /** File Id */
+            file_id: string;
+            /** Title */
+            title: string;
+            /** Order No */
+            order_no: number;
+        };
+        /** LabKnowledgeListResponse */
+        LabKnowledgeListResponse: {
+            /** Items */
+            items: components["schemas"]["LabKnowledgeResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** LabKnowledgeResponse */
+        LabKnowledgeResponse: {
+            /** Knowledge Point Id */
+            knowledge_point_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Title */
+            title: string;
+            /** Explain Text */
+            explain_text: string;
+            /** Question Ids */
+            question_ids: string[];
+            /** Diagrams */
+            diagrams: components["schemas"]["LabExplainDiagramResponse"][];
+        };
+        /** LabPublishConfigResponse */
+        LabPublishConfigResponse: {
+            /** Opens At */
+            opens_at: string;
+            /** Closes At */
+            closes_at: string;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Timeout Minutes */
+            timeout_minutes: number;
+            /** Max Concurrency */
+            max_concurrency: number;
+            /** Teacher Preview Required */
+            teacher_preview_required: boolean;
+            /** Preflight */
+            preflight: {
+                [key: string]: unknown;
+            };
+            /** Preview Request Id */
+            preview_request_id?: string | null;
+        };
+        /** LabReleasePreflightResponse */
+        LabReleasePreflightResponse: {
+            /** Passed */
+            passed: boolean;
+            /** Checks */
+            checks: {
+                [key: string]: boolean;
+            };
+            /** Errors */
+            errors?: components["schemas"]["LabValidationErrorResponse"][];
+            /** Checked At */
+            checked_at: string;
+        };
+        /** LabReleaseResponse */
+        LabReleaseResponse: {
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Status */
+            status: string;
+            publish_config: components["schemas"]["LabPublishConfigResponse"];
+        };
+        /** LabTeacherPreviewResponse */
+        LabTeacherPreviewResponse: {
+            /** Status */
+            status: string;
+            /** Runtime Request Id */
+            runtime_request_id: string;
+        };
+        /** LabTemplateListResponse */
+        LabTemplateListResponse: {
+            /** Items */
+            items: components["schemas"]["LabTemplateResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** LabTemplateResponse */
+        LabTemplateResponse: {
+            /** Template Id */
+            template_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Spec */
+            spec: {
+                [key: string]: unknown;
+            };
+        };
+        /** LabValidationErrorResponse */
+        LabValidationErrorResponse: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
         /** LabVersionPatch */
         LabVersionPatch: {
             spec: components["schemas"]["LabDefinitionSpec"];
+        };
+        /** LabVersionResponse */
+        LabVersionResponse: {
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Lab Definition Id */
+            lab_definition_id: string;
+            /** Version */
+            version: number;
+            status: components["schemas"]["LabVersionStatus"];
+            spec: components["schemas"]["LabDefinitionSpec"];
+            /** Validation Errors */
+            validation_errors?: components["schemas"]["LabValidationErrorResponse"][];
+            /** Published At */
+            published_at?: string | null;
+        };
+        /**
+         * LabVersionStatus
+         * @enum {string}
+         */
+        LabVersionStatus: "DRAFT" | "VALIDATING" | "READY" | "PUBLISHED" | "RETIRED";
+        /** LearningAttendanceSummaryResponse */
+        LearningAttendanceSummaryResponse: {
+            /** Signed */
+            signed: number;
+            /** Total */
+            total: number;
+        };
+        /** LearningSummaryResponse */
+        LearningSummaryResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Student Id */
+            student_id: string | null;
+            /** Status */
+            status: string;
+            grade: components["schemas"]["GradebookResponse"];
+            risk: components["schemas"]["StudentRiskListResponse"];
+            analytics: components["schemas"]["AnalyticsOverviewResponse"];
+            /** Missing Upstream */
+            missing_upstream: string[];
+        };
+        /** LogDownloadResponse */
+        LogDownloadResponse: {
+            /** Download Url */
+            download_url: string;
+            /** Artifact Id */
+            artifact_id?: string | null;
+            /** Expires In */
+            expires_in?: number | null;
+            /** Artifact Count */
+            artifact_count?: number | null;
+            /** Status */
+            status?: string | null;
         };
         /** MemberCreate */
         MemberCreate: {
@@ -3457,6 +4846,92 @@ export interface components {
             student_number: string;
             /** Student Name */
             student_name: string;
+        };
+        /**
+         * MemberImportErrorRowResponse
+         * @description One recoverable spreadsheet row error returned to the teacher.
+         */
+        MemberImportErrorRowResponse: {
+            /** Row Number */
+            row_number?: number | null;
+            /**
+             * Student Number
+             * @default
+             */
+            student_number: string;
+            /**
+             * Student Name
+             * @default
+             */
+            student_name: string;
+            /**
+             * Class Name
+             * @default
+             */
+            class_name: string;
+            /**
+             * Phone
+             * @default
+             */
+            phone: string;
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** MemberImportJobResponse */
+        MemberImportJobResponse: {
+            /** Job Id */
+            job_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Request Sha256 */
+            request_sha256?: string | null;
+            /** Status */
+            status: string;
+            /** Success Count */
+            success_count: number;
+            /** Failure Count */
+            failure_count: number;
+            /** Duplicate Count */
+            duplicate_count: number;
+            /** Error Rows Json */
+            error_rows_json?: components["schemas"]["MemberImportErrorRowResponse"][];
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** MemberLearningSummaryResponse */
+        MemberLearningSummaryResponse: {
+            /** Student Id */
+            student_id: string;
+            attendance: components["schemas"]["LearningAttendanceSummaryResponse"];
+            /** Assignment Submitted */
+            assignment_submitted: number;
+            /** Quiz Completed */
+            quiz_completed: number;
+            experiment: components["schemas"]["PendingAggregationResponse"];
+            grade: components["schemas"]["PendingAggregationResponse"];
+            risk: components["schemas"]["PendingAggregationResponse"];
+        };
+        /** MemberRemovalResponse */
+        MemberRemovalResponse: {
+            /** Class Membership Id */
+            class_membership_id: string;
+            /** Status */
+            status: string;
         };
         /**
          * NetworkEnvironment
@@ -3481,6 +4956,42 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** OutboxDispatchItemResponse */
+        OutboxDispatchItemResponse: {
+            /** Event Id */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PUBLISHED" | "FAILED";
+            /** Targets */
+            targets: string[];
+            /** Code */
+            code?: string | null;
+            /** Message */
+            message?: string | null;
+        };
+        /** OutboxDispatchResponse */
+        OutboxDispatchResponse: {
+            /** Selected */
+            selected: number;
+            /** Published */
+            published: number;
+            /** Failed */
+            failed: number;
+            /** Results */
+            results: components["schemas"]["OutboxDispatchItemResponse"][];
+        };
+        /** PendingAggregationResponse */
+        PendingAggregationResponse: {
+            /** Status */
+            status: string;
+            /** Label */
+            label: string;
+        };
         /** PolicyInput */
         PolicyInput: {
             /** Attendance */
@@ -3501,6 +5012,22 @@ export interface components {
             /** Option Id */
             option_id: string;
         };
+        /** PollAnswerResponse */
+        PollAnswerResponse: {
+            /** Answer Id */
+            answer_id: string;
+            /** Poll Id */
+            poll_id: string;
+            /** Option Id */
+            option_id: string;
+            /** Student Id */
+            student_id: string;
+            /**
+             * Answered At
+             * Format: date-time
+             */
+            answered_at: string;
+        };
         /** PollCreate */
         PollCreate: {
             /** Course Id */
@@ -3519,6 +5046,73 @@ export interface components {
             /** Options */
             options: string[];
         };
+        /** PollCreatedResponse */
+        PollCreatedResponse: {
+            /** Poll Id */
+            poll_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Poll Type */
+            poll_type: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Created By */
+            created_by: string;
+            /** Options */
+            options: components["schemas"]["PollOptionResponse"][];
+        };
+        /** PollOptionResponse */
+        PollOptionResponse: {
+            /** Option Id */
+            option_id: string;
+            /** Poll Id */
+            poll_id: string;
+            /** Label */
+            label: string;
+            /** Sequence */
+            sequence: number;
+        };
+        /** PollResponse */
+        PollResponse: {
+            /** Poll Id */
+            poll_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Poll Type */
+            poll_type: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Created By */
+            created_by: string;
+        };
+        /** PollResultItemResponse */
+        PollResultItemResponse: {
+            /** Option Id */
+            option_id: string;
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+        };
+        /** PollResultsResponse */
+        PollResultsResponse: {
+            /** Poll Type */
+            poll_type: string;
+            /** Items */
+            items: components["schemas"]["PollResultItemResponse"][];
+        };
         /** PptQualityCheckInput */
         PptQualityCheckInput: {
             /** Knowledge Complete */
@@ -3529,6 +5123,30 @@ export interface components {
             animation_occlusion_passed: boolean;
             /** Copyright Noted */
             copyright_noted: boolean;
+        };
+        /** PptQualityCheckResponse */
+        PptQualityCheckResponse: {
+            /** Resource Version Id */
+            resource_version_id: string;
+            /** Result */
+            result: string;
+            /** Knowledge Complete */
+            knowledge_complete: boolean;
+            /** Layout Overflow Passed */
+            layout_overflow_passed: boolean;
+            /** Animation Occlusion Passed */
+            animation_occlusion_passed: boolean;
+            /** Copyright Noted */
+            copyright_noted: boolean;
+        };
+        /** ProcurementMappingResponse */
+        ProcurementMappingResponse: {
+            /** Requirement */
+            requirement: string;
+            /** Owner */
+            owner: string;
+            /** Evidence */
+            evidence: string;
         };
         /** QuestionCoverageItem */
         QuestionCoverageItem: {
@@ -3808,6 +5426,28 @@ export interface components {
             /** Reviewed At */
             reviewed_at?: string | null;
         };
+        /** QuizAttemptResponse */
+        QuizAttemptResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Quiz Id */
+            quiz_id: string;
+            /** Student Id */
+            student_id: string;
+            /** Status */
+            status: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Raw Score */
+            raw_score?: number | null;
+            /** Max Score */
+            max_score?: number | null;
+        };
         /** QuizCreate */
         QuizCreate: {
             /** Course Id */
@@ -3827,6 +5467,27 @@ export interface components {
             random_order: boolean;
             /** Questions */
             questions: components["schemas"]["QuestionRefIn"][];
+        };
+        /** QuizResponse */
+        QuizResponse: {
+            /** Quiz Id */
+            quiz_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Title */
+            title: string;
+            /** Time Limit Minutes */
+            time_limit_minutes: number;
+            /** Random Order */
+            random_order: boolean;
+            /** Status */
+            status: string;
+            /** Created By */
+            created_by: string;
         };
         /** QuizSubmitIn */
         QuizSubmitIn: {
@@ -3896,6 +5557,57 @@ export interface components {
             /** Runtime Instance Id */
             runtime_instance_id?: string | null;
         };
+        /** ResourceAuditCheckResponse */
+        ResourceAuditCheckResponse: {
+            /** Lesson Id */
+            lesson_id: string;
+            /** Lesson Code */
+            lesson_code: string;
+            /** Requirement */
+            requirement: string;
+            /** Passed */
+            passed: boolean;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** ResourceAuditResponse */
+        ResourceAuditResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Total */
+            total: number;
+            /** Pass */
+            pass: number;
+            /** Warning */
+            warning: number;
+            /** Blocking */
+            blocking: number;
+            /** Blocking Items */
+            blocking_items: string[];
+            /** Checks */
+            checks: components["schemas"]["ResourceAuditCheckResponse"][];
+            /** Procurement Mapping */
+            procurement_mapping: components["schemas"]["ProcurementMappingResponse"][];
+            /** Checked At */
+            checked_at: string;
+        };
+        /** ResourceBlueprintResponse */
+        ResourceBlueprintResponse: {
+            /** Items */
+            items: components["schemas"]["ResourceLessonResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+            /** Chapter Counts */
+            chapter_counts: {
+                [key: string]: number;
+            };
+        };
         /** ResourceCreate */
         ResourceCreate: {
             /** Course Id */
@@ -3907,10 +5619,212 @@ export interface components {
             /** Resource Type */
             resource_type: string;
         };
+        /** ResourceFileResponse */
+        ResourceFileResponse: {
+            /** File Id */
+            file_id: string;
+            /** Original Name */
+            original_name: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Sha256 */
+            sha256: string;
+        };
+        /** ResourceLessonListResponse */
+        ResourceLessonListResponse: {
+            /** Items */
+            items: components["schemas"]["ResourceLessonResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** ResourceLessonResponse */
+        ResourceLessonResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /**
+             * Lesson Kind
+             * @enum {string}
+             */
+            lesson_kind: "THEORY" | "LAB";
+            /** Chapter No */
+            chapter_no?: number | null;
+            /** Lesson Code */
+            lesson_code: string;
+            /** Title */
+            title: string;
+            /** Purpose */
+            purpose?: string | null;
+            /** Environment */
+            environment?: string | null;
+            /** Principle */
+            principle?: string | null;
+            /** Steps Summary */
+            steps_summary?: string | null;
+            /** Core Experiment */
+            core_experiment?: string | null;
+            /** Linked File Pack Id */
+            linked_file_pack_id?: string | null;
+            /** Linked Video Resource Id */
+            linked_video_resource_id?: string | null;
+            /** Linked Lab Definition Id */
+            linked_lab_definition_id?: string | null;
+        };
+        /** ResourceListResponse */
+        ResourceListResponse: {
+            /** Items */
+            items: components["schemas"]["ResourceResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** ResourceManifestResponse */
+        ResourceManifestResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Theory Lessons */
+            theory_lessons: number;
+            /** Lab Lessons */
+            lab_lessons: number;
+            audit: components["schemas"]["ResourceAuditResponse"];
+            /** Status */
+            status: string;
+            /** Version No */
+            version_no?: number | null;
+            /** Generated At */
+            generated_at: string;
+            /** Content Declaration */
+            content_declaration: string;
+        };
+        /** ResourceReadinessCounterResponse */
+        ResourceReadinessCounterResponse: {
+            /** Ready */
+            ready: number;
+            /** Required */
+            required: number;
+        };
+        /** ResourceReadinessResponse */
+        ResourceReadinessResponse: {
+            /** Course Id */
+            course_id: string;
+            /** Theory Lessons */
+            theory_lessons: number;
+            /** Lab Lessons */
+            lab_lessons: number;
+            ppt: components["schemas"]["ResourceReadinessCounterResponse"];
+            theory_video: components["schemas"]["ResourceReadinessCounterResponse"];
+            lab_file: components["schemas"]["ResourceReadinessCounterResponse"];
+            lab_video: components["schemas"]["ResourceReadinessCounterResponse"];
+            question_lessons: components["schemas"]["ResourceReadinessCounterResponse"];
+            published_questions: components["schemas"]["ResourceReadinessCounterResponse"];
+            /** Blocking */
+            blocking: number;
+        };
+        /** ResourceResponse */
+        ResourceResponse: {
+            /** Resource Id */
+            resource_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Name */
+            name: string;
+            /** Resource Type */
+            resource_type: string;
+            /** Status */
+            status: string;
+            /** Created By */
+            created_by: string;
+            /** Created At */
+            created_at: string;
+            latest_version?: components["schemas"]["ResourceVersionResponse"] | null;
+        };
+        /** ResourceVersionResponse */
+        ResourceVersionResponse: {
+            /** Resource Version Id */
+            resource_version_id: string;
+            /** Version No */
+            version_no: number;
+            /** File Id */
+            file_id: string;
+            /** Status */
+            status: string;
+            /** Sha256 */
+            sha256: string;
+            /** Created By */
+            created_by: string;
+            /** Created At */
+            created_at: string;
+            video?: components["schemas"]["ResourceVideoResponse"] | null;
+        };
+        /** ResourceVideoResponse */
+        ResourceVideoResponse: {
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Width */
+            width?: number | null;
+            /** Height */
+            height?: number | null;
+            /** Probed At */
+            probed_at: string;
+        };
         /** ReviewDecision */
         ReviewDecision: {
             /** Comment */
             comment?: string | null;
+        };
+        /** RosterFreezeResponse */
+        RosterFreezeResponse: {
+            /** Class Id */
+            class_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Status */
+            status: string;
+            /** Member Count */
+            member_count: number;
+            /** Snapshot Hash */
+            snapshot_hash?: string | null;
+            /** Frozen At */
+            frozen_at?: string | null;
+            /** Frozen By */
+            frozen_by?: string | null;
+        };
+        /** RosterSnapshotResponse */
+        RosterSnapshotResponse: {
+            /** Source Event Id */
+            source_event_id: string;
+            /** Aggregate Id */
+            aggregate_id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Member Count */
+            member_count: number;
+            /** Snapshot Hash */
+            snapshot_hash: string;
+            /**
+             * Frozen At
+             * Format: date-time
+             */
+            frozen_at: string;
         };
         /** RuntimeAction */
         RuntimeAction: {
@@ -3926,6 +5840,178 @@ export interface components {
             minutes?: number | null;
             /** Reason */
             reason?: string | null;
+        };
+        /** RuntimeArtifactBundleResponse */
+        RuntimeArtifactBundleResponse: {
+            /** Download Url */
+            download_url: string;
+            /** Expires In */
+            expires_in: number;
+            /** Artifact Count */
+            artifact_count: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "READY";
+        };
+        /** RuntimeArtifactDetailResponse */
+        RuntimeArtifactDetailResponse: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** File Id */
+            file_id: string;
+            /** Sha256 */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Student Id */
+            student_id?: string | null;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+        };
+        /** RuntimeArtifactDownloadResponse */
+        RuntimeArtifactDownloadResponse: {
+            /** Download Url */
+            download_url: string;
+            /** Expires In */
+            expires_in: number;
+            /** Artifact Count */
+            artifact_count: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "READY";
+            /** Artifact Id */
+            artifact_id: string;
+        };
+        /** RuntimeArtifactListResponse */
+        RuntimeArtifactListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeArtifactResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeArtifactResponse */
+        RuntimeArtifactResponse: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** Type */
+            type: string;
+            /** File Id */
+            file_id?: string | null;
+            /** Sha256 */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** RuntimeAuditLogListResponse */
+        RuntimeAuditLogListResponse: {
+            /** Items */
+            items: components["schemas"]["app__runtime__schemas__RuntimeAuditLogItemResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeBulkActionResponse */
+        RuntimeBulkActionResponse: {
+            /** Lab Release Id */
+            lab_release_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "extend-all" | "remind-idle";
+            /** Affected */
+            affected: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "ACCEPTED";
+        };
+        /** RuntimeCapacityResponse */
+        RuntimeCapacityResponse: {
+            /** Cpu Available */
+            cpu_available: number;
+            /** Memory Available Mb */
+            memory_available_mb: number;
+            /** Running Groups */
+            running_groups: number;
+            /** Image Digests */
+            image_digests: string[];
+        };
+        /** RuntimeCheckpointResultResponse */
+        RuntimeCheckpointResultResponse: {
+            /** Checkpoint Result Id */
+            checkpoint_result_id: string;
+            /** Checkpoint Id */
+            checkpoint_id: string;
+            /** Attempt */
+            attempt: number;
+            /** Status */
+            status: string;
+            /** Score Awarded */
+            score_awarded: number;
+            /** Max Score */
+            max_score: number;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Message */
+            message: string;
+            /** Judged At */
+            judged_at: string;
+        };
+        /** RuntimeClassReadModelResponse */
+        RuntimeClassReadModelResponse: {
+            /** Class Id */
+            class_id: string;
+            summary: components["schemas"]["RuntimeClassStatusSummaryResponse"];
+            /** Students */
+            students: components["schemas"]["RuntimeClassStudentResponse"][];
+        };
+        /** RuntimeClassStatusSummaryResponse */
+        RuntimeClassStatusSummaryResponse: {
+            /** Running */
+            RUNNING: number;
+            /** Queued */
+            QUEUED: number;
+            /** Failed */
+            FAILED: number;
+            /** Destroyed */
+            DESTROYED: number;
+        };
+        /** RuntimeClassStudentResponse */
+        RuntimeClassStudentResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Runtime Request Id */
+            runtime_request_id: string;
+            /** Status */
+            status: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** RuntimeErrorResponse */
+        RuntimeErrorResponse: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
         };
         /** RuntimeEventIn */
         RuntimeEventIn: {
@@ -3951,6 +6037,30 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+        };
+        /** RuntimeEventListResponse */
+        RuntimeEventListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeEventResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeEventResponse */
+        RuntimeEventResponse: {
+            /** Event Type */
+            event_type: string;
+            /** Runtime Instance Id */
+            runtime_instance_id?: string | null;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /** Occurred At */
+            occurred_at: string;
         };
         /** RuntimeExpiryResult */
         RuntimeExpiryResult: {
@@ -3998,6 +6108,148 @@ export interface components {
             running_groups: number;
             /** Idempotent Replay */
             idempotent_replay: boolean;
+        };
+        /** RuntimeImageListResponse */
+        RuntimeImageListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeImageResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeImageResponse */
+        RuntimeImageResponse: {
+            /** Image Id */
+            image_id: string;
+            /** Name */
+            name: string;
+            /** Tag */
+            tag: string;
+            /** Digest */
+            digest: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Scan Status */
+            scan_status: string;
+            /** Startup Check Status */
+            startup_check_status: string;
+            /** Teaching Validation Status */
+            teaching_validation_status: string;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** RuntimeInstanceDetailResponse */
+        RuntimeInstanceDetailResponse: {
+            /** Runtime Instance Id */
+            runtime_instance_id: string;
+            /** Runtime Group Id */
+            runtime_group_id: string;
+            /** Runtime Request Id */
+            runtime_request_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Node Key */
+            node_key: string;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+            /** Display Status */
+            display_status: string;
+            /** Submission Status */
+            submission_status: string;
+            /** Node Id */
+            node_id: string;
+            scheduler: components["schemas"]["RuntimeSchedulerResponse"];
+            /** Started At */
+            started_at?: string | null;
+            /** Last Activity At */
+            last_activity_at: string;
+            /** Expires At */
+            expires_at: string;
+            /** Network Checks */
+            network_checks: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** Current Step */
+            current_step: number;
+            /** Total Steps */
+            total_steps: number;
+            /** Raw Score */
+            raw_score: number;
+            /** Max Score */
+            max_score: number;
+            /** Score */
+            score: number;
+            /** Checkpoint Results */
+            checkpoint_results: components["schemas"]["RuntimeCheckpointResultResponse"][];
+        };
+        /** RuntimeInstanceListResponse */
+        RuntimeInstanceListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeInstanceSummaryResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeInstanceSummaryResponse */
+        RuntimeInstanceSummaryResponse: {
+            /** Runtime Instance Id */
+            runtime_instance_id: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Node Id */
+            node_id: string;
+            /** Node Key */
+            node_key: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Expires At */
+            expires_at: string;
+        };
+        /** RuntimeLogListResponse */
+        RuntimeLogListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeLogResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeLogResponse */
+        RuntimeLogResponse: {
+            /** Event Type */
+            event_type: string;
+            /** Actor User Id */
+            actor_user_id?: string | null;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /** Occurred At */
+            occurred_at: string;
         };
         /** RuntimeMaintenanceQueueResult */
         RuntimeMaintenanceQueueResult: {
@@ -4060,6 +6312,50 @@ export interface components {
              */
             max_queue_attempts: number;
         };
+        /** RuntimeNodeListResponse */
+        RuntimeNodeListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeNodeResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeNodeResponse */
+        RuntimeNodeResponse: {
+            /** Node Id */
+            node_id: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Scheduling Paused */
+            scheduling_paused: boolean;
+            /** Weight */
+            weight: number;
+            /** Cpu Total */
+            cpu_total: number;
+            /** Memory Total Mb */
+            memory_total_mb: number;
+            /** Last Seen At */
+            last_seen_at?: string | null;
+            capacity?: components["schemas"]["RuntimeCapacityResponse"] | null;
+        };
+        /** RuntimeOverviewResponse */
+        RuntimeOverviewResponse: {
+            /** Nodes Ready */
+            nodes_ready: number;
+            /** Running Instances */
+            running_instances: number;
+            /** Failed Instances */
+            failed_instances: number;
+            /** Destroyed Instances */
+            destroyed_instances: number;
+            /** Queued Groups */
+            queued_groups: number;
+        };
         /** RuntimePolicy */
         RuntimePolicy: {
             /** Max Attempts */
@@ -4075,6 +6371,36 @@ export interface components {
             status: string;
             /** Error Code */
             error_code?: string | null;
+        };
+        /** RuntimeQueueItemResponse */
+        RuntimeQueueItemResponse: {
+            /** Queue Id */
+            queue_id: string;
+            /** Runtime Request Id */
+            runtime_request_id: string;
+            /** Status */
+            status: string;
+            /** Priority */
+            priority: number;
+            /** Attempts */
+            attempts: number;
+            /** Student Id */
+            student_id?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Enqueued At */
+            enqueued_at: string;
+        };
+        /** RuntimeQueueListResponse */
+        RuntimeQueueListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeQueueItemResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
         };
         /** RuntimeQueueRetryResult */
         RuntimeQueueRetryResult: {
@@ -4121,12 +6447,183 @@ export interface components {
             /** Idempotent Replay */
             idempotent_replay: boolean;
         };
+        /** RuntimeReleaseStatusCountsResponse */
+        RuntimeReleaseStatusCountsResponse: {
+            /** Queued */
+            QUEUED: number;
+            /** Scheduling */
+            SCHEDULING: number;
+            /** Starting */
+            STARTING: number;
+            /** Running */
+            RUNNING: number;
+            /** Failed */
+            FAILED: number;
+            /** Canceled */
+            CANCELED: number;
+        };
+        /**
+         * RuntimeReleaseStudentPendingResponse
+         * @description 尚未生成学生工作站时的发布视图。
+         */
+        RuntimeReleaseStudentPendingResponse: {
+            /** Runtime Request Id */
+            runtime_request_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Mode */
+            mode: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Status */
+            status: string;
+            /** Display Status */
+            display_status: string;
+            error?: components["schemas"]["RuntimeRequestError"] | null;
+            /** Runtime Group Id */
+            runtime_group_id?: string | null;
+            /** Instance Ids */
+            instance_ids: string[];
+            /** Submission Status */
+            submission_status: string;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Last Activity At */
+            last_activity_at: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Runtime Instance Id */
+            runtime_instance_id?: null;
+            /** Current Step */
+            current_step: number;
+            /** Total Steps */
+            total_steps: number;
+            /** Raw Score */
+            raw_score: number;
+            /** Max Score */
+            max_score: number;
+        };
+        /** RuntimeReleaseStudentsResponse */
+        RuntimeReleaseStudentsResponse: {
+            /** Items */
+            items: (components["schemas"]["RuntimeInstanceDetailResponse"] | components["schemas"]["RuntimeReleaseStudentPendingResponse"])[];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+        };
+        /** RuntimeReleaseSummaryResponse */
+        RuntimeReleaseSummaryResponse: {
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Release Status */
+            release_status: string;
+            /** Student Count */
+            student_count: number;
+            status_counts: components["schemas"]["RuntimeReleaseStatusCountsResponse"];
+            /** Running Count */
+            running_count: number;
+            /** Queued Count */
+            queued_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Submitted Count */
+            submitted_count: number;
+            /** Updated At */
+            updated_at: string;
+        };
         /** RuntimeRequestError */
         RuntimeRequestError: {
             /** Code */
             code: string;
             /** Message */
             message: string;
+        };
+        /** RuntimeRequestResponse */
+        RuntimeRequestResponse: {
+            /** Runtime Request Id */
+            runtime_request_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Lab Version Id */
+            lab_version_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Mode */
+            mode: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Status */
+            status: string;
+            /** Display Status */
+            display_status: string;
+            error?: components["schemas"]["RuntimeRequestError"] | null;
+            /** Runtime Group Id */
+            runtime_group_id?: string | null;
+            /** Instance Ids */
+            instance_ids: string[];
+            /** Submission Status */
+            submission_status: string;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Last Activity At */
+            last_activity_at: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** RuntimeSchedulerResponse */
+        RuntimeSchedulerResponse: {
+            /** Score */
+            score: number;
+            /** Reason */
+            reason: string;
+            /** Scheduled At */
+            scheduled_at: string;
+        };
+        /** RuntimeSignalActionResponse */
+        RuntimeSignalActionResponse: {
+            /** Runtime Instance Id */
+            runtime_instance_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "remind" | "unlock";
+            /**
+             * Status
+             * @constant
+             */
+            status: "ACCEPTED";
         };
         /** RuntimeStart */
         RuntimeStart: {
@@ -4150,6 +6647,77 @@ export interface components {
             requested_by?: string | null;
             /** Idempotency Key */
             idempotency_key?: string | null;
+        };
+        /** RuntimeStudentReadModelResponse */
+        RuntimeStudentReadModelResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Total Requests */
+            total_requests: number;
+            /** Latest Status */
+            latest_status?: string | null;
+            /** Checkpoint Score Awarded */
+            checkpoint_score_awarded: number;
+            /** Checkpoint Score Possible */
+            checkpoint_score_possible: number;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** RuntimeTerminalTokenResponse */
+        RuntimeTerminalTokenResponse: {
+            /** Token */
+            token: string;
+            /** Expires At */
+            expires_at: string;
+            /** Runtime Instance Id */
+            runtime_instance_id: string;
+            /** Websocket Path */
+            websocket_path: string;
+            /** Websocket Url */
+            websocket_url: string;
+            /** Expires In */
+            expires_in: number;
+            /**
+             * Token Transport
+             * @constant
+             */
+            token_transport: "FIRST_FRAME";
+        };
+        /** RuntimeTrafficArtifactListResponse */
+        RuntimeTrafficArtifactListResponse: {
+            /** Items */
+            items: components["schemas"]["RuntimeTrafficArtifactResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RuntimeTrafficArtifactResponse */
+        RuntimeTrafficArtifactResponse: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** Name */
+            name: string;
+            /** Runtime Instance Id */
+            runtime_instance_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** File Id */
+            file_id: string;
+            /** Sha256 */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Occurred At */
+            occurred_at?: string | null;
         };
         /** SceneNetwork */
         SceneNetwork: {
@@ -4213,12 +6781,364 @@ export interface components {
              */
             position_y: number;
         };
+        /** StudentAssignmentListItemResponse */
+        StudentAssignmentListItemResponse: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Status */
+            status: string;
+            /** Submission Status */
+            submission_status?: string | null;
+        };
+        /** StudentAssignmentListResponse */
+        StudentAssignmentListResponse: {
+            /** Items */
+            items: components["schemas"]["StudentAssignmentListItemResponse"][];
+        };
+        /** StudentAssignmentTaskResponse */
+        StudentAssignmentTaskResponse: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Status */
+            status: string;
+            /** Submission Status */
+            submission_status?: string | null;
+            /** Questions */
+            questions: components["schemas"]["StudentTaskQuestionResponse"][];
+        };
+        /** StudentLogAssignmentListResponse */
+        StudentLogAssignmentListResponse: {
+            /** Items */
+            items: components["schemas"]["StudentLogAssignmentResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** StudentLogAssignmentResponse */
+        StudentLogAssignmentResponse: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Distribution Id */
+            distribution_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Student Id */
+            student_id: string;
+            /** Status */
+            status: string;
+            /**
+             * Assigned At
+             * Format: date-time
+             */
+            assigned_at: string;
+            /** Downloaded At */
+            downloaded_at?: string | null;
+            distribution: components["schemas"]["TeachingLogDistributionResponse"];
+        };
+        /** StudentOpenAttendanceResponse */
+        StudentOpenAttendanceResponse: {
+            /** Task Id */
+            task_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** StudentQuizListItemResponse */
+        StudentQuizListItemResponse: {
+            /** Quiz Id */
+            quiz_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Title */
+            title: string;
+            /** Time Limit Minutes */
+            time_limit_minutes: number;
+            /** Status */
+            status: string;
+            /** Attempt Status */
+            attempt_status?: string | null;
+        };
+        /** StudentQuizListResponse */
+        StudentQuizListResponse: {
+            /** Items */
+            items: components["schemas"]["StudentQuizListItemResponse"][];
+        };
+        /** StudentQuizTaskResponse */
+        StudentQuizTaskResponse: {
+            /** Quiz Id */
+            quiz_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lesson Id */
+            lesson_id?: string | null;
+            /** Title */
+            title: string;
+            /** Time Limit Minutes */
+            time_limit_minutes: number;
+            /** Status */
+            status: string;
+            /** Attempt Status */
+            attempt_status?: string | null;
+            /** Questions */
+            questions: components["schemas"]["StudentTaskQuestionResponse"][];
+        };
+        /** StudentReadModelResponse */
+        StudentReadModelResponse: {
+            /** Class Count */
+            class_count: number;
+            /** Open Attendance */
+            open_attendance: components["schemas"]["StudentOpenAttendanceResponse"][];
+        };
+        /** StudentRiskListResponse */
+        StudentRiskListResponse: {
+            /** Status */
+            status: string;
+            /** Items */
+            items: components["schemas"]["StudentRiskResponse"][];
+        };
+        /** StudentRiskResponse */
+        StudentRiskResponse: {
+            /** Student Id */
+            student_id: string;
+            /** Risk Type */
+            risk_type: string;
+            /** Evidence */
+            evidence: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Status */
+            status: string;
+        };
+        /**
+         * StudentTaskOptionResponse
+         * @description One browser-renderable option from an immutable question reference.
+         */
+        StudentTaskOptionResponse: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * StudentTaskQuestionResponse
+         * @description A student-safe projection of A's immutable question reference.
+         *
+         *     The full frozen snapshot contains the answer key and proof-only evidence.
+         *     It is intentionally never returned to the browser: the browser receives
+         *     only what it needs to render an answer form and must submit answers keyed
+         *     by ``question_ref_id``.
+         */
+        StudentTaskQuestionResponse: {
+            /** Question Ref Id */
+            question_ref_id: string;
+            /** Question Id */
+            question_id: string;
+            /** Question Type */
+            question_type: string;
+            /** Stem */
+            stem: string;
+            /** Options */
+            options?: components["schemas"]["StudentTaskOptionResponse"][];
+        };
         /** SubmissionIn */
         SubmissionIn: {
             /** Answers */
             answers: {
                 [key: string]: unknown;
             };
+        };
+        /** TeacherReadModelResponse */
+        TeacherReadModelResponse: {
+            /** Course Count */
+            course_count: number;
+            /** Class Count */
+            class_count: number;
+            /** Student Count */
+            student_count: number;
+            /** Open Attendance Count */
+            open_attendance_count: number;
+        };
+        /** TeachingAuditLogListResponse */
+        TeachingAuditLogListResponse: {
+            /** Items */
+            items: (components["schemas"]["app__lab_classroom__schemas__RuntimeAuditLogItemResponse"] | components["schemas"]["GradingAuditLogItemResponse"])[];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+            /** Dependencies */
+            dependencies: {
+                [key: string]: "PENDING" | "READY";
+            };
+        };
+        /** TeachingClassCreateResponse */
+        TeachingClassCreateResponse: {
+            /** Class Id */
+            class_id: string;
+            /** Name */
+            name: string;
+            /** Term */
+            term: string;
+            /** Owner Teacher Id */
+            owner_teacher_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Roster Frozen At */
+            roster_frozen_at?: string | null;
+            /** Roster Frozen By */
+            roster_frozen_by?: string | null;
+            /** Roster Snapshot Hash */
+            roster_snapshot_hash?: string | null;
+            /** Course Id */
+            course_id: string;
+        };
+        /** TeachingClassListResponse */
+        TeachingClassListResponse: {
+            /** Items */
+            items: components["schemas"]["TeachingClassResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** TeachingClassResponse */
+        TeachingClassResponse: {
+            /** Class Id */
+            class_id: string;
+            /** Name */
+            name: string;
+            /** Term */
+            term: string;
+            /** Owner Teacher Id */
+            owner_teacher_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Roster Frozen At */
+            roster_frozen_at?: string | null;
+            /** Roster Frozen By */
+            roster_frozen_by?: string | null;
+            /** Roster Snapshot Hash */
+            roster_snapshot_hash?: string | null;
+        };
+        /** TeachingLogDistributionItemResponse */
+        TeachingLogDistributionItemResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Distribution Id */
+            distribution_id: string;
+            /** Artifact Id */
+            artifact_id: string;
+            /** Source System */
+            source_system: string;
+            /** Source Student Id */
+            source_student_id?: string | null;
+            /** Artifact Type */
+            artifact_type: string;
+            /** Artifact Meta Json */
+            artifact_meta_json: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        };
+        /** TeachingLogDistributionListResponse */
+        TeachingLogDistributionListResponse: {
+            /** Items */
+            items: components["schemas"]["TeachingLogDistributionResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** TeachingLogDistributionResponse */
+        TeachingLogDistributionResponse: {
+            /** Distribution Id */
+            distribution_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /**
+             * Distribution Type
+             * @enum {string}
+             */
+            distribution_type: "AUDIT" | "TRAFFIC";
+            /** Source Filter Json */
+            source_filter_json: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Requested Count */
+            requested_count: number;
+            /** Title */
+            title: string;
+            /** Instruction */
+            instruction: string;
+            /** Due At */
+            due_at?: string | null;
+            /** Status */
+            status: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Items */
+            items?: components["schemas"]["TeachingLogDistributionItemResponse"][] | null;
         };
         /** TemplateCreate */
         TemplateCreate: {
@@ -4244,6 +7164,42 @@ export interface components {
              * @enum {string}
              */
             mode: "STUDENT" | "ASSIST";
+        };
+        /** TrafficLogItemResponse */
+        TrafficLogItemResponse: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** Name */
+            name: string;
+            /** Runtime Instance Id */
+            runtime_instance_id?: string | null;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Class Id */
+            class_id: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** File Id */
+            file_id?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Occurred At */
+            occurred_at?: string | null;
+        };
+        /** TrafficLogListResponse */
+        TrafficLogListResponse: {
+            /** Items */
+            items: components["schemas"]["TrafficLogItemResponse"][];
+            /** Page */
+            page?: number | null;
+            /** Page Size */
+            page_size?: number | null;
+            /** Total */
+            total: number;
         };
         /** UserContextResponse */
         UserContextResponse: {
@@ -4287,6 +7243,52 @@ export interface components {
             /** Lab File Count */
             lab_file_count?: number | null;
         };
+        /** RuntimeAuditLogItemResponse */
+        app__lab_classroom__schemas__RuntimeAuditLogItemResponse: {
+            /** Event Id */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /** Runtime Instance Id */
+            runtime_instance_id?: string | null;
+            /** Lab Release Id */
+            lab_release_id?: string | null;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Detail */
+            detail?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Occurred At */
+            occurred_at?: string | null;
+        };
+        /** RuntimeAuditLogItemResponse */
+        app__runtime__schemas__RuntimeAuditLogItemResponse: {
+            /** Event Id */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /** Runtime Instance Id */
+            runtime_instance_id?: string | null;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Course Id */
+            course_id?: string | null;
+            /** Class Id */
+            class_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /** Occurred At */
+            occurred_at: string;
+        };
         Error: {
             code: string;
             message: string;
@@ -4319,7 +7321,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4370,7 +7372,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4419,7 +7421,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4472,7 +7474,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4521,7 +7523,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseLessonListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4568,7 +7570,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeachingClassListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4619,7 +7621,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeachingClassCreateResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4668,7 +7670,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeachingClassResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4724,7 +7726,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassMemberListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4777,7 +7779,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassMemberResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4820,13 +7822,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX（电子表格）文件 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -4881,7 +7883,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberImportJobResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4930,7 +7932,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberImportJobResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -4973,13 +7975,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX（电子表格）文件 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -5022,13 +8024,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX（电子表格）文件 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -5078,7 +8080,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassMemberResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5128,7 +8130,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberRemovalResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5178,7 +8180,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberLearningSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5228,7 +8230,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberLearningSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5277,7 +8279,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RosterFreezeResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5324,7 +8326,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceTaskListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5375,7 +8377,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceTaskResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5424,7 +8426,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceTaskResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5473,7 +8475,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendancePublishedResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5522,7 +8524,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceTaskResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5571,7 +8573,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceRecordListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5618,7 +8620,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceSectionSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5667,7 +8669,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceLinkResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5716,7 +8718,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceRecordResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5767,7 +8769,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AttendanceRecordResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5810,13 +8812,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX（电子表格）文件 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -5867,7 +8869,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PollCreatedResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5916,7 +8918,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PollResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -5969,7 +8971,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PollAnswerResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6018,7 +9020,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PollResultsResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6069,7 +9071,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssignmentResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6118,7 +9120,103 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssignmentResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_my_assignments_api_v1_assignments_my_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentAssignmentListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_assignment_task_api_v1_assignments__assignment_id__student_task_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentAssignmentTaskResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6171,7 +9269,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AssignmentSubmissionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6222,7 +9320,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6271,7 +9369,103 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_my_quizzes_api_v1_quizzes_my_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentQuizListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_quiz_task_api_v1_quizzes__quiz_id__student_task_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quiz_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentQuizTaskResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6320,7 +9514,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizAttemptResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6374,7 +9568,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["QuizAttemptResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6421,7 +9615,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeacherReadModelResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6468,7 +9662,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudentReadModelResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6520,7 +9714,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6571,7 +9765,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6622,7 +9816,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceFileResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6671,7 +9865,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceReadinessResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6720,7 +9914,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceLessonListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6769,7 +9963,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceLessonListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6818,7 +10012,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceBlueprintResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6869,7 +10063,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceAuditResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6918,7 +10112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceAuditResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -6969,7 +10163,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceManifestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7018,7 +10212,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceManifestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7061,13 +10255,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX（电子表格）文件 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -7116,7 +10310,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7164,9 +10358,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description 标准错误信封 */
             401: {
@@ -7218,7 +10410,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceVersionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7272,7 +10464,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PptQualityCheckResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7321,7 +10513,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7374,7 +10566,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7427,7 +10619,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7476,7 +10668,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -7512,6 +10704,7 @@ export interface operations {
         parameters: {
             query?: {
                 course_id?: string;
+                status?: ("DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "REJECTED") | null;
             };
             header?: never;
             path?: never;
@@ -8029,7 +11222,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabDefinitionListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8082,7 +11275,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabDefinitionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8135,7 +11328,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabDefinitionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8184,7 +11377,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabDefinitionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8239,7 +11432,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabVersionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8288,7 +11481,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabVersionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8343,7 +11536,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabVersionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8394,7 +11587,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabVersionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8445,7 +11638,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabVersionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8494,7 +11687,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabDefinitionSpec"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8541,7 +11734,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabTemplateListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8594,7 +11787,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabTemplateResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8641,7 +11834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabKnowledgeListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8694,7 +11887,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabKnowledgeResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8749,7 +11942,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabKnowledgeResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8793,13 +11986,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description 实验讲解图二进制文件；实际 Content-Type 由已登记的文件类型决定 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/octet-stream": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -8852,7 +12045,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabReleaseResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8903,7 +12096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabReleasePreflightResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -8954,7 +12147,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabTeacherPreviewResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9005,7 +12198,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LabReleaseResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9058,7 +12251,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9111,7 +12313,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9164,7 +12375,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeReleaseSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9213,7 +12424,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9266,7 +12477,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9315,7 +12526,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9368,7 +12579,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9421,7 +12632,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9474,7 +12685,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9523,7 +12734,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9572,7 +12783,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeLogListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9621,7 +12832,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeArtifactListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9674,7 +12885,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeTerminalTokenResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9721,7 +12932,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeNodeListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9772,7 +12983,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeNodeResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9870,7 +13081,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeImageListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9921,7 +13132,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeImageResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -9968,7 +13179,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeQueueListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10119,7 +13330,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeOverviewResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10166,7 +13377,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeEventListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10213,7 +13424,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10262,7 +13473,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeClassReadModelResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10311,7 +13522,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeStudentReadModelResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10360,7 +13571,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeReleaseSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10409,7 +13620,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeReleaseStudentsResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10459,7 +13670,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"] | components["schemas"]["RuntimeReleaseStudentPendingResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10508,7 +13719,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeReleaseSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10556,12 +13767,21 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10614,7 +13834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"] | components["schemas"]["RuntimeReleaseStudentPendingResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10668,7 +13888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeBulkActionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10717,7 +13937,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10770,7 +13990,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeTerminalTokenResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10824,7 +14044,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"] | components["schemas"]["RuntimeSignalActionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10875,7 +14095,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeAuditLogListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10926,7 +14146,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeTrafficArtifactListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -10975,7 +14195,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeArtifactDetailResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11024,7 +14244,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeArtifactDownloadResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11075,7 +14295,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeArtifactBundleResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11128,7 +14348,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeArtifactBundleResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11228,7 +14448,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassroomReleaseSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11277,7 +14497,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassroomReleaseStudentListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11327,7 +14547,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassroomStudentRuntimeResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11381,7 +14601,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"] | components["schemas"]["RuntimeSignalActionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11435,7 +14655,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeBulkActionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11484,7 +14704,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeRequestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11533,7 +14753,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassroomStudentRuntimeResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11582,7 +14802,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"] | components["schemas"]["RuntimeReleaseStudentPendingResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11631,7 +14851,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeTerminalTokenResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11680,7 +14900,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RuntimeTerminalTokenResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11730,7 +14950,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeachingAuditLogListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11780,7 +15000,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TrafficLogListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11829,7 +15049,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LogDownloadResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11876,7 +15096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeachingLogDistributionListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11929,7 +15149,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeachingLogDistributionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -11978,7 +15198,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeachingLogDistributionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12025,7 +15245,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudentLogAssignmentListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12074,7 +15294,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LogDownloadResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12125,7 +15345,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassroomRuntimeEventConsumptionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12176,7 +15396,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClassroomLearningSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12222,13 +15442,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description 实验发布运行事件流；每个 data 载荷符合 ClassroomReleaseEventResponse */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": components["schemas"]["ClassroomReleaseEventResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12279,7 +15499,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EventConsumptionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12328,7 +15548,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GradingPolicyResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12381,7 +15601,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GradingPolicyResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12434,7 +15654,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GradebookStateResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12485,7 +15705,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GradebookStateResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12536,7 +15756,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GradebookResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12588,7 +15808,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GradebookResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12640,7 +15860,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GradebookTraceResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12685,13 +15905,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX 电子表格下载 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -12742,7 +15962,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AnalyticsOverviewResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12794,7 +16014,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AnalyticsSectionResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12845,7 +16065,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AnalyticsStudentLabListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12896,7 +16116,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AnalyticsLabListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -12948,7 +16168,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudentRiskListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13000,7 +16220,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LearningSummaryResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13045,13 +16265,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX 电子表格下载 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -13104,7 +16324,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ArchivePrecheckResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13157,7 +16377,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ArchiveManifestPayloadResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13208,7 +16428,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ArchiveResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13259,7 +16479,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ArchiveManifestReadResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13305,13 +16525,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description 经完整性校验的课程归档制品下载；实际 Content-Type 由归档制品登记决定 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/octet-stream": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -13362,7 +16582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuditEventListResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13413,7 +16633,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuditIngestResponse"];
                 };
             };
             /** @description 标准错误信封 */
@@ -13456,13 +16676,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description XLSX 电子表格下载 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -13505,13 +16725,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description CSV 审计表格下载 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/csv": string;
                 };
             };
             /** @description 标准错误信封 */
@@ -13560,7 +16780,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OutboxDispatchResponse"];
                 };
             };
             /** @description 标准错误信封 */

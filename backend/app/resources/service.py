@@ -278,9 +278,11 @@ class ResourceService:
         self._course(course_id, "resources:write")
         return template_bytes(self._question_catalog(course_id))
 
-    def list_questions(self, course_id: str) -> dict:
+    def list_questions(self, course_id: str, *, status: str | None = None) -> dict:
         self._course(course_id)
         rows = self.repo.list_questions(course_id, published_only=self.user.role == "student")
+        if status is not None:
+            rows = [row for row in rows if row[0].status == status]
         items = []
         for question, lesson_id, explanation in rows:
             options = [self.option_dict(option) for option in self.repo.question_options(question.question_id)]

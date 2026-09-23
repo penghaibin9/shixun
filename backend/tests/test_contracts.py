@@ -26,6 +26,27 @@ def test_frozen_openapi_is_valid_and_has_v1_contracts():
     assert "Error" in contract["components"]["schemas"]
 
 
+def test_frozen_openapi_never_leaves_a_json_success_response_as_an_empty_schema():
+    contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    assert "ApiObjectResponse" not in contract["components"]["schemas"]
+    for path, operations in contract["paths"].items():
+        if not path.startswith("/api/v1/"):
+            continue
+        for method, operation in operations.items():
+            if method not in {"get", "post", "put", "patch", "delete"}:
+                continue
+            for status in ("200", "201", "202"):
+                response = operation.get("responses", {}).get(status)
+                content = response.get("content", {}) if response else {}
+                schema = content.get("application/json", {}).get("schema")
+                if schema is not None:
+                    assert schema != {}, f"{method.upper()} {path} 的 {status} JSON 响应没有冻结类型"
+                    references = schema.get("anyOf") if isinstance(schema, dict) else None
+                    assert "$ref" in schema or (
+                        isinstance(references, list) and references and all("$ref" in item for item in references)
+                    ), f"{method.upper()} {path} 的 {status} JSON 响应必须引用具名模型"
+
+
 def test_frozen_openapi_exactly_matches_application():
     contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
     assert contract == app.openapi()
@@ -136,6 +157,25 @@ def test_teaching_score_proof_and_request_boundaries_are_frozen():
         assert schemas[schema_name]["additionalProperties"] is False
     assert set(schemas["SubmissionIn"]["properties"]) == {"answers"}
     assert set(schemas["QuizSubmitIn"]["properties"]) == {"answers"}
+
+
+def test_student_task_reads_are_typed_and_never_expose_frozen_scoring_evidence():
+    contract = json.loads((ROOT / "docs/contracts/openapi-v1.json").read_text(encoding="utf-8"))
+    expected = {
+        "/api/v1/assignments/my": "StudentAssignmentListResponse",
+        "/api/v1/assignments/{assignment_id}/student-task": "StudentAssignmentTaskResponse",
+        "/api/v1/quizzes/my": "StudentQuizListResponse",
+        "/api/v1/quizzes/{quiz_id}/student-task": "StudentQuizTaskResponse",
+    }
+    for path, response_schema in expected.items():
+        response = contract["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+        assert response["$ref"].endswith(f"/{response_schema}")
+
+    question = contract["components"]["schemas"]["StudentTaskQuestionResponse"]
+    assert set(question["properties"]) == {"question_ref_id", "question_id", "question_type", "stem", "options"}
+    assert {"answer", "question_snapshot", "question_version", "max_score"}.isdisjoint(question["properties"])
+    options = contract["components"]["schemas"]["StudentTaskOptionResponse"]
+    assert set(options["properties"]) == {"key", "text"}
 
 
 def test_lesson_resource_is_only_a_resource_extension_of_a_curriculum():

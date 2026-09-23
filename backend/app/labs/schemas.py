@@ -256,6 +256,109 @@ class CloneVersionInput(StrictModel):
     source_lab_version_id: ID | None = None
 
 
+class LabValidationErrorResponse(StrictModel):
+    code: str
+    message: str
+
+
+class LabVersionResponse(StrictModel):
+    lab_version_id: ID
+    lab_definition_id: ID
+    version: int
+    status: LabVersionStatus
+    spec: LabDefinitionSpec
+    validation_errors: list[LabValidationErrorResponse] = Field(default_factory=list)
+    published_at: str | None = None
+
+
+class LabDefinitionResponse(StrictModel):
+    lab_definition_id: ID
+    course_id: ID
+    lesson_id: ID | None = None
+    code: str
+    name: str
+    category: str
+    objective: str
+    latest_version: LabVersionResponse | None = None
+
+
+class LabDefinitionListResponse(StrictModel):
+    items: list[LabDefinitionResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class LabTemplateResponse(StrictModel):
+    template_id: ID
+    name: str
+    description: str
+    spec: dict[str, Any]
+
+
+class LabTemplateListResponse(StrictModel):
+    items: list[LabTemplateResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class LabExplainDiagramResponse(StrictModel):
+    diagram_id: ID
+    file_id: ID
+    title: str
+    order_no: int
+
+
+class LabKnowledgeResponse(StrictModel):
+    knowledge_point_id: ID
+    course_id: ID
+    title: str
+    explain_text: str
+    question_ids: list[ID]
+    diagrams: list[LabExplainDiagramResponse]
+
+
+class LabKnowledgeListResponse(StrictModel):
+    items: list[LabKnowledgeResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class LabPublishConfigResponse(StrictModel):
+    opens_at: str
+    closes_at: str
+    max_attempts: int
+    timeout_minutes: int
+    max_concurrency: int
+    teacher_preview_required: bool
+    preflight: dict[str, Any]
+    preview_request_id: str | None = None
+
+
+class LabReleaseResponse(StrictModel):
+    lab_release_id: ID
+    lab_version_id: ID
+    course_id: ID
+    class_id: ID
+    lesson_id: ID
+    status: str
+    publish_config: LabPublishConfigResponse
+
+
+class LabReleasePreflightResponse(StrictModel):
+    passed: bool
+    checks: dict[str, bool]
+    errors: list[LabValidationErrorResponse] = Field(default_factory=list)
+    checked_at: str
+
+
+class LabTeacherPreviewResponse(StrictModel):
+    status: str
+    runtime_request_id: str
+
+
 class ListResponse(StrictModel):
     items: list[dict[str, Any]]
     page: int = 1

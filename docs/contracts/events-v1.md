@@ -8,11 +8,29 @@
 
 业务事实和 `domain_event_outbox` 必须同一数据库事务写入。消费者必须按 `event_id` 或同一事件类型的 `idempotency_key` 幂等处理，禁止将消息队列当作权威事实库。
 
-总控投递器按冻结路由消费事件箱：`lab.instance.*`、`lab.checkpoint.*`、`lab.submitted` 投影至 E；成绩事实事件和 `course.roster.frozen`、`resource.delivery.frozen` 送至 F；`lab.release.published` 送至 D。只有全部目标成功后才写 `published_at`，部分成功可依靠消费者幂等安全重试。
+总控投递器只按下方**精确事件名**消费事件箱：`lab.instance.started`、`lab.instance.failed`、`lab.instance.destroyed`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted` 投影至 E；其中检查点和提交事件同时送至 F 成绩事实；成绩事实事件及 `course.roster.frozen`、`resource.delivery.frozen` 送至 F；`lab.release.published` 送至 D。只有全部目标成功后才写 `published_at`，部分成功可依靠消费者幂等安全重试。
+
+## 投递终态注册表（冻结）
+
+每个当前生产者写入的事件都必须有下列确定终态。没有业务事实消费者的事件由公共审计归档消费者处理：它只在 F 的 `audit_event`（审计事件）写入 `OUTBOX_EVENT_ARCHIVED`（事件箱事件已归档）记录，保留完整冻结信封作为明细，并**不会**创建、修改或推断课程、实验、运行、成绩或资源事实。归档记录的操作者固定为受信任服务 `service_contract_dispatcher`，原始操作者保留在冻结信封中；按 `source_event_id`（来源事件标识）幂等，归档成功后才标记事件箱已发布。
+
+| 当前事件 | 确定终态 |
+| --- | --- |
+| `attendance.completed`、`poll.completed`、`assignment.submitted`、`quiz.completed`、`grading.score.proof.frozen`、`lab.checkpoint.passed`、`lab.checkpoint.failed`、`lab.submitted`、`course.roster.frozen`、`resource.delivery.frozen` | F 的受控成绩/证明或归档证据消费者（资源交付冻结还会写公共审计） |
+| `lab.instance.started`、`lab.instance.failed`、`lab.instance.destroyed` | E 的课堂运行投影 |
+| `lab.release.published` | D 的冻结发布上下文读模型 |
+| `classroom.audit.requested`、`teaching.audit`，以及下文列出的 B 资源/题库事件 | 公共审计事件消费者 |
+| `auth.account.created`、`auth.identity.reconciliation.scanned` | 公共审计归档消费者 |
+| `lesson.lab_definition.linked`、`lab.definition.created`、`lab.version.cloned`、`lab.version.updated`、`lab.version.validated`、`lab.version.published`、`lab.template.created`、`lab.knowledge.created`、`lab.knowledge.updated`、`lab.release.created`、`lab.release.preflighted`、`lab.release.preview.requested` | 公共审计归档消费者 |
+| `teaching.log.distributed` | 公共审计归档消费者 |
+| `runtime.artifact.distribution_download_authorized`、`runtime.artifact.distribution_bundle_downloaded`、`runtime.artifact.direct_download_authorized`、`runtime.artifact.direct_bundle_downloaded` | 公共审计归档消费者 |
+| `grade.event.created`、`gradebook.posted`、`course.archived` | 公共审计归档消费者 |
+
+未在注册表中的事件（包括看似相同命名空间的新事件）固定返回 `INTEGRATION.EVENT_UNCONSUMED`（事件尚无已登记消费者）并保持 `published_at = null`（未发布），供契约评审后增加精确消费者；投递器不得用 `auth.*`、`lab.*`、`runtime.*` 等通配符自动归档未知事件。
 
 B 课程资源域追加事件：`resource.created`、`resource.version.created`、`resource.submit.review`、`resource.approve`、`resource.reject`、`resource.publish`、`resource.audit.completed`、`resource.delivery.frozen`、`question.created`、`question.updated`、`question.published`、`question.rejected`、`question.import.completed`、`question.import.validation_failed`。事件载荷只携带冻结标识和必要摘要，不携带文件二进制或永久公开地址。题库导入完成/失败事件使用导入任务标识作为聚合标识；单题创建、发布和驳回事件使用题目标识作为聚合标识。上述 B 域事件由总控投递器幂等归档至公共 `audit_event`（审计事件）表，成功归档后才标记事件箱已发布。
 
-C 线新增事件：`lab.definition.created`、`lab.version.cloned`、`lab.version.updated`、`lab.version.validated`、`lab.version.published`、`lab.template.created`、`lab.knowledge.created`、`lab.knowledge.updated`、`lab.release.created`、`lab.release.preflighted`、`lab.release.preview.requested`。正式发布继续使用首批冻结事件 `lab.release.published`。
+C 线新增事件：`lab.definition.created`、`lab.version.cloned`、`lab.version.updated`、`lab.version.validated`、`lab.version.published`、`lab.template.created`、`lab.knowledge.created`、`lab.knowledge.updated`、`lab.release.created`、`lab.release.preflighted`、`lab.release.preview.requested`；正式种子将课时绑定至实验定义时使用 `lesson.lab_definition.linked`。这些设计/配置事件只进入公共审计归档终态，不会驱动 D 创建运行实例。正式发布继续使用首批冻结事件 `lab.release.published`。
 
 `lab.release.published` 必须携带 `lab_version_id`、`course_id`、`class_id`、`status` 和发布时的 `spec_snapshot`（规范快照）；D 使用该快照登记 `runtime_release_read_model`，不得在事件消费时读取 C 的业务表。
 

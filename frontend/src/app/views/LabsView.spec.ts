@@ -38,6 +38,14 @@ describe('实验总览', () => {
     expect(wrapper.text()).toContain('已导入“导入实验”草稿')
   })
 
+  it('实验尚无版本时展示安全空态而不读取空版本字段', async () => {
+    listLabs.mockResolvedValueOnce([{ ...lab, latest_version: null }])
+    const wrapper = mount(LabsView, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('尚未创建实验版本，请先进入设计页完成定义。')
+  })
+
   it('导入失败时保留已有实验列表并在表单内显示错误', async () => {
     importLab.mockRejectedValueOnce({ message: '实验定义格式不正确' })
     const wrapper = mount(LabsView, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } })
