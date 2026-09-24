@@ -22,6 +22,8 @@ import TeacherLogsView from '../modules/lab-classroom/TeacherLogsView.vue'
 import StudentLabView from '../modules/lab-classroom/StudentLabView.vue'
 import StudentLogView from '../modules/lab-classroom/StudentLogView.vue'
 import GradingView from './views/GradingView.vue'
+import ContentLibraryView from './views/ContentLibraryView.vue'
+import ChallengesView from './views/ChallengesView.vue'
 
 export default createRouter({ history: createWebHistory(), routes: [
   { path: '/', redirect: '/lifecycle' },
@@ -48,6 +50,8 @@ export default createRouter({ history: createWebHistory(), routes: [
   { path: '/course-resource-audit', name: 'course-resource-audit', component: CourseResourcesView, meta: { page: 'audit' } },
   { path: '/course-delivery', name: 'course-delivery', component: CourseResourcesView, meta: { page: 'delivery' } },
   { path: '/labs', component: LabsView },
+  { path: '/content-library', component: ContentLibraryView },
+  { path: '/challenges', component: ChallengesView },
   { path: '/lab-templates', component: LabTemplatesView },
   { path: '/course-knowledge', component: LabKnowledgeView },
   { path: '/lab-builder', component: LabBuilderView },
