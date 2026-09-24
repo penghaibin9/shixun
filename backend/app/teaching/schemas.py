@@ -175,6 +175,17 @@ class StudentQuizTaskResponse(StudentQuizListItemResponse):
 # are persistence details and must not become part of the public contract.
 
 
+class CourseCatalogResponse(BaseModel):
+    catalog_key: str
+    name: str
+    theory_lessons: int
+    lab_lessons: int
+
+
+class CourseCatalogListResponse(BaseModel):
+    items: list[CourseCatalogResponse]
+
+
 class CourseResponse(BaseModel):
     course_id: str
     name: str
