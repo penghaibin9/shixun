@@ -11,7 +11,7 @@ export type LabRelease = components['schemas']['LabReleaseResponse']
 const devHeaders: HeadersInit = import.meta.env.DEV ? {
   'X-User-Id': 'user_teacher_demo', 'X-Role': 'teacher', 'X-Teacher-Id': 'teacher_demo',
   'X-Permissions': 'labs.read,labs.write,labs.publish,labs.knowledge.write,runtime.read,runtime.start,runtime.preview,runtime.destroy,runtime.rebuild,runtime.extend,runtime.rejudge,runtime.terminal,infrastructure.read,infrastructure.write',
-  'X-Course-Ids': 'course_data_security', 'X-Class-Ids': 'class_netsec_2301',
+  'X-Course-Ids': 'course_data_security,course_web_security', 'X-Class-Ids': 'class_netsec_2301',
 } : {}
 
 function idempotencyKey(action: string): string { return `${action}-${crypto.randomUUID()}` }
@@ -35,7 +35,7 @@ export function teachingIdentity(role = 'teacher'): Record<string, string> {
   if (!import.meta.env.DEV) return {}
   const courseId = localStorage.getItem('yk-course-id') || '', classId = localStorage.getItem('yk-class-id') || ''
   if (role === 'student') return {'X-User-Id':localStorage.getItem('yk-student-id')||'student-demo','X-Role':'student','X-Student-Id':localStorage.getItem('yk-student-id')||'student-demo','X-Permissions':'teaching.student.read,teaching.course.read,teaching.attendance.sign,teaching.poll.answer,teaching.assignment.submit,teaching.quiz.submit','X-Course-Ids':courseId,'X-Class-Ids':classId}
-  return {'X-User-Id':'teacher-a','X-Role':'teacher','X-Teacher-Id':'teacher-a','X-Permissions':teacherPermissions.join(','),'X-Course-Ids':courseId,'X-Class-Ids':classId}
+  return {'X-User-Id':'teacher-a','X-Role':'teacher','X-Teacher-Id':'teacher-a','X-Permissions':teacherPermissions.join(','),'X-Course-Ids':courseId || 'course_data_security,course_web_security','X-Class-Ids':classId}
 }
 
 export async function api<T>(path:string,init:RequestInit={},role?:'teacher'|'student'):Promise<T>{const response=await fetch(path,{...init,headers:{...teachingIdentity(role),...(init.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(init.headers||{})}});if(!response.ok)throw await response.json() as ApiError;return response.json() as Promise<T>}
@@ -320,4 +320,60 @@ export const gradingApi={
   studentScore:()=>{ const { courseId, classId, studentId } = gradingScope(); return gradingRequest<components['schemas']['LearningSummaryResponse']>(`/api/v1/analytics/courses/${courseId}/learning-summary?class_id=${classId}&student_id=${studentId}`,{},'student') },
   audit:()=>gradingRequest<components['schemas']['AuditEventListResponse']>('/api/v1/audit/events',{},'admin'),
   auditExport:(format:'xlsx'|'csv')=>gradingDownload(`/api/v1/audit/events/export.${format}`,'admin'),
+}
+
+
+export type ContentPackSummary = {
+  pack_id: string; course_id: string; title: string; version: string; language: string;
+  content_origin: string; commercial_bundle_allowed: boolean; theory_lessons: number; lab_lessons: number
+}
+export type ContentSource = { name: string; url: string; license_id: string; use_mode: string; license_decision: string; license_reason: string }
+export type WebLabCandidate = { lesson_code: string; lab_definition_id: string; title: string; source: string; license: string; source_path: string | null; runtime_status: string; reason: string }
+
+function contentPackHeaders(): Record<string,string> {
+  if (!import.meta.env.DEV) return {}
+  return {
+    ...teachingIdentity('teacher'),
+    'X-Permissions': [...teacherPermissions, 'resources:read', 'labs.read'].join(','),
+    'X-Course-Ids': localStorage.getItem('yk-course-id') || 'course_data_security,course_web_security',
+  }
+}
+async function contentPackRequest<T>(path:string, init:RequestInit={}):Promise<T>{
+  const response=await fetch(path,{...init,headers:{...contentPackHeaders(),...(init.headers||{})}})
+  if(!response.ok)throw await response.json() as ApiError
+  return response.json() as Promise<T>
+}
+export const contentPackApi={
+  list:()=>contentPackRequest<{items:ContentPackSummary[]}>('/api/v1/content-packs'),
+  sources:()=>contentPackRequest<{items:ContentSource[]}>('/api/v1/content-sources'),
+  webLabCandidates:()=>contentPackRequest<{labs:WebLabCandidate[]}>('/api/v1/content-packs/web_security_v1/lab-candidates'),
+  seedDomainMap:()=>contentPackRequest<{domain_map:{source_category:string;yueke_course:string;status:string}[]}>('/api/v1/content-packs/seed-domain-map'),
+  previewVulhub:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{items:unknown[];total:number}>('/api/v1/content-sources/vulhub/index/preview',{method:'POST',body})},
+  scanCompose:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{passed:boolean;findings:{code:string;message:string;service?:string;blocking:boolean}[]}>('/api/v1/content-sources/compose/scan',{method:'POST',body})},
+}
+
+export type ChallengeItem = {
+  challenge_id:string;course_id:string;lesson_id:string;lab_definition_id:string|null;checkpoint_key:string|null;
+  title:string;description:string;difficulty:string;max_attempts:number;status:string;flag_configured:boolean
+}
+function challengeHeaders(role:'teacher'|'student'):Record<string,string>{
+  if(!import.meta.env.DEV)return {}
+  const base=teachingIdentity(role)
+  return {
+    ...base,
+    'X-Permissions': role==='teacher' ? 'labs.read,labs.write,teaching.course.read' : 'classroom.lab.read,classroom.lab.start',
+    'X-Course-Ids': localStorage.getItem('yk-course-id') || 'course_web_security',
+    'X-Class-Ids': localStorage.getItem('yk-class-id') || '',
+  }
+}
+async function challengeRequest<T>(path:string,role:'teacher'|'student',init:RequestInit={}):Promise<T>{
+  const response=await fetch(path,{...init,headers:{...challengeHeaders(role),'Content-Type':'application/json',...(init.headers||{})}})
+  if(!response.ok)throw await response.json() as ApiError
+  return response.json() as Promise<T>
+}
+export const challengeApi={
+  list:(courseId:string,role:'teacher'|'student')=>challengeRequest<{items:ChallengeItem[];total:number}>(`/api/v1/challenges?course_id=${encodeURIComponent(courseId)}`,role),
+  hints:(id:string,role:'teacher'|'student')=>challengeRequest<{items:{hint_id:string;title:string;content:string;unlock_after_attempts:number}[];attempts:number;total:number}>(`/api/v1/challenges/${id}/hints`,role),
+  configureFlag:(id:string,flag:string)=>challengeRequest(`/api/v1/challenges/${id}/flag`,'teacher',{method:'PUT',body:JSON.stringify({flag,case_sensitive:true})}),
+  submit:(id:string,submission:string,classId:string)=>challengeRequest<{attempt_id:string;accepted:boolean;remaining_attempts:number}>(`/api/v1/challenges/${id}/submit`,'student',{method:'POST',body:JSON.stringify({submission,class_id:classId,lab_release_id:null})}),
 }
