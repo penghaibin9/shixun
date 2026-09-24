@@ -350,10 +350,13 @@ export const contentPackApi={
   seedDomainMap:()=>contentPackRequest<{domain_map:{source_category:string;yueke_course:string;status:string}[]}>('/api/v1/content-source-maps/seed'),
   previewVulhub:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{items:unknown[];total:number}>('/api/v1/content-sources/vulhub/index/preview',{method:'POST',body})},
   scanCompose:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{passed:boolean;findings:{code:string;message:string;service?:string;blocking:boolean}[]}>('/api/v1/content-sources/compose/scan',{method:'POST',body})},
+  previewAtomic:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{attack_technique:string;display_name:string;test_count:number;execution_imported:boolean}>('/api/v1/content-sources/atomic-red-team/preview',{method:'POST',body})},
+  previewDojo:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{dojo_id:string;name:string;module_count:number;content_imported:boolean}>('/api/v1/content-sources/pwncollege/dojo/preview',{method:'POST',body})},
 }
 
 export type ChallengeItem = {
   challenge_id:string;course_id:string;lesson_id:string;lab_definition_id:string|null;checkpoint_key:string|null;
+  prerequisite_challenge_id:string|null;unlocked:boolean;
   title:string;description:string;difficulty:string;max_attempts:number;status:string;flag_configured:boolean
 }
 function challengeHeaders(role:'teacher'|'student'):Record<string,string>{

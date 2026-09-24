@@ -10,15 +10,19 @@ from fastapi import APIRouter, File, UploadFile
 from app.common.context import CurrentUser
 from app.common.errors import ApiError
 
+from .adapters.atomic_red_team import parse_atomic_technique
+from .adapters.pwncollege import parse_dojo_manifest
 from .adapters.vulhub import parse_environment_index
 from .catalog import CONTENT_DIR, course_pack_registry, load_course_pack_by_catalog
 from .license_policy import evaluate_license
 from .security import scan_compose_manifest
 from .schemas import (
+    AtomicTechniquePreviewResponse,
     ComposeScanResponse,
     ContentPackListResponse,
     ContentSourcePolicyListResponse,
     CoursePackManifest,
+    DojoPreviewResponse,
     ExternalLabCandidateListResponse,
     SeedDomainMapResponse,
     WebLabReadinessRegistryResponse,
@@ -130,3 +134,27 @@ async def scan_compose(user: CurrentUser, file: Annotated[UploadFile, File()]):
             for item in findings
         ],
     }
+
+
+@router.post("/content-sources/atomic-red-team/preview", response_model=AtomicTechniquePreviewResponse)
+async def preview_atomic_red_team(user: CurrentUser, file: Annotated[UploadFile, File()]):
+    _require(user, "labs.read", "teaching.course.read")
+    raw = await file.read(512 * 1024 + 1)
+    if len(raw) > 512 * 1024:
+        raise ApiError("CONTENT_PACK.FILE_TOO_LARGE", "Atomic YAML 不得超过 512KB", 413)
+    try:
+        return parse_atomic_technique(raw)
+    except Exception as exc:
+        raise ApiError("CONTENT_PACK.ATOMIC_INVALID", "Atomic Red Team 元数据解析失败", 422) from exc
+
+
+@router.post("/content-sources/pwncollege/dojo/preview", response_model=DojoPreviewResponse)
+async def preview_pwncollege_dojo(user: CurrentUser, file: Annotated[UploadFile, File()]):
+    _require(user, "teaching.course.read")
+    raw = await file.read(512 * 1024 + 1)
+    if len(raw) > 512 * 1024:
+        raise ApiError("CONTENT_PACK.FILE_TOO_LARGE", "dojo.yml 不得超过 512KB", 413)
+    try:
+        return parse_dojo_manifest(raw)
+    except Exception as exc:
+        raise ApiError("CONTENT_PACK.DOJO_INVALID", "pwn.college dojo 元数据解析失败", 422) from exc

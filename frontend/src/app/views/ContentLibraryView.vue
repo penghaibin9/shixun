@@ -8,7 +8,11 @@ const labs = ref<WebLabCandidate[]>([])
 const seedDomains = ref<{ source_category: string; yueke_course: string; status: string }[]>([])
 const vulhubFile = ref<File>()
 const composeFile = ref<File>()
+const atomicFile = ref<File>()
+const dojoFile = ref<File>()
 const previewCount = ref<number | null>(null)
+const atomicPreview = ref<{ attack_technique: string; display_name: string; test_count: number }>()
+const dojoPreview = ref<{ dojo_id: string; name: string; module_count: number }>()
 const composeResult = ref<{ passed: boolean; findings: { code: string; message: string; service?: string; blocking: boolean }[] }>()
 const message = ref('')
 
@@ -34,6 +38,18 @@ async function previewVulhub() {
   const result = await contentPackApi.previewVulhub(vulhubFile.value)
   previewCount.value = result.total
   message.value = `Vulhub 索引已解析：${result.total} 个候选环境；未自动运行任何容器。`
+}
+
+async function previewAtomic() {
+  if (!atomicFile.value) return
+  atomicPreview.value = await contentPackApi.previewAtomic(atomicFile.value)
+  message.value = `Atomic Red Team 仅解析元数据：${atomicPreview.value.attack_technique} · ${atomicPreview.value.test_count} 个测试；未导入执行命令。`
+}
+
+async function previewDojo() {
+  if (!dojoFile.value) return
+  dojoPreview.value = await contentPackApi.previewDojo(dojoFile.value)
+  message.value = `pwn.college dojo 仅解析课程结构：${dojoPreview.value.name} · ${dojoPreview.value.module_count} 个模块；未复制挑战内容。`
 }
 
 async function scanCompose() {
@@ -98,6 +114,23 @@ onMounted(load)
         <input type="file" accept=".yml,.yaml,text/yaml" @change="composeFile=($event.target as HTMLInputElement).files?.[0]">
         <button class="yk-button primary" :disabled="!composeFile" @click="scanCompose">执行静态门禁</button>
         <ul v-if="composeResult?.findings.length"><li v-for="item in composeResult.findings" :key="item.code">{{ item.code }}：{{ item.message }}</li></ul>
+      </article>
+    </section>
+
+    <section class="grid grid-2 section-gap">
+      <article class="card">
+        <h3>Atomic Red Team 元数据预检</h3>
+        <p class="muted">只读取 ATT&CK 编号、测试名称、平台和执行器类型，不导入或执行命令。</p>
+        <input type="file" accept=".yml,.yaml,text/yaml" @change="atomicFile=($event.target as HTMLInputElement).files?.[0]">
+        <button class="yk-button" :disabled="!atomicFile" @click="previewAtomic">解析 Atomic 元数据</button>
+        <p v-if="atomicPreview">{{ atomicPreview.attack_technique }} · {{ atomicPreview.display_name }} · {{ atomicPreview.test_count }} 项</p>
+      </article>
+      <article class="card">
+        <h3>pwn.college Dojo 结构预检</h3>
+        <p class="muted">只读取 dojo/module 结构，用于课程编排参考，不复制外部挑战正文。</p>
+        <input type="file" accept=".yml,.yaml,text/yaml" @change="dojoFile=($event.target as HTMLInputElement).files?.[0]">
+        <button class="yk-button" :disabled="!dojoFile" @click="previewDojo">解析 Dojo 结构</button>
+        <p v-if="dojoPreview">{{ dojoPreview.name }} · {{ dojoPreview.module_count }} 个模块</p>
       </article>
     </section>
   </div>

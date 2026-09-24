@@ -148,3 +148,32 @@ class ComposeFindingResponse(BaseModel):
 class ComposeScanResponse(BaseModel):
     passed: bool
     findings: list[ComposeFindingResponse]
+
+
+class AtomicTestMetadataResponse(BaseModel):
+    name: str
+    guid: str | None = None
+    supported_platforms: list[str]
+    executor_name: str
+    dependency_count: int
+
+
+class AtomicTechniquePreviewResponse(BaseModel):
+    attack_technique: str
+    display_name: str
+    test_count: int
+    tests: list[AtomicTestMetadataResponse]
+    execution_imported: bool = False
+
+
+class DojoModulePreviewResponse(BaseModel):
+    id: str
+    name: str
+
+
+class DojoPreviewResponse(BaseModel):
+    dojo_id: str
+    name: str
+    module_count: int
+    modules: list[DojoModulePreviewResponse]
+    content_imported: bool = False
