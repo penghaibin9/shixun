@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "source": "SEED Labs",
+  "source_repository": "https://github.com/seed-labs/seed-labs",
+  "source_license": "CC BY-NC-SA 4.0",
+  "commercial_rule": "REFERENCE_ONLY",
+  "direct_translation_allowed_in_yueke_commercial_bundle": false,
+  "note": "SEED Labs 官方许可证明确课程和关联材料仅限非商业使用，并明确翻译属于衍生作品。本映射只记录公开知识域，不复制或翻译教材正文。",
+  "domain_map": [
+    {
+      "source_category": "category-network",
+      "yueke_course": "网络协议与攻防基础",
+      "status": "PLANNED_ORIGINAL_CN"
+    },
+    {
+      "source_category": "category-web",
+      "yueke_course": "Web 应用安全实训",
+      "status": "IN_PROGRESS_ORIGINAL_CN"
+    },
+    {
+      "source_category": "category-software",
+      "yueke_course": "漏洞分析与软件安全",
+      "status": "PLANNED_ORIGINAL_CN"
+    },
+    {
+      "source_category": "category-crypto",
+      "yueke_course": "密码学与安全协议实训",
+      "status": "PLANNED_ORIGINAL_CN"
+    },
+    {
+      "source_category": "category-blockchain",
+      "yueke_course": "区块链安全基础实训",
+      "status": "PLANNED_ORIGINAL_CN"
+    },
+    {
+      "source_category": "category-mobile",
+      "yueke_course": "移动应用安全基础",
+      "status": "PLANNED_ORIGINAL_CN"
+    },
+    {
+      "source_category": "category-hardware",
+      "yueke_course": "硬件与侧信道安全导论",
+      "status": "PLANNED_ORIGINAL_CN"
+    },
+    {
+      "source_category": "category-ctf",
+      "yueke_course": "CTF 与综合挑战训练",
+      "status": "PLANNED_ORIGINAL_CN"
+    }
+  ]
+}
