@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -36,6 +36,14 @@ class NetworkEnvironment(StrEnum):
     ISOLATED = "ISOLATED"
     SHARED = "SHARED"
     CUSTOM = "CUSTOM"
+
+
+class ExternalRuntimeRequirement(StrictModel):
+    source_name: str = Field(min_length=1, max_length=160)
+    source_ref: str = Field(min_length=1, max_length=1000)
+    license_id: str = Field(min_length=1, max_length=80)
+    status: Literal["READY", "REVIEW_REQUIRED"] = "REVIEW_REQUIRED"
+    reason: str = Field(min_length=1, max_length=1000)
 
 
 class RuntimePolicy(StrictModel):
@@ -168,6 +176,7 @@ class LabDefinitionSpec(StrictModel):
     edges: list[DagEdge] = Field(max_length=256)
     checkpoints: list[Checkpoint] = Field(max_length=128)
     runtime_policy: RuntimePolicy
+    external_requirements: list[ExternalRuntimeRequirement] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
     def validate_references_and_uniqueness(self):
