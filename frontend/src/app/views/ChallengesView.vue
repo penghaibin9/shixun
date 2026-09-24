@@ -59,7 +59,7 @@ onMounted(load)
         <h3>挑战列表</h3>
         <button v-for="item in items" :key="item.challenge_id" type="button" class="challenge-row" :class="{ selected: selected?.challenge_id === item.challenge_id }" @click="choose(item)">
           <span><strong>{{ item.title }}</strong><small>{{ item.difficulty }} · {{ item.status }}</small></span>
-          <span class="badge">{{ item.flag_configured ? 'Flag 已配置' : '待配置' }}</span>
+          <span class="badge">{{ !item.unlocked ? '未解锁' : item.flag_configured ? 'Flag 已配置' : '待配置' }}</span>
         </button>
         <p v-if="!items.length" class="muted">当前课程暂无可见挑战。</p>
       </section>
@@ -72,7 +72,7 @@ onMounted(load)
           <div class="flag-box">
             <input v-model="flag" :placeholder="context?.role === 'student' ? '输入 Flag' : '设置 Flag（明文不会保存）'">
             <button v-if="context?.role === 'teacher'" class="yk-button primary" :disabled="!flag.trim()" @click="configureFlag">安全保存 Flag</button>
-            <button v-else class="yk-button primary" :disabled="selected.status !== 'PUBLISHED' || !flag.trim()" @click="submitFlag">提交验证</button>
+            <button v-else class="yk-button primary" :disabled="selected.status !== 'PUBLISHED' || !selected.unlocked || !flag.trim()" @click="submitFlag">{{ selected.unlocked ? '提交验证' : '请先完成前置挑战' }}</button>
           </div>
         </template>
         <p v-else class="muted">从左侧选择一个挑战。</p>

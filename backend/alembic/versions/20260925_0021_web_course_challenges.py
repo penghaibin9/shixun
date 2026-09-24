@@ -59,6 +59,7 @@ def upgrade() -> None:
         sa.Column("lesson_id", sa.String(length=36), nullable=False),
         sa.Column("lab_definition_id", sa.String(length=36), nullable=True),
         sa.Column("checkpoint_key", sa.String(length=64), nullable=True),
+        sa.Column("prerequisite_challenge_id", sa.String(length=36), nullable=True),
         sa.Column("title", sa.String(length=160), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
         sa.Column("difficulty", sa.String(length=24), nullable=False),
@@ -69,6 +70,7 @@ def upgrade() -> None:
         sa.Column("published_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(["course_id", "lesson_id"], ["course_lesson.course_id", "course_lesson.lesson_id"], name="fk_challenge_course_lesson", ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["lab_definition_id"], ["lab_definition.lab_definition_id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["prerequisite_challenge_id"], ["challenge_definition.challenge_id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("challenge_id"),
     )
     op.create_index("ix_challenge_course_status", "challenge_definition", ["course_id", "status"])
@@ -197,11 +199,12 @@ def upgrade() -> None:
         ), {"lab_definition_id": lab_definition_id, "course_id": COURSE_ID, "lesson_id": lesson_id})
         bind.execute(sa.text(
             """INSERT IGNORE INTO challenge_definition
-               (challenge_id,course_id,lesson_id,lab_definition_id,checkpoint_key,title,description,difficulty,max_attempts,status,created_by,created_at,published_at)
-               VALUES (:challenge_id,:course_id,:lesson_id,:lab_definition_id,NULL,:title,:description,:difficulty,10,'DRAFT','system_content_pack',:created_at,NULL)"""
+               (challenge_id,course_id,lesson_id,lab_definition_id,checkpoint_key,prerequisite_challenge_id,title,description,difficulty,max_attempts,status,created_by,created_at,published_at)
+               VALUES (:challenge_id,:course_id,:lesson_id,:lab_definition_id,NULL,:prerequisite_challenge_id,:title,:description,:difficulty,10,'DRAFT','system_content_pack',:created_at,NULL)"""
         ), {
             "challenge_id": challenge_id, "course_id": COURSE_ID, "lesson_id": lesson_id,
             "lab_definition_id": lab_definition_id,
+            "prerequisite_challenge_id": f"challenge_web_{index - 1:02d}" if index > 1 else None,
             "title": title, "description": f"{title}：在授权隔离实验环境中完成阶段目标并通过 Checkpoint/Flag 验证。",
             "difficulty": "INTERMEDIATE" if index >= 10 else "BEGINNER", "created_at": datetime.utcnow(),
         })

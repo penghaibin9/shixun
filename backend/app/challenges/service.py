@@ -63,12 +63,17 @@ class ChallengeService:
         ))
         if not lesson or lesson.lesson_type != "LAB":
             raise ApiError("CHALLENGE.LAB_LESSON_REQUIRED", "挑战必须绑定本课程实验课时", 422)
+        if body.prerequisite_challenge_id:
+            prerequisite = self.repo.challenge(body.prerequisite_challenge_id)
+            if not prerequisite or prerequisite.course_id != body.course_id:
+                raise ApiError("CHALLENGE.PREREQUISITE_SCOPE_MISMATCH", "前置挑战必须属于同一课程", 422)
         row = self.repo.add(m.ChallengeDefinition(
             challenge_id=str(uuid4()),
             course_id=body.course_id,
             lesson_id=body.lesson_id,
             lab_definition_id=None,
             checkpoint_key=None,
+            prerequisite_challenge_id=body.prerequisite_challenge_id,
             title=body.title,
             description=body.description,
             difficulty=body.difficulty,
@@ -126,6 +131,8 @@ class ChallengeService:
         row = self._get(challenge_id)
         if self.user.role == "student":
             student_id = self._student_id()
+            if row.prerequisite_challenge_id and not self.repo.accepted(row.prerequisite_challenge_id, student_id):
+                raise ApiError("CHALLENGE.LOCKED", "请先完成前置挑战", 409)
             attempts = self.repo.attempts(challenge_id, student_id)
             items = [hint for hint in self.repo.hints(challenge_id) if hint.unlock_after_attempts <= attempts]
         else:
@@ -180,6 +187,8 @@ class ChallengeService:
             raise ApiError("CHALLENGE.NOT_PUBLISHED", "挑战尚未发布", 409)
         self.require_class(body.class_id)
         student_id = self._student_id()
+        if row.prerequisite_challenge_id and not self.repo.accepted(row.prerequisite_challenge_id, student_id):
+            raise ApiError("CHALLENGE.LOCKED", "请先完成前置挑战", 409)
         accepted_before = self.repo.accepted(challenge_id, student_id)
         if accepted_before:
             remaining = max(0, row.max_attempts - accepted_before.attempt_no)
@@ -270,6 +279,12 @@ class ChallengeService:
             "lesson_id": row.lesson_id,
             "lab_definition_id": row.lab_definition_id,
             "checkpoint_key": row.checkpoint_key,
+            "prerequisite_challenge_id": row.prerequisite_challenge_id,
+            "unlocked": (
+                self.user.role != "student"
+                or not row.prerequisite_challenge_id
+                or bool(self.repo.accepted(row.prerequisite_challenge_id, self._student_id()))
+            ),
             "title": row.title,
             "description": row.description,
             "difficulty": row.difficulty,

@@ -22,6 +22,10 @@ class ChallengeDefinition(Base):
     lesson_id: Mapped[str] = mapped_column(String(36), nullable=False)
     lab_definition_id: Mapped[str | None] = mapped_column(ForeignKey("lab_definition.lab_definition_id", ondelete="RESTRICT"), nullable=True)
     checkpoint_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prerequisite_challenge_id: Mapped[str | None] = mapped_column(
+        ForeignKey("challenge_definition.challenge_id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     title: Mapped[str] = mapped_column(String(160))
     description: Mapped[str] = mapped_column(Text)
     difficulty: Mapped[str] = mapped_column(String(24))

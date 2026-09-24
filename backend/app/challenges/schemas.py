@@ -15,6 +15,7 @@ class ChallengeCreate(StrictModel):
     description: str = Field(min_length=1, max_length=4000)
     difficulty: Literal["BEGINNER", "INTERMEDIATE", "ADVANCED"] = "BEGINNER"
     max_attempts: int = Field(default=10, ge=1, le=50)
+    prerequisite_challenge_id: str | None = Field(default=None, max_length=36)
 
 
 class ChallengeBind(StrictModel):
@@ -45,6 +46,8 @@ class ChallengeResponse(BaseModel):
     lesson_id: str
     lab_definition_id: str | None = None
     checkpoint_key: str | None = None
+    prerequisite_challenge_id: str | None = None
+    unlocked: bool = True
     title: str
     description: str
     difficulty: str
