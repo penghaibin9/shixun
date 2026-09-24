@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "ctf_foundation_v1",
+  "course_id": "course_ctf_foundation",
+  "title": "CTF 与综合挑战训练",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "CTF 规则、授权边界与解题方法",
+      "lesson_type": "THEORY",
+      "summary": "围绕“CTF 规则、授权边界与解题方法”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释CTF 规则、授权边界与解题方法的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "Web 类题目分析框架",
+      "lesson_type": "THEORY",
+      "summary": "围绕“Web 类题目分析框架”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释Web 类题目分析框架的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "密码学类题目分析框架",
+      "lesson_type": "THEORY",
+      "summary": "围绕“密码学类题目分析框架”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释密码学类题目分析框架的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "逆向类题目分析框架",
+      "lesson_type": "THEORY",
+      "summary": "围绕“逆向类题目分析框架”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释逆向类题目分析框架的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "数字取证类题目分析框架",
+      "lesson_type": "THEORY",
+      "summary": "围绕“数字取证类题目分析框架”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释数字取证类题目分析框架的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "网络流量类题目分析框架",
+      "lesson_type": "THEORY",
+      "summary": "围绕“网络流量类题目分析框架”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释网络流量类题目分析框架的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "二进制安全类题目基础",
+      "lesson_type": "THEORY",
+      "summary": "围绕“二进制安全类题目基础”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释二进制安全类题目基础的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "编码、文件格式与 Misc 分析",
+      "lesson_type": "THEORY",
+      "summary": "围绕“编码、文件格式与 Misc 分析”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释编码、文件格式与 Misc 分析的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "提示、Flag 与 Checkpoint 设计",
+      "lesson_type": "THEORY",
+      "summary": "围绕“提示、Flag 与 Checkpoint 设计”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释提示、Flag 与 Checkpoint 设计的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "团队协作与过程记录",
+      "lesson_type": "THEORY",
+      "summary": "围绕“团队协作与过程记录”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释团队协作与过程记录的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "解题复盘与可复现证据",
+      "lesson_type": "THEORY",
+      "summary": "围绕“解题复盘与可复现证据”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释解题复盘与可复现证据的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "综合赛题安全运营与隔离",
+      "lesson_type": "THEORY",
+      "summary": "围绕“综合赛题安全运营与隔离”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释综合赛题安全运营与隔离的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "入门信息收集挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“入门信息收集挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成入门信息收集挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "Web 安全基础挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“Web 安全基础挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成Web 安全基础挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "密码与编码综合挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“密码与编码综合挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成密码与编码综合挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "基础逆向分析挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“基础逆向分析挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成基础逆向分析挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "文件取证挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“文件取证挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成文件取证挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "PCAP 流量挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“PCAP 流量挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成PCAP 流量挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "受控二进制分析挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“受控二进制分析挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成受控二进制分析挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "多格式 Misc 挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“多格式 Misc 挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成多格式 Misc 挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "多阶段 Hint 解锁挑战",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“多阶段 Hint 解锁挑战”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成多阶段 Hint 解锁挑战的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "双人协作解题训练",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“双人协作解题训练”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成双人协作解题训练的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "限时综合靶场训练",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“限时综合靶场训练”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成限时综合靶场训练的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "课程结业 CTF",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“课程结业 CTF”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成课程结业 CTF的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "CTF 与综合挑战训练",
+      "lab_profile": "ctf_foundation",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}
