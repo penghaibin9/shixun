@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "blockchain_security_v1",
+  "course_id": "course_blockchain_security",
+  "title": "区块链安全基础实训",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "区块链数据结构与信任模型",
+      "lesson_type": "THEORY",
+      "summary": "围绕“区块链数据结构与信任模型”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释区块链数据结构与信任模型的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "哈希链、Merkle Tree 与完整性",
+      "lesson_type": "THEORY",
+      "summary": "围绕“哈希链、Merkle Tree 与完整性”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释哈希链、Merkle Tree 与完整性的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "账户、地址与密钥安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“账户、地址与密钥安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释账户、地址与密钥安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "交易、签名与重放风险",
+      "lesson_type": "THEORY",
+      "summary": "围绕“交易、签名与重放风险”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释交易、签名与重放风险的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "共识机制与攻击面概览",
+      "lesson_type": "THEORY",
+      "summary": "围绕“共识机制与攻击面概览”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释共识机制与攻击面概览的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "智能合约执行模型",
+      "lesson_type": "THEORY",
+      "summary": "围绕“智能合约执行模型”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释智能合约执行模型的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "智能合约访问控制",
+      "lesson_type": "THEORY",
+      "summary": "围绕“智能合约访问控制”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释智能合约访问控制的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "合约状态、外部调用与重入风险",
+      "lesson_type": "THEORY",
+      "summary": "围绕“合约状态、外部调用与重入风险”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释合约状态、外部调用与重入风险的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "预言机与跨链风险",
+      "lesson_type": "THEORY",
+      "summary": "围绕“预言机与跨链风险”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释预言机与跨链风险的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "钱包与密钥托管安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“钱包与密钥托管安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释钱包与密钥托管安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "链上监测与事件分析",
+      "lesson_type": "THEORY",
+      "summary": "围绕“链上监测与事件分析”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释链上监测与事件分析的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "合约审计与安全发布流程",
+      "lesson_type": "THEORY",
+      "summary": "围绕“合约审计与安全发布流程”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释合约审计与安全发布流程的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "哈希链与 Merkle 验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“哈希链与 Merkle 验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成哈希链与 Merkle 验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "地址与签名验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“地址与签名验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成地址与签名验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "交易序列与重放防护",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“交易序列与重放防护”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成交易序列与重放防护的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "本地开发链权限配置",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“本地开发链权限配置”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成本地开发链权限配置的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "智能合约基础部署",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“智能合约基础部署”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成智能合约基础部署的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "合约角色权限测试",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“合约角色权限测试”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成合约角色权限测试的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "状态变更与外部调用观察",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“状态变更与外部调用观察”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成状态变更与外部调用观察的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "受控重入风险复现与修复",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“受控重入风险复现与修复”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成受控重入风险复现与修复的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "预言机输入边界验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“预言机输入边界验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成预言机输入边界验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "钱包备份与恢复演练",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“钱包备份与恢复演练”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成钱包备份与恢复演练的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "链上事件日志调查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“链上事件日志调查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成链上事件日志调查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "智能合约综合审计",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“智能合约综合审计”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成智能合约综合审计的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "区块链安全基础实训",
+      "lab_profile": "blockchain_security",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}
