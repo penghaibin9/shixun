@@ -14,6 +14,15 @@ from .adapters.vulhub import parse_environment_index
 from .catalog import CONTENT_DIR, load_bundled_course_pack
 from .license_policy import evaluate_license
 from .security import scan_compose_manifest
+from .schemas import (
+    ComposeScanResponse,
+    ContentPackListResponse,
+    ContentSourcePolicyListResponse,
+    CoursePackManifest,
+    ExternalLabCandidateListResponse,
+    SeedDomainMapResponse,
+    WebLabReadinessRegistryResponse,
+)
 
 
 router = APIRouter(prefix="/api/v1", tags=["内容包"])
@@ -35,7 +44,7 @@ def _require(user, *permissions: str) -> None:
         raise ApiError("AUTH.PERMISSION_DENIED", "缺少内容包读取权限", 403)
 
 
-@router.get("/content-packs")
+@router.get("/content-packs", response_model=ContentPackListResponse)
 def list_content_packs(user: CurrentUser):
     _require(user, "teaching.course.read", "resources:read")
     pack = load_bundled_course_pack("web-security-v1.json")
@@ -54,7 +63,7 @@ def list_content_packs(user: CurrentUser):
     }
 
 
-@router.get("/content-packs/{pack_id}")
+@router.get("/content-packs/{pack_id}", response_model=CoursePackManifest)
 def get_content_pack(pack_id: str, user: CurrentUser):
     _require(user, "teaching.course.read", "resources:read")
     if pack_id != "web_security_v1":
@@ -62,7 +71,7 @@ def get_content_pack(pack_id: str, user: CurrentUser):
     return load_bundled_course_pack("web-security-v1.json").model_dump(mode="json")
 
 
-@router.get("/content-sources")
+@router.get("/content-sources", response_model=ContentSourcePolicyListResponse)
 def list_content_sources(user: CurrentUser):
     _require(user, "teaching.course.read", "resources:read")
     items = []
@@ -72,21 +81,21 @@ def list_content_sources(user: CurrentUser):
     return {"items": items}
 
 
-@router.get("/content-packs/web_security_v1/lab-candidates")
+@router.get("/content-packs/web_security_v1/lab-candidates", response_model=WebLabReadinessRegistryResponse)
 def web_lab_candidates(user: CurrentUser):
     _require(user, "labs.read", "teaching.course.read")
     path = CONTENT_DIR / "web-security-lab-candidates-v1.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-@router.get("/content-source-maps/seed")
+@router.get("/content-source-maps/seed", response_model=SeedDomainMapResponse)
 def seed_domain_map(user: CurrentUser):
     _require(user, "teaching.course.read", "resources:read")
     path = CONTENT_DIR / "seed-domain-map-zh-v1.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-@router.post("/content-sources/vulhub/index/preview")
+@router.post("/content-sources/vulhub/index/preview", response_model=ExternalLabCandidateListResponse)
 async def preview_vulhub_index(user: CurrentUser, file: Annotated[UploadFile, File()]):
     _require(user, "labs.read")
     raw = await file.read(2 * 1024 * 1024 + 1)
@@ -99,7 +108,7 @@ async def preview_vulhub_index(user: CurrentUser, file: Annotated[UploadFile, Fi
     return {"items": [item.model_dump(mode="json") for item in candidates], "total": len(candidates)}
 
 
-@router.post("/content-sources/compose/scan")
+@router.post("/content-sources/compose/scan", response_model=ComposeScanResponse)
 async def scan_compose(user: CurrentUser, file: Annotated[UploadFile, File()]):
     _require(user, "labs.read")
     raw = await file.read(512 * 1024 + 1)
