@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.outbox import enqueue_event
-from app.labs.models import LabDefinition, LabVersion
+from app.labs.models import LabDefinition, LabRelease, LabVersion
 from app.teaching.models import CourseLesson
 
 from . import models as m
@@ -46,7 +46,7 @@ class ChallengeService:
         self.require("labs.read", "classroom.lab.read", "classroom.lab.start")
         if course_id:
             self.require_course(course_id)
-        rows = self.repo.challenges(self.user.course_ids, course_id)
+        rows = self.repo.challenges(self.user.course_ids, course_id, published_only=self.user.role == "student")
         return {"items": [self._challenge(row) for row in rows], "page": 1, "page_size": len(rows), "total": len(rows)}
 
     def get_challenge(self, challenge_id: str):
@@ -190,6 +190,21 @@ class ChallengeService:
         flag = self.repo.flag(challenge_id)
         if not flag:
             raise ApiError("CHALLENGE.FLAG_NOT_CONFIGURED", "挑战验证器未配置", 409)
+        if body.lab_release_id:
+            release = self.session.get(LabRelease, body.lab_release_id)
+            if (
+                not release
+                or release.course_id != row.course_id
+                or release.lesson_id != row.lesson_id
+                or release.class_id != body.class_id
+            ):
+                raise ApiError(
+                    "CHALLENGE.RELEASE_SCOPE_MISMATCH",
+                    "挑战提交引用的实验发布与课程、课时或班级不一致",
+                    422,
+                )
+            if release.status not in {"OPEN", "SCHEDULED"}:
+                raise ApiError("CHALLENGE.RELEASE_NOT_ACTIVE", "实验发布当前不可用于挑战提交", 409)
         normalized = self._normalize(body.submission, flag.case_sensitive)
         accepted = hmac.compare_digest(self._flag_hash(flag.salt, normalized), flag.flag_hash)
         attempt = self.repo.add(m.ChallengeAttempt(
