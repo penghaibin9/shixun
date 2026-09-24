@@ -3253,6 +3253,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-sources/atomic-red-team/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Atomic Red Team */
+        post: operations["preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-sources/pwncollege/dojo/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Pwncollege Dojo */
+        post: operations["preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -3646,6 +3680,35 @@ export interface components {
              */
             submitted_at: string;
         };
+        /** AtomicTechniquePreviewResponse */
+        AtomicTechniquePreviewResponse: {
+            /** Attack Technique */
+            attack_technique: string;
+            /** Display Name */
+            display_name: string;
+            /** Test Count */
+            test_count: number;
+            /** Tests */
+            tests: components["schemas"]["AtomicTestMetadataResponse"][];
+            /**
+             * Execution Imported
+             * @default false
+             */
+            execution_imported: boolean;
+        };
+        /** AtomicTestMetadataResponse */
+        AtomicTestMetadataResponse: {
+            /** Name */
+            name: string;
+            /** Guid */
+            guid?: string | null;
+            /** Supported Platforms */
+            supported_platforms: string[];
+            /** Executor Name */
+            executor_name: string;
+            /** Dependency Count */
+            dependency_count: number;
+        };
         /** AttendanceCreate */
         AttendanceCreate: {
             /** Course Id */
@@ -3950,6 +4013,16 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post */
+        Body_preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post */
+        Body_preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post: {
+            /** File */
+            file: string;
+        };
         /** Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post */
         Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post: {
             /** File */
@@ -4013,6 +4086,8 @@ export interface components {
              * @default 10
              */
             max_attempts: number;
+            /** Prerequisite Challenge Id */
+            prerequisite_challenge_id?: string | null;
         };
         /** ChallengeListResponse */
         ChallengeListResponse: {
@@ -4037,6 +4112,13 @@ export interface components {
             lab_definition_id?: string | null;
             /** Checkpoint Key */
             checkpoint_key?: string | null;
+            /** Prerequisite Challenge Id */
+            prerequisite_challenge_id?: string | null;
+            /**
+             * Unlocked
+             * @default true
+             */
+            unlocked: boolean;
             /** Title */
             title: string;
             /** Description */
@@ -4777,6 +4859,29 @@ export interface components {
             instruction: string;
             /** Due At */
             due_at?: string | null;
+        };
+        /** DojoModulePreviewResponse */
+        DojoModulePreviewResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** DojoPreviewResponse */
+        DojoPreviewResponse: {
+            /** Dojo Id */
+            dojo_id: string;
+            /** Name */
+            name: string;
+            /** Module Count */
+            module_count: number;
+            /** Modules */
+            modules: components["schemas"]["DojoModulePreviewResponse"][];
+            /**
+             * Content Imported
+             * @default false
+             */
+            content_imported: boolean;
         };
         /** EventConsumptionResponse */
         EventConsumptionResponse: {
@@ -18531,6 +18636,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ComposeScanResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtomicTechniquePreviewResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DojoPreviewResponse"];
                 };
             };
             /** @description 标准错误信封 */
