@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 
 from .auth.api import router as auth_router
+from .challenges.api import router as challenges_router
 from .common.context import CurrentUser, RequestStateTrustedIdentityResolver, UserContextResponse, configure_trusted_identity_resolver, resolve_development_identity_headers, resolve_trusted_identity
 from .common.errors import ApiError, api_error_handler, validation_error_handler
 from .grading.api import router as grading_router
@@ -27,6 +28,7 @@ app.include_router(classroom_router)
 app.include_router(grading_router)
 app.include_router(integration_router)
 app.include_router(auth_router)
+app.include_router(challenges_router)
 
 
 def frozen_openapi() -> dict:
