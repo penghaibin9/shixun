@@ -3,11 +3,14 @@ import { onMounted, ref } from 'vue'
 import { api, download, fileIdempotencyKey, type ApiError } from '../api'
 
 type Course = { course_id: string; name: string; term: string; status: string; theory_lesson_count: number; lab_lesson_count: number }
+type CourseCatalog = { catalog_key: 'data_security_v1' | 'web_security_v1'; name: string; theory_lessons: number; lab_lessons: number }
 type ClassInfo = { class_id: string; name: string; term: string }
 type Member = { student_id: string; student_number: string; student_name: string; status: string }
 type ImportResult = { success_count: number; failure_count: number; duplicate_count: number; job_id: string }
 
 const courses = ref<Course[]>([])
+const catalogs = ref<CourseCatalog[]>([])
+const selectedCatalogKey = ref<CourseCatalog['catalog_key']>('data_security_v1')
 const classes = ref<ClassInfo[]>([])
 const members = ref<Member[]>([])
 const file = ref<File>()
@@ -18,7 +21,12 @@ const courseStatusLabels: Record<string, string> = { DRAFT: '草稿', ACTIVE: '�
 
 async function load() {
   const classId = localStorage.getItem('yk-class-id')
-  courses.value = (await api<{ items: Course[] }>('/api/v1/courses')).items
+  const [courseResult, catalogResult] = await Promise.all([
+    api<{ items: Course[] }>('/api/v1/courses'),
+    api<{ items: CourseCatalog[] }>('/api/v1/course-catalogs'),
+  ])
+  courses.value = courseResult.items
+  catalogs.value = catalogResult.items
   if (classId) {
     classes.value = (await api<{ items: ClassInfo[] }>('/api/v1/classes')).items
     members.value = (await api<{ items: Member[] }>(`/api/v1/classes/${classId}/members?page=1&page_size=100`)).items
@@ -29,15 +37,35 @@ async function load() {
 function selectCourse(course: Course) {
   selectedCourseId.value = course.course_id
   localStorage.setItem('yk-course-id', course.course_id)
+  localStorage.setItem('yk-course-name', course.name)
   message.value = `已选择课程：${course.name}`
 }
 
 async function createCourse() {
   try {
-    const item = await api<Course>('/api/v1/courses', { method: 'POST', body: JSON.stringify({ name: '数据安全技术基础', term: '2026 秋季', major: '网络空间安全', description: '围绕数据安全基础、加密、访问控制和安全治理开展教学。' }) })
+    const catalog = catalogs.value.find(item => item.catalog_key === selectedCatalogKey.value)
+    if (!catalog) {
+      message.value = '请先选择课程模板'
+      return
+    }
+    const descriptions: Record<CourseCatalog['catalog_key'], string> = {
+      data_security_v1: '围绕数据安全基础、加密、访问控制和安全治理开展教学。',
+      web_security_v1: '围绕 Web 安全、访问控制、输入验证、API 安全、日志检测和隔离靶场开展实训。',
+    }
+    const item = await api<Course>('/api/v1/courses', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: catalog.name,
+        term: '2026 秋季',
+        major: '网络空间安全',
+        description: descriptions[catalog.catalog_key],
+        catalog_key: catalog.catalog_key,
+      }),
+    })
     localStorage.setItem('yk-course-id', item.course_id)
+    localStorage.setItem('yk-course-name', item.name)
     selectedCourseId.value = item.course_id
-    message.value = '课程已创建'
+    message.value = `已创建：${item.name}`
     await load()
   } catch (error) {
     message.value = (error as ApiError).message
@@ -91,9 +119,17 @@ onMounted(load)
   <div>
     <div class="hero">
       <div><h1>课程中心</h1><p>课程、班级、章节、课时和学生名单统一维护。</p></div>
-      <div class="actions"><button class="yk-button primary" @click="createCourse">＋ 新建课程</button><button class="yk-button" :disabled="!courses.length" @click="createClass">＋ 建班</button></div>
+      <div class="actions"><button class="yk-button primary" :disabled="!catalogs.length" @click="createCourse">＋ 按模板新建课程</button><button class="yk-button" :disabled="!courses.length" @click="createClass">＋ 建班</button></div>
     </div>
     <p v-if="message" data-testid="message" class="status-ok">{{ message }}</p>
+    <section class="card catalog-picker">
+      <div class="section-head"><div><h3>课程模板</h3><p class="muted">选择模板后新建课程；已有课程不会被覆盖。</p></div></div>
+      <div class="actions">
+        <button v-for="catalog in catalogs" :key="catalog.catalog_key" type="button" class="yk-button" :class="{ primary: selectedCatalogKey === catalog.catalog_key }" :aria-pressed="selectedCatalogKey === catalog.catalog_key" @click="selectedCatalogKey = catalog.catalog_key">
+          {{ catalog.name }} · {{ catalog.theory_lessons }}+{{ catalog.lab_lessons }} 课时
+        </button>
+      </div>
+    </section>
     <div class="grid grid-2">
       <button v-for="course in courses" :key="course.course_id" type="button" class="card course-card" :class="{ selected: selectedCourseId === course.course_id }" :aria-pressed="selectedCourseId === course.course_id" :data-testid="`course-${course.course_id}`" @click="selectCourse(course)"><span class="badge">{{ courseStatusLabels[course.status] || '未知状态' }}</span><span v-if="selectedCourseId === course.course_id" class="badge selected-badge">当前课程</span><span class="course-title">{{ course.name }}</span><span class="muted">{{ course.term }} · {{ course.theory_lesson_count }} 理论课时 · {{ course.lab_lesson_count }} 实验课时</span></button>
       <article v-if="!courses.length" class="card muted">尚未创建课程</article>
@@ -117,4 +153,5 @@ onMounted(load)
 .course-title { display: block; margin: 14px 0 8px; font-size: 1.1rem; font-weight: 700; }
 .course-card .muted { display: block; }
 .selected-badge { margin-left: 8px; }
+.catalog-picker { margin: 14px 0; }
 </style>
