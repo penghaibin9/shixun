@@ -5,6 +5,54 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/v1/course-catalogs": {
+      "get": {
+        "summary": "List Course Catalogs",
+        "operationId": "list_course_catalogs_api_v1_course_catalogs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseCatalogListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/courses": {
       "get": {
         "summary": "List Courses",
@@ -12843,6 +12891,994 @@
         }
       }
     },
+    "/api/v1/challenges": {
+      "get": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "List Challenges",
+        "operationId": "list_challenges_api_v1_challenges_get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "Create Challenge",
+        "operationId": "create_challenge_api_v1_challenges_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChallengeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/{challenge_id}": {
+      "get": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "Get Challenge",
+        "operationId": "get_challenge_api_v1_challenges__challenge_id__get",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/{challenge_id}/bind": {
+      "post": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "Bind Challenge",
+        "operationId": "bind_challenge_api_v1_challenges__challenge_id__bind_post",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChallengeBind"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/{challenge_id}/hints": {
+      "post": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "Add Hint",
+        "operationId": "add_hint_api_v1_challenges__challenge_id__hints_post",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HintCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HintResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "List Hints",
+        "operationId": "list_hints_api_v1_challenges__challenge_id__hints_get",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HintListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/{challenge_id}/flag": {
+      "put": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "Configure Flag",
+        "operationId": "configure_flag_api_v1_challenges__challenge_id__flag_put",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagConfigure"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagConfiguredResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/{challenge_id}/publish": {
+      "post": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "Publish Challenge",
+        "operationId": "publish_challenge_api_v1_challenges__challenge_id__publish_post",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/challenges/{challenge_id}/submit": {
+      "post": {
+        "tags": [
+          "挑战训练"
+        ],
+        "summary": "Submit Flag",
+        "operationId": "submit_flag_api_v1_challenges__challenge_id__submit_post",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Challenge Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagSubmit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeAttemptResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content-packs": {
+      "get": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "List Content Packs",
+        "operationId": "list_content_packs_api_v1_content_packs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPackListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content-packs/{pack_id}": {
+      "get": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "Get Content Pack",
+        "operationId": "get_content_pack_api_v1_content_packs__pack_id__get",
+        "parameters": [
+          {
+            "name": "pack_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoursePackManifest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content-sources": {
+      "get": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "List Content Sources",
+        "operationId": "list_content_sources_api_v1_content_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSourcePolicyListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content-packs/web_security_v1/lab-candidates": {
+      "get": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "Web Lab Candidates",
+        "operationId": "web_lab_candidates_api_v1_content_packs_web_security_v1_lab_candidates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebLabReadinessRegistryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content-source-maps/seed": {
+      "get": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "Seed Domain Map",
+        "operationId": "seed_domain_map_api_v1_content_source_maps_seed_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeedDomainMapResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content-sources/vulhub/index/preview": {
+      "post": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "Preview Vulhub Index",
+        "operationId": "preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalLabCandidateListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content-sources/compose/scan": {
+      "post": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "Scan Compose",
+        "operationId": "scan_compose_api_v1_content_sources_compose_scan_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_scan_compose_api_v1_content_sources_compose_scan_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeScanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -14955,6 +15991,34 @@
         ],
         "title": "Body_import_questions_api_v1_questions_import_post"
       },
+      "Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post"
+      },
+      "Body_scan_compose_api_v1_content_sources_compose_scan_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_scan_compose_api_v1_content_sources_compose_scan_post"
+      },
       "Body_upload_resource_file_api_v1_resources_files_post": {
         "properties": {
           "course_id": {
@@ -14973,6 +16037,251 @@
           "file"
         ],
         "title": "Body_upload_resource_file_api_v1_resources_files_post"
+      },
+      "ChallengeAttemptResponse": {
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "title": "Attempt Id"
+          },
+          "challenge_id": {
+            "type": "string",
+            "title": "Challenge Id"
+          },
+          "attempt_no": {
+            "type": "integer",
+            "title": "Attempt No"
+          },
+          "accepted": {
+            "type": "boolean",
+            "title": "Accepted"
+          },
+          "remaining_attempts": {
+            "type": "integer",
+            "title": "Remaining Attempts"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "challenge_id",
+          "attempt_no",
+          "accepted",
+          "remaining_attempts",
+          "created_at"
+        ],
+        "title": "ChallengeAttemptResponse"
+      },
+      "ChallengeBind": {
+        "properties": {
+          "lab_definition_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Lab Definition Id"
+          },
+          "checkpoint_key": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Checkpoint Key"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "lab_definition_id",
+          "checkpoint_key"
+        ],
+        "title": "ChallengeBind"
+      },
+      "ChallengeCreate": {
+        "properties": {
+          "course_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Course Id"
+          },
+          "lesson_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Lesson Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "BEGINNER",
+              "INTERMEDIATE",
+              "ADVANCED"
+            ],
+            "title": "Difficulty",
+            "default": "BEGINNER"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "course_id",
+          "lesson_id",
+          "title",
+          "description"
+        ],
+        "title": "ChallengeCreate"
+      },
+      "ChallengeListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChallengeResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "ChallengeListResponse"
+      },
+      "ChallengeResponse": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "title": "Challenge Id"
+          },
+          "course_id": {
+            "type": "string",
+            "title": "Course Id"
+          },
+          "lesson_id": {
+            "type": "string",
+            "title": "Lesson Id"
+          },
+          "lab_definition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Definition Id"
+          },
+          "checkpoint_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "title": "Max Attempts"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "flag_configured": {
+            "type": "boolean",
+            "title": "Flag Configured"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "course_id",
+          "lesson_id",
+          "title",
+          "description",
+          "difficulty",
+          "max_attempts",
+          "status",
+          "flag_configured",
+          "created_by",
+          "created_at"
+        ],
+        "title": "ChallengeResponse"
       },
       "Checkpoint": {
         "properties": {
@@ -16309,6 +17618,235 @@
         "type": "object",
         "title": "CloneVersionInput"
       },
+      "ComposeFindingResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "blocking": {
+            "type": "boolean",
+            "title": "Blocking"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "blocking"
+        ],
+        "title": "ComposeFindingResponse"
+      },
+      "ComposeScanResponse": {
+        "properties": {
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ComposeFindingResponse"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "passed",
+          "findings"
+        ],
+        "title": "ComposeScanResponse"
+      },
+      "ContentOrigin": {
+        "type": "string",
+        "enum": [
+          "ORIGINAL",
+          "THIRD_PARTY",
+          "REFERENCE_ONLY"
+        ],
+        "title": "ContentOrigin"
+      },
+      "ContentPackListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentPackSummaryResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ContentPackListResponse"
+      },
+      "ContentPackSummaryResponse": {
+        "properties": {
+          "pack_id": {
+            "type": "string",
+            "title": "Pack Id"
+          },
+          "course_id": {
+            "type": "string",
+            "title": "Course Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "content_origin": {
+            "$ref": "#/components/schemas/ContentOrigin"
+          },
+          "commercial_bundle_allowed": {
+            "type": "boolean",
+            "title": "Commercial Bundle Allowed"
+          },
+          "theory_lessons": {
+            "type": "integer",
+            "title": "Theory Lessons"
+          },
+          "lab_lessons": {
+            "type": "integer",
+            "title": "Lab Lessons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pack_id",
+          "course_id",
+          "title",
+          "version",
+          "language",
+          "content_origin",
+          "commercial_bundle_allowed",
+          "theory_lessons",
+          "lab_lessons"
+        ],
+        "title": "ContentPackSummaryResponse"
+      },
+      "ContentSourcePolicyListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentSourcePolicyResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ContentSourcePolicyListResponse"
+      },
+      "ContentSourcePolicyResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "license_id": {
+            "type": "string",
+            "title": "License Id"
+          },
+          "use_mode": {
+            "type": "string",
+            "title": "Use Mode"
+          },
+          "license_decision": {
+            "$ref": "#/components/schemas/LicenseDecision"
+          },
+          "license_reason": {
+            "type": "string",
+            "title": "License Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "license_id",
+          "use_mode",
+          "license_decision",
+          "license_reason"
+        ],
+        "title": "ContentSourcePolicyResponse"
+      },
+      "CourseCatalogListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CourseCatalogResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "CourseCatalogListResponse"
+      },
+      "CourseCatalogResponse": {
+        "properties": {
+          "catalog_key": {
+            "type": "string",
+            "title": "Catalog Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "theory_lessons": {
+            "type": "integer",
+            "title": "Theory Lessons"
+          },
+          "lab_lessons": {
+            "type": "integer",
+            "title": "Lab Lessons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "catalog_key",
+          "name",
+          "theory_lessons",
+          "lab_lessons"
+        ],
+        "title": "CourseCatalogResponse"
+      },
       "CourseCreate": {
         "properties": {
           "name": {
@@ -16346,6 +17884,12 @@
               }
             ],
             "title": "Description"
+          },
+          "catalog_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{2,63}$",
+            "title": "Catalog Key",
+            "default": "data_security_v1"
           }
         },
         "type": "object",
@@ -16469,6 +18013,175 @@
           "total"
         ],
         "title": "CourseListResponse"
+      },
+      "CoursePackLesson": {
+        "properties": {
+          "lesson_code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Lesson Code"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "lesson_type": {
+            "type": "string",
+            "enum": [
+              "THEORY",
+              "LAB"
+            ],
+            "title": "Lesson Type"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary"
+          },
+          "objectives": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Objectives"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "BEGINNER",
+              "INTERMEDIATE",
+              "ADVANCED"
+            ],
+            "title": "Difficulty",
+            "default": "BEGINNER"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Category"
+          },
+          "lab_profile": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Profile"
+          },
+          "challenge_mode": {
+            "type": "boolean",
+            "title": "Challenge Mode",
+            "default": false
+          },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Source Refs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "lesson_code",
+          "title",
+          "lesson_type",
+          "summary",
+          "objectives",
+          "category"
+        ],
+        "title": "CoursePackLesson"
+      },
+      "CoursePackManifest": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Schema Version"
+          },
+          "pack_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{2,63}$",
+            "title": "Pack Id"
+          },
+          "course_id": {
+            "type": "string",
+            "pattern": "^course_[a-z0-9_]{3,48}$",
+            "title": "Course Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "title": "Version"
+          },
+          "language": {
+            "type": "string",
+            "const": "zh-CN",
+            "title": "Language",
+            "default": "zh-CN"
+          },
+          "content_origin": {
+            "$ref": "#/components/schemas/ContentOrigin"
+          },
+          "commercial_bundle_allowed": {
+            "type": "boolean",
+            "title": "Commercial Bundle Allowed"
+          },
+          "copyright_notice": {
+            "type": "string",
+            "title": "Copyright Notice"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "type": "array",
+            "maxItems": 32,
+            "title": "Sources"
+          },
+          "lessons": {
+            "items": {
+              "$ref": "#/components/schemas/CoursePackLesson"
+            },
+            "type": "array",
+            "maxItems": 300,
+            "minItems": 1,
+            "title": "Lessons"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "pack_id",
+          "course_id",
+          "title",
+          "version",
+          "content_origin",
+          "commercial_bundle_allowed",
+          "copyright_notice",
+          "lessons"
+        ],
+        "title": "CoursePackManifest"
       },
       "CoursePatch": {
         "properties": {
@@ -16959,6 +18672,228 @@
           "payload"
         ],
         "title": "EventEnvelope"
+      },
+      "ExternalLabCandidate": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_path": {
+            "type": "string",
+            "title": "Source Path"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "app": {
+            "type": "string",
+            "title": "App"
+          },
+          "cves": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cves"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images"
+          },
+          "license_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Id"
+          },
+          "import_status": {
+            "type": "string",
+            "enum": [
+              "CANDIDATE",
+              "REVIEW_REQUIRED",
+              "BLOCKED"
+            ],
+            "title": "Import Status",
+            "default": "CANDIDATE"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "source_path",
+          "source_url",
+          "name",
+          "app"
+        ],
+        "title": "ExternalLabCandidate"
+      },
+      "ExternalLabCandidateListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalLabCandidate"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ExternalLabCandidateListResponse"
+      },
+      "ExternalRuntimeRequirement": {
+        "properties": {
+          "source_name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Source Name"
+          },
+          "source_ref": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Source Ref"
+          },
+          "license_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "License Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "REVIEW_REQUIRED"
+            ],
+            "title": "Status",
+            "default": "REVIEW_REQUIRED"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_name",
+          "source_ref",
+          "license_id",
+          "reason"
+        ],
+        "title": "ExternalRuntimeRequirement"
+      },
+      "FlagConfigure": {
+        "properties": {
+          "flag": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 4,
+            "title": "Flag"
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "title": "Case Sensitive",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "flag"
+        ],
+        "title": "FlagConfigure"
+      },
+      "FlagConfiguredResponse": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "title": "Challenge Id"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "title": "Case Sensitive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "configured",
+          "case_sensitive"
+        ],
+        "title": "FlagConfiguredResponse"
+      },
+      "FlagSubmit": {
+        "properties": {
+          "submission": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Submission"
+          },
+          "class_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Class Id"
+          },
+          "lab_release_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Release Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "submission",
+          "class_id"
+        ],
+        "title": "FlagSubmit"
       },
       "FreezeRequest": {
         "properties": {
@@ -17658,6 +19593,100 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HintCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "unlock_after_attempts": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "Unlock After Attempts",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "HintCreate"
+      },
+      "HintListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HintResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "attempts",
+          "total"
+        ],
+        "title": "HintListResponse"
+      },
+      "HintResponse": {
+        "properties": {
+          "hint_id": {
+            "type": "string",
+            "title": "Hint Id"
+          },
+          "challenge_id": {
+            "type": "string",
+            "title": "Challenge Id"
+          },
+          "sequence": {
+            "type": "integer",
+            "title": "Sequence"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "unlock_after_attempts": {
+            "type": "integer",
+            "title": "Unlock After Attempts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hint_id",
+          "challenge_id",
+          "sequence",
+          "title",
+          "content",
+          "unlock_after_attempts"
+        ],
+        "title": "HintResponse"
+      },
       "IdentityReconciliationScanResponse": {
         "properties": {
           "examined_count": {
@@ -18064,6 +20093,14 @@
           },
           "runtime_policy": {
             "$ref": "#/components/schemas/RuntimePolicy"
+          },
+          "external_requirements": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalRuntimeRequirement"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "External Requirements"
           }
         },
         "additionalProperties": false,
@@ -18570,6 +20607,15 @@
           "missing_upstream"
         ],
         "title": "LearningSummaryResponse"
+      },
+      "LicenseDecision": {
+        "type": "string",
+        "enum": [
+          "ALLOW",
+          "REVIEW",
+          "BLOCK"
+        ],
+        "title": "LicenseDecision"
       },
       "LogDownloadResponse": {
         "properties": {
@@ -24273,6 +26319,125 @@
         ],
         "title": "SceneNode"
       },
+      "SeedDomainMapItemResponse": {
+        "properties": {
+          "source_category": {
+            "type": "string",
+            "title": "Source Category"
+          },
+          "yueke_course": {
+            "type": "string",
+            "title": "Yueke Course"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_category",
+          "yueke_course",
+          "status"
+        ],
+        "title": "SeedDomainMapItemResponse"
+      },
+      "SeedDomainMapResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_repository": {
+            "type": "string",
+            "title": "Source Repository"
+          },
+          "source_license": {
+            "type": "string",
+            "title": "Source License"
+          },
+          "commercial_rule": {
+            "type": "string",
+            "title": "Commercial Rule"
+          },
+          "direct_translation_allowed_in_yueke_commercial_bundle": {
+            "type": "boolean",
+            "title": "Direct Translation Allowed In Yueke Commercial Bundle"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "domain_map": {
+            "items": {
+              "$ref": "#/components/schemas/SeedDomainMapItemResponse"
+            },
+            "type": "array",
+            "title": "Domain Map"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "source",
+          "source_repository",
+          "source_license",
+          "commercial_rule",
+          "direct_translation_allowed_in_yueke_commercial_bundle",
+          "note",
+          "domain_map"
+        ],
+        "title": "SeedDomainMapResponse"
+      },
+      "SourceRef": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Url"
+          },
+          "license_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Id"
+          },
+          "use_mode": {
+            "type": "string",
+            "enum": [
+              "BUNDLED",
+              "EXTERNAL_RUNTIME",
+              "REFERENCE_ONLY"
+            ],
+            "title": "Use Mode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "use_mode"
+        ],
+        "title": "SourceRef"
+      },
       "StudentAssignmentListItemResponse": {
         "properties": {
           "assignment_id": {
@@ -25596,6 +27761,91 @@
           "sha256"
         ],
         "title": "VersionCreate"
+      },
+      "WebLabReadinessRegistryResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "course_id": {
+            "type": "string",
+            "title": "Course Id"
+          },
+          "safety_rule": {
+            "type": "string",
+            "title": "Safety Rule"
+          },
+          "labs": {
+            "items": {
+              "$ref": "#/components/schemas/WebLabReadinessResponse"
+            },
+            "type": "array",
+            "title": "Labs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "course_id",
+          "safety_rule",
+          "labs"
+        ],
+        "title": "WebLabReadinessRegistryResponse"
+      },
+      "WebLabReadinessResponse": {
+        "properties": {
+          "lesson_code": {
+            "type": "string",
+            "title": "Lesson Code"
+          },
+          "lab_definition_id": {
+            "type": "string",
+            "title": "Lab Definition Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "license": {
+            "type": "string",
+            "title": "License"
+          },
+          "source_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Path"
+          },
+          "runtime_status": {
+            "type": "string",
+            "title": "Runtime Status"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lesson_code",
+          "lab_definition_id",
+          "title",
+          "source",
+          "license",
+          "runtime_status",
+          "reason"
+        ],
+        "title": "WebLabReadinessResponse"
       },
       "app__lab_classroom__schemas__RuntimeAuditLogItemResponse": {
         "properties": {
