@@ -11,16 +11,20 @@ const message = ref('')
 const courseId = computed(() => localStorage.getItem('yk-course-id') || 'course_web_security')
 const classId = computed(() => localStorage.getItem('yk-class-id') || '')
 
+function challengeRole(): 'teacher' | 'student' {
+  return context.value?.role === 'student' ? 'student' : 'teacher'
+}
+
 async function load() {
   context.value = await getCurrentContext()
-  const result = await challengeApi.list(courseId.value, context.value.role)
+  const result = await challengeApi.list(courseId.value, challengeRole())
   items.value = result.items
   if (selected.value) selected.value = items.value.find(item => item.challenge_id === selected.value?.challenge_id)
 }
 
 async function choose(item: ChallengeItem) {
   selected.value = item
-  const result = await challengeApi.hints(item.challenge_id, context.value?.role || 'teacher')
+  const result = await challengeApi.hints(item.challenge_id, challengeRole())
   hints.value = result.items
 }
 
