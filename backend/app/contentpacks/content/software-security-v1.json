@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "software_security_v1",
+  "course_id": "course_software_security",
+  "title": "漏洞分析与软件安全",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "安全开发生命周期与威胁建模",
+      "lesson_type": "THEORY",
+      "summary": "围绕“安全开发生命周期与威胁建模”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释安全开发生命周期与威胁建模的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "C/C++ 内存模型与边界安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“C/C++ 内存模型与边界安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释C/C++ 内存模型与边界安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "栈、堆与内存错误原理",
+      "lesson_type": "THEORY",
+      "summary": "围绕“栈、堆与内存错误原理”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释栈、堆与内存错误原理的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "整数、格式化与类型安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“整数、格式化与类型安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释整数、格式化与类型安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "编译器保护机制与二进制安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“编译器保护机制与二进制安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释编译器保护机制与二进制安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "静态分析与代码审计方法",
+      "lesson_type": "THEORY",
+      "summary": "围绕“静态分析与代码审计方法”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释静态分析与代码审计方法的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "动态分析、调试与崩溃定位",
+      "lesson_type": "THEORY",
+      "summary": "围绕“动态分析、调试与崩溃定位”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释动态分析、调试与崩溃定位的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "逆向工程基础与程序结构",
+      "lesson_type": "THEORY",
+      "summary": "围绕“逆向工程基础与程序结构”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释逆向工程基础与程序结构的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "依赖组件与软件供应链风险",
+      "lesson_type": "THEORY",
+      "summary": "围绕“依赖组件与软件供应链风险”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释依赖组件与软件供应链风险的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "模糊测试与输入空间",
+      "lesson_type": "THEORY",
+      "summary": "围绕“模糊测试与输入空间”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释模糊测试与输入空间的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "漏洞修复、补丁与回归验证",
+      "lesson_type": "THEORY",
+      "summary": "围绕“漏洞修复、补丁与回归验证”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释漏洞修复、补丁与回归验证的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "漏洞生命周期与负责任披露",
+      "lesson_type": "THEORY",
+      "summary": "围绕“漏洞生命周期与负责任披露”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释漏洞生命周期与负责任披露的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "威胁建模与攻击面清单",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“威胁建模与攻击面清单”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成威胁建模与攻击面清单的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "越界访问缺陷定位",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“越界访问缺陷定位”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成越界访问缺陷定位的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "内存错误崩溃分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“内存错误崩溃分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成内存错误崩溃分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "整数与格式化错误修复",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“整数与格式化错误修复”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成整数与格式化错误修复的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "编译保护机制观察",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“编译保护机制观察”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成编译保护机制观察的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "静态扫描结果人工复核",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“静态扫描结果人工复核”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成静态扫描结果人工复核的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "调试器定位异常路径",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“调试器定位异常路径”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成调试器定位异常路径的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "基础二进制结构分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“基础二进制结构分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成基础二进制结构分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "依赖清单与已知风险核查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“依赖清单与已知风险核查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成依赖清单与已知风险核查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "受控模糊测试与崩溃归类",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“受控模糊测试与崩溃归类”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成受控模糊测试与崩溃归类的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "补丁前后安全回归",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“补丁前后安全回归”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成补丁前后安全回归的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "软件安全综合审计",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“软件安全综合审计”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成软件安全综合审计的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "漏洞分析与软件安全",
+      "lab_profile": "software_security",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}
