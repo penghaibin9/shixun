@@ -19,10 +19,12 @@ class ChallengeRepository:
     def flag(self, challenge_id: str):
         return self.session.scalar(select(m.ChallengeFlag).where(m.ChallengeFlag.challenge_id == challenge_id))
 
-    def challenges(self, course_ids: frozenset[str], course_id: str | None = None):
+    def challenges(self, course_ids: frozenset[str], course_id: str | None = None, *, published_only: bool = False):
         stmt = select(m.ChallengeDefinition).where(m.ChallengeDefinition.course_id.in_(course_ids))
         if course_id:
             stmt = stmt.where(m.ChallengeDefinition.course_id == course_id)
+        if published_only:
+            stmt = stmt.where(m.ChallengeDefinition.status == "PUBLISHED")
         return list(self.session.scalars(stmt.order_by(m.ChallengeDefinition.lesson_id, m.ChallengeDefinition.challenge_id)))
 
     def hints(self, challenge_id: str):
