@@ -58,6 +58,7 @@ const resourceNavigation: NavigationItem[] = [
 const context = ref<UserContext | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const selectedCourseName = ref(localStorage.getItem('yk-course-name') || '数据安全技术基础')
 
 const roleLabel: Record<Role, string> = { teacher: '教师', student: '学生', admin: '管理员' }
 const visibleNavigation = computed(() => context.value
@@ -97,7 +98,7 @@ onMounted(loadContext)
     </aside>
     <main>
       <header class="topbar">
-        <span>数据安全技术基础</span>
+        <span>{{ selectedCourseName }}</span>
         <span v-if="loading" class="role-badge" aria-live="polite">正在确认当前会话…</span>
         <span v-else-if="context" class="role-badge" data-testid="app-shell-role">当前身份：{{ roleLabel[context.role] }}</span>
         <span v-else class="role-badge session-error" role="alert" data-testid="app-shell-session-error">未取得可信会话身份：{{ errorMessage }}</span>
