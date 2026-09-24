@@ -167,15 +167,41 @@ def upgrade() -> None:
             "core_experiment": title if kind == "LAB" else None,
         })
 
+    lab_categories = [
+        "Web 基础", "身份与访问控制", "注入安全", "浏览器安全",
+        "文件安全", "服务端请求安全", "解析安全", "API 安全",
+        "浏览器安全", "检测与审计", "安全测试", "综合实践",
+    ]
     for index, (code, title) in enumerate(LABS, start=1):
         challenge_id = f"challenge_web_{index:02d}"
+        lab_definition_id = f"lab_web_{index:02d}"
         lesson_id = _id("lesson", f"web:{code}")
+        bind.execute(sa.text(
+            """INSERT IGNORE INTO lab_definition
+               (lab_definition_id,course_id,code,name,category,objective,created_by,created_at,updated_at)
+               VALUES (:lab_definition_id,:course_id,:code,:name,:category,:objective,'system_content_pack',:created_at,:updated_at)"""
+        ), {
+            "lab_definition_id": lab_definition_id,
+            "course_id": COURSE_ID,
+            "code": f"EXP-WEB-{index:02d}",
+            "name": title,
+            "category": lab_categories[index - 1],
+            "objective": f"在授权隔离环境中完成{title}，保留允许路径、拒绝路径和修复验证证据。",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        })
+        bind.execute(sa.text(
+            """UPDATE lesson_resource
+               SET linked_lab_definition_id=:lab_definition_id
+               WHERE course_id=:course_id AND lesson_id=:lesson_id"""
+        ), {"lab_definition_id": lab_definition_id, "course_id": COURSE_ID, "lesson_id": lesson_id})
         bind.execute(sa.text(
             """INSERT IGNORE INTO challenge_definition
                (challenge_id,course_id,lesson_id,lab_definition_id,checkpoint_key,title,description,difficulty,max_attempts,status,created_by,created_at,published_at)
-               VALUES (:challenge_id,:course_id,:lesson_id,NULL,NULL,:title,:description,:difficulty,10,'DRAFT','system_content_pack',:created_at,NULL)"""
+               VALUES (:challenge_id,:course_id,:lesson_id,:lab_definition_id,NULL,:title,:description,:difficulty,10,'DRAFT','system_content_pack',:created_at,NULL)"""
         ), {
             "challenge_id": challenge_id, "course_id": COURSE_ID, "lesson_id": lesson_id,
+            "lab_definition_id": lab_definition_id,
             "title": title, "description": f"{title}：在授权隔离实验环境中完成阶段目标并通过 Checkpoint/Flag 验证。",
             "difficulty": "INTERMEDIATE" if index >= 10 else "BEGINNER", "created_at": datetime.utcnow(),
         })
@@ -198,7 +224,9 @@ def downgrade() -> None:
     bind = op.get_bind()
     bind.execute(sa.text("DELETE FROM challenge_hint WHERE challenge_id LIKE 'challenge_web_%'"))
     bind.execute(sa.text("DELETE FROM challenge_definition WHERE course_id=:course_id"), {"course_id": COURSE_ID})
+    bind.execute(sa.text("UPDATE lesson_resource SET linked_lab_definition_id=NULL WHERE course_id=:course_id"), {"course_id": COURSE_ID})
     bind.execute(sa.text("DELETE FROM lesson_resource WHERE course_id=:course_id"), {"course_id": COURSE_ID})
+    bind.execute(sa.text("DELETE FROM lab_definition WHERE course_id=:course_id AND created_by='system_content_pack'"), {"course_id": COURSE_ID})
     bind.execute(sa.text("DELETE FROM course_lesson WHERE course_id=:course_id"), {"course_id": COURSE_ID})
     bind.execute(sa.text("DELETE FROM course_chapter WHERE course_id=:course_id"), {"course_id": COURSE_ID})
     bind.execute(sa.text("DELETE FROM course WHERE course_id=:course_id AND owner_teacher_id='system_content_pack'"), {"course_id": COURSE_ID})
