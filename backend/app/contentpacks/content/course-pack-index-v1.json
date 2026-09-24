@@ -1,0 +1,65 @@
+{
+  "version": "1.0.0",
+  "catalogs": [
+    {
+      "catalog_key": "web_security_v1",
+      "filename": "web-security-v1.json",
+      "status": "FIRST_BATCH",
+      "title": "Web 应用安全实训"
+    },
+    {
+      "catalog_key": "network_security_v1",
+      "filename": "network-security-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "网络协议与攻防基础"
+    },
+    {
+      "catalog_key": "system_security_v1",
+      "filename": "system-security-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "Linux 与系统安全"
+    },
+    {
+      "catalog_key": "software_security_v1",
+      "filename": "software-security-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "漏洞分析与软件安全"
+    },
+    {
+      "catalog_key": "blue_team_v1",
+      "filename": "blue-team-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "蓝队检测与应急响应"
+    },
+    {
+      "catalog_key": "ctf_foundation_v1",
+      "filename": "ctf-foundation-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "CTF 与综合挑战训练"
+    },
+    {
+      "catalog_key": "crypto_security_v1",
+      "filename": "crypto-security-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "密码学与安全协议实训"
+    },
+    {
+      "catalog_key": "blockchain_security_v1",
+      "filename": "blockchain-security-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "区块链安全基础实训"
+    },
+    {
+      "catalog_key": "mobile_security_v1",
+      "filename": "mobile-security-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "移动应用安全基础"
+    },
+    {
+      "catalog_key": "hardware_security_v1",
+      "filename": "hardware-security-v1.json",
+      "status": "CURRICULUM_READY",
+      "title": "硬件与侧信道安全导论"
+    }
+  ]
+}
