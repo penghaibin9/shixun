@@ -314,8 +314,17 @@ class TeachingService:
         if not self.user.teacher_id:
             raise ApiError("AUTH.TEACHER_REQUIRED", "当前身份没有关联教师", 403)
         course_fields = body.model_dump(exclude={"catalog_key"})
-        item = self.repo.add(m.Course(course_id=str(uuid4()), owner_teacher_id=self.user.teacher_id, created_at=now(), status="DRAFT", **course_fields))
-        catalog = curriculum_rows(item.course_id, body.catalog_key)
+        course_id = str(uuid4())
+        try:
+            catalog = curriculum_rows(course_id, body.catalog_key)
+        except ValueError as error:
+            raise ApiError(
+                "TEACHING.CATALOG_NOT_FOUND",
+                "课程模板不存在或内容包无效",
+                422,
+                {"catalog_key": body.catalog_key},
+            ) from error
+        item = self.repo.add(m.Course(course_id=course_id, owner_teacher_id=self.user.teacher_id, created_at=now(), status="DRAFT", **course_fields))
         for row in catalog["chapters"]:
             self.repo.add(m.CourseChapter(**row))
         for row in catalog["lessons"]:

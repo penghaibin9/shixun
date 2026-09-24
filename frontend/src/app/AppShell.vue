@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { getCurrentContext, type ApiError, type UserContext } from './api'
 
@@ -70,6 +70,11 @@ const visibleResourceNavigation = computed(() => context.value
   ? resourceNavigation.filter(item => item.roles.includes(context.value!.role))
   : [])
 
+function syncCourseName(event: Event) {
+  const detail = (event as CustomEvent<string>).detail
+  selectedCourseName.value = detail || localStorage.getItem('yk-course-name') || '数据安全技术基础'
+}
+
 async function loadContext() {
   loading.value = true
   errorMessage.value = ''
@@ -83,7 +88,11 @@ async function loadContext() {
   }
 }
 
-onMounted(loadContext)
+onMounted(() => {
+  window.addEventListener('yk-course-changed', syncCourseName)
+  loadContext()
+})
+onBeforeUnmount(() => window.removeEventListener('yk-course-changed', syncCourseName))
 </script>
 
 <template>

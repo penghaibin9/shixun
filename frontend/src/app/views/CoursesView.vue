@@ -3,14 +3,14 @@ import { onMounted, ref } from 'vue'
 import { api, download, fileIdempotencyKey, type ApiError } from '../api'
 
 type Course = { course_id: string; name: string; term: string; status: string; theory_lesson_count: number; lab_lesson_count: number }
-type CourseCatalog = { catalog_key: 'data_security_v1' | 'web_security_v1'; name: string; theory_lessons: number; lab_lessons: number }
+type CourseCatalog = { catalog_key: string; name: string; theory_lessons: number; lab_lessons: number }
 type ClassInfo = { class_id: string; name: string; term: string }
 type Member = { student_id: string; student_number: string; student_name: string; status: string }
 type ImportResult = { success_count: number; failure_count: number; duplicate_count: number; job_id: string }
 
 const courses = ref<Course[]>([])
 const catalogs = ref<CourseCatalog[]>([])
-const selectedCatalogKey = ref<CourseCatalog['catalog_key']>('data_security_v1')
+const selectedCatalogKey = ref('data_security_v1')
 const classes = ref<ClassInfo[]>([])
 const members = ref<Member[]>([])
 const file = ref<File>()
@@ -38,6 +38,7 @@ function selectCourse(course: Course) {
   selectedCourseId.value = course.course_id
   localStorage.setItem('yk-course-id', course.course_id)
   localStorage.setItem('yk-course-name', course.name)
+  window.dispatchEvent(new CustomEvent('yk-course-changed', { detail: course.name }))
   message.value = `已选择课程：${course.name}`
 }
 
@@ -48,22 +49,22 @@ async function createCourse() {
       message.value = '请先选择课程模板'
       return
     }
-    const descriptions: Record<CourseCatalog['catalog_key'], string> = {
-      data_security_v1: '围绕数据安全基础、加密、访问控制和安全治理开展教学。',
-      web_security_v1: '围绕 Web 安全、访问控制、输入验证、API 安全、日志检测和隔离靶场开展实训。',
-    }
+    const description = catalog.catalog_key === 'data_security_v1'
+      ? '围绕数据安全基础、加密、访问控制和安全治理开展教学。'
+      : `《${catalog.name}》原创中文课程模板，理论、实验和挑战内容按统一内容包合同维护。`
     const item = await api<Course>('/api/v1/courses', {
       method: 'POST',
       body: JSON.stringify({
         name: catalog.name,
         term: '2026 秋季',
         major: '网络空间安全',
-        description: descriptions[catalog.catalog_key],
+        description,
         catalog_key: catalog.catalog_key,
       }),
     })
     localStorage.setItem('yk-course-id', item.course_id)
     localStorage.setItem('yk-course-name', item.name)
+    window.dispatchEvent(new CustomEvent('yk-course-changed', { detail: item.name }))
     selectedCourseId.value = item.course_id
     message.value = `已创建：${item.name}`
     await load()

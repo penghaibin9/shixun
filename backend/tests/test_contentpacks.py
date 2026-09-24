@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from app.contentpacks.adapters.vulhub import parse_environment_index
-from app.contentpacks.catalog import load_bundled_course_pack
+from app.contentpacks.catalog import course_pack_registry, load_bundled_course_pack, load_course_pack_by_catalog
 from app.contentpacks.license_policy import LicenseDecision, evaluate_license
 from app.contentpacks.security import scan_compose_manifest
 
@@ -61,3 +61,18 @@ def test_first_web_security_pack_is_original_chinese_content():
     assert sum(item.lesson_type == "THEORY" for item in pack.lessons) == 12
     assert sum(item.lesson_type == "LAB" for item in pack.lessons) == 12
     assert all(item.title for item in pack.lessons)
+
+
+def test_all_registered_original_chinese_course_packs_are_valid_and_complete():
+    registry = course_pack_registry()
+    assert len(registry) == 10
+    assert len({item["catalog_key"] for item in registry}) == 10
+    for item in registry:
+        pack = load_course_pack_by_catalog(item["catalog_key"])
+        assert pack.content_origin.value == "ORIGINAL"
+        assert pack.commercial_bundle_allowed is True
+        assert pack.language == "zh-CN"
+        assert len(pack.lessons) == 24
+        assert sum(lesson.lesson_type == "THEORY" for lesson in pack.lessons) == 12
+        assert sum(lesson.lesson_type == "LAB" for lesson in pack.lessons) == 12
+        assert all(lesson.title and lesson.summary and lesson.objectives for lesson in pack.lessons)

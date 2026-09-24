@@ -11,7 +11,7 @@ from app.common.context import CurrentUser
 from app.common.errors import ApiError
 
 from .adapters.vulhub import parse_environment_index
-from .catalog import CONTENT_DIR, load_bundled_course_pack
+from .catalog import CONTENT_DIR, course_pack_registry, load_course_pack_by_catalog
 from .license_policy import evaluate_license
 from .security import scan_compose_manifest
 from .schemas import (
@@ -47,9 +47,10 @@ def _require(user, *permissions: str) -> None:
 @router.get("/content-packs", response_model=ContentPackListResponse)
 def list_content_packs(user: CurrentUser):
     _require(user, "teaching.course.read", "resources:read")
-    pack = load_bundled_course_pack("web-security-v1.json")
-    return {
-        "items": [{
+    items = []
+    for registry_item in course_pack_registry():
+        pack = load_course_pack_by_catalog(registry_item["catalog_key"])
+        items.append({
             "pack_id": pack.pack_id,
             "course_id": pack.course_id,
             "title": pack.title,
@@ -59,16 +60,17 @@ def list_content_packs(user: CurrentUser):
             "commercial_bundle_allowed": pack.commercial_bundle_allowed,
             "theory_lessons": sum(item.lesson_type == "THEORY" for item in pack.lessons),
             "lab_lessons": sum(item.lesson_type == "LAB" for item in pack.lessons),
-        }]
-    }
+        })
+    return {"items": items}
 
 
 @router.get("/content-packs/{pack_id}", response_model=CoursePackManifest)
 def get_content_pack(pack_id: str, user: CurrentUser):
     _require(user, "teaching.course.read", "resources:read")
-    if pack_id != "web_security_v1":
-        raise ApiError("CONTENT_PACK.NOT_FOUND", "内容包不存在", 404)
-    return load_bundled_course_pack("web-security-v1.json").model_dump(mode="json")
+    try:
+        return load_course_pack_by_catalog(pack_id).model_dump(mode="json")
+    except ValueError as error:
+        raise ApiError("CONTENT_PACK.NOT_FOUND", "内容包不存在", 404) from error
 
 
 @router.get("/content-sources", response_model=ContentSourcePolicyListResponse)
