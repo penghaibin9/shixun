@@ -27,7 +27,7 @@ from .schemas import (
     ClassCreate,
     ClassMemberListResponse,
     ClassMemberResponse,
-    CourseCreate,
+    CourseCatalogListResponse, CourseCreate,
     CourseLessonListResponse,
     CoursePatch,
     CourseResponse,
@@ -75,6 +75,10 @@ XLSX_RESPONSE = {
 
 def service(db: Db, user: CurrentUser) -> TeachingService:
     return TeachingService(db, user)
+
+
+@router.get("/course-catalogs", response_model=CourseCatalogListResponse)
+def list_course_catalogs(db: Db, user: CurrentUser): return service(db, user).course_catalogs()
 
 
 @router.post("/courses", status_code=201, response_model=CourseSummaryResponse)
