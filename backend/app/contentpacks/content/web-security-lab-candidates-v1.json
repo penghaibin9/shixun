@@ -1,0 +1,127 @@
+{
+  "version": "1.0.0",
+  "course_id": "course_web_security",
+  "safety_rule": "外部环境只做候选；必须固定镜像 digest、通过 Compose 安全扫描、教师预演和 Linux Node Agent 验收后才能生成已发布 LabVersion。",
+  "labs": [
+    {
+      "lesson_code": "实验01",
+      "lab_definition_id": "lab_web_01",
+      "title": "HTTP 请求观察与安全基线",
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "AUTHORING_READY",
+      "reason": "可使用现有 Python/Nginx 安全镜像构建第一方教学目标。"
+    },
+    {
+      "lesson_code": "实验02",
+      "lab_definition_id": "lab_web_02",
+      "title": "认证与对象授权验证",
+      "source": "OWASP Juice Shop",
+      "license": "MIT",
+      "source_path": "juice-shop/juice-shop",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "代码许可证可用，但正式运行镜像尚未冻结 digest。"
+    },
+    {
+      "lesson_code": "实验03",
+      "lab_definition_id": "lab_web_03",
+      "title": "SQL 注入原理与参数化修复",
+      "source": "Vulhub",
+      "license": "MIT",
+      "source_path": "cmsms/CVE-2019-9053",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "候选环境元数据已确认；需要 Compose 安全审查和镜像摘要冻结。"
+    },
+    {
+      "lesson_code": "实验04",
+      "lab_definition_id": "lab_web_04",
+      "title": "XSS 输入输出边界",
+      "source": "OWASP Juice Shop",
+      "license": "MIT",
+      "source_path": "juice-shop/juice-shop",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "使用隔离综合靶场，不复制第三方课程文案。"
+    },
+    {
+      "lesson_code": "实验05",
+      "lab_definition_id": "lab_web_05",
+      "title": "文件上传与路径穿越防护",
+      "source": "Vulhub",
+      "license": "MIT",
+      "source_path": "coldfusion/CVE-2010-2861",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "先作为路径安全候选，不在未审核前自动启动。"
+    },
+    {
+      "lesson_code": "实验06",
+      "lab_definition_id": "lab_web_06",
+      "title": "SSRF 出口控制",
+      "source": "Vulhub",
+      "license": "MIT",
+      "source_path": "adminer/CVE-2021-21311",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "必须确认环境无 host network/docker.sock/危险挂载。"
+    },
+    {
+      "lesson_code": "实验07",
+      "lab_definition_id": "lab_web_07",
+      "title": "XML 解析与安全配置",
+      "source": "WebGoat",
+      "license": "GPL-2.0-or-later",
+      "source_path": "WebGoat/WebGoat",
+      "runtime_status": "LICENSE_REVIEW_REQUIRED",
+      "reason": "GPL 组件可研究和独立部署，但进入商业交付包前需完成分发义务复核。"
+    },
+    {
+      "lesson_code": "实验08",
+      "lab_definition_id": "lab_web_08",
+      "title": "API 对象级权限测试",
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "AUTHORING_READY",
+      "reason": "适合使用跃科自建最小 API 教学靶场，避免依赖外部漏洞实现。"
+    },
+    {
+      "lesson_code": "实验09",
+      "lab_definition_id": "lab_web_09",
+      "title": "Cookie 与安全响应头配置",
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "AUTHORING_READY",
+      "reason": "使用现有 Nginx/Python 教学镜像即可完成正反配置验证。"
+    },
+    {
+      "lesson_code": "实验10",
+      "lab_definition_id": "lab_web_10",
+      "title": "Web 日志检测与攻击链回放",
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "AUTHORING_READY",
+      "reason": "使用合成访问日志与现有 PCAP/审计能力，不需要危险目标。"
+    },
+    {
+      "lesson_code": "实验11",
+      "lab_definition_id": "lab_web_11",
+      "title": "漏洞修复回归门禁",
+      "source": "OWASP Juice Shop",
+      "license": "MIT",
+      "source_path": "juice-shop/juice-shop",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "用于修复前后验证模式，镜像必须固定版本和摘要。"
+    },
+    {
+      "lesson_code": "实验12",
+      "lab_definition_id": "lab_web_12",
+      "title": "Web 综合靶场挑战",
+      "source": "OWASP Juice Shop",
+      "license": "MIT",
+      "source_path": "juice-shop/juice-shop",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "综合挑战使用独立隔离靶场；Flag 只记录完成事实，成绩仍来自 Checkpoint。"
+    }
+  ]
+}
