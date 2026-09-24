@@ -458,6 +458,12 @@ def publishability_errors(spec: LabDefinitionSpec) -> list[dict[str, str]]:
         errors.append({"code": "SCENE_INCOMPLETE", "message": "场景至少需要一个节点和一个网络"})
     if not spec.steps:
         errors.append({"code": "DAG_EMPTY", "message": "实验至少需要一个 DAG 步骤"})
+    for requirement in spec.external_requirements:
+        if requirement.status != "READY":
+            errors.append({
+                "code": "EXTERNAL_RUNTIME_NOT_READY",
+                "message": f"{requirement.source_name} 运行依赖尚未完成审核：{requirement.reason}",
+            })
     graph = {node.node_key: [] for node in spec.steps}
     indegree = {node.node_key: 0 for node in spec.steps}
     for edge in spec.edges:
