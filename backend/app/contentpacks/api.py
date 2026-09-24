@@ -79,7 +79,7 @@ def web_lab_candidates(user: CurrentUser):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-@router.get("/content-packs/seed-domain-map")
+@router.get("/content-source-maps/seed")
 def seed_domain_map(user: CurrentUser):
     _require(user, "teaching.course.read", "resources:read")
     path = CONTENT_DIR / "seed-domain-map-zh-v1.json"
