@@ -23,6 +23,8 @@ const navigation: NavigationItem[] = [
   { to: '/student-attendance', label: '课堂签到', roles: ['student'] },
   { to: '/student-quiz', label: '学生作业与测验', roles: ['student'] },
   { to: '/labs', label: '实验总览', roles: ['teacher'] },
+  { to: '/challenges', label: '挑战训练', roles: ['teacher', 'student'] },
+  { to: '/content-library', label: '内容包中心', roles: ['teacher', 'admin'] },
   { to: '/lab-templates', label: '实验模板库', roles: ['teacher'] },
   { to: '/course-knowledge', label: '知识点讲解图', roles: ['teacher'] },
   { to: '/lab-builder', label: '创建实验', roles: ['teacher'] },
