@@ -9,7 +9,7 @@ class CourseCreate(BaseModel):
     term: str = Field(min_length=1, max_length=64)
     major: str | None = Field(default=None, max_length=128)
     description: str | None = Field(default=None, max_length=4000)
-    catalog_key: Literal["data_security_v1", "web_security_v1"] = "data_security_v1"
+    catalog_key: str = Field(default="data_security_v1", pattern=r"^[a-z][a-z0-9_]{2,63}$")
 
 
 class CoursePatch(BaseModel):
