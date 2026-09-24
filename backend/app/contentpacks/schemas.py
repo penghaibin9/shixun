@@ -67,3 +67,84 @@ class ExternalLabCandidate(StrictModel):
     images: list[str] = Field(default_factory=list)
     license_id: str | None = None
     import_status: Literal["CANDIDATE", "REVIEW_REQUIRED", "BLOCKED"] = "CANDIDATE"
+
+
+class ContentPackSummaryResponse(BaseModel):
+    pack_id: str
+    course_id: str
+    title: str
+    version: str
+    language: str
+    content_origin: ContentOrigin
+    commercial_bundle_allowed: bool
+    theory_lessons: int
+    lab_lessons: int
+
+
+class ContentPackListResponse(BaseModel):
+    items: list[ContentPackSummaryResponse]
+
+
+class ContentSourcePolicyResponse(BaseModel):
+    name: str
+    url: str
+    license_id: str
+    use_mode: str
+    license_decision: LicenseDecision
+    license_reason: str
+
+
+class ContentSourcePolicyListResponse(BaseModel):
+    items: list[ContentSourcePolicyResponse]
+
+
+class WebLabReadinessResponse(BaseModel):
+    lesson_code: str
+    lab_definition_id: str
+    title: str
+    source: str
+    license: str
+    source_path: str | None = None
+    runtime_status: str
+    reason: str
+
+
+class WebLabReadinessRegistryResponse(BaseModel):
+    version: str
+    course_id: str
+    safety_rule: str
+    labs: list[WebLabReadinessResponse]
+
+
+class SeedDomainMapItemResponse(BaseModel):
+    source_category: str
+    yueke_course: str
+    status: str
+
+
+class SeedDomainMapResponse(BaseModel):
+    version: str
+    source: str
+    source_repository: str
+    source_license: str
+    commercial_rule: str
+    direct_translation_allowed_in_yueke_commercial_bundle: bool
+    note: str
+    domain_map: list[SeedDomainMapItemResponse]
+
+
+class ExternalLabCandidateListResponse(BaseModel):
+    items: list[ExternalLabCandidate]
+    total: int
+
+
+class ComposeFindingResponse(BaseModel):
+    code: str
+    message: str
+    service: str | None = None
+    blocking: bool
+
+
+class ComposeScanResponse(BaseModel):
+    passed: bool
+    findings: list[ComposeFindingResponse]
