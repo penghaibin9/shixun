@@ -1,11 +1,10 @@
 from uuid import NAMESPACE_URL, uuid5
 
-from app.contentpacks.catalog import load_bundled_course_pack
+from app.contentpacks.catalog import course_pack_registry, load_course_pack_by_catalog
 
 
 COURSE_ID = "course_data_security"
 DEFAULT_CATALOG_KEY = "data_security_v1"
-WEB_SECURITY_CATALOG_KEY = "web_security_v1"
 
 THEORY_LESSONS = [
     (1, "1.1", "数据基础：定义、特征、分类与全生命周期"),
@@ -125,19 +124,19 @@ def _data_security_curriculum_rows(course_id: str = COURSE_ID) -> dict[str, list
     return {"chapters": chapters, "lessons": lessons}
 
 
-def _web_security_curriculum_rows(course_id: str) -> dict[str, list[dict]]:
-    pack = load_bundled_course_pack("web-security-v1.json")
+def _content_pack_curriculum_rows(course_id: str, catalog_key: str) -> dict[str, list[dict]]:
+    pack = load_course_pack_by_catalog(catalog_key)
     chapters = [
         {
-            "chapter_id": _stable_id(course_id, "chapter", "web-theory"),
+            "chapter_id": _stable_id(course_id, "chapter", f"{catalog_key}:theory"),
             "course_id": course_id,
-            "title": "Web 安全理论",
+            "title": f"{pack.title}·理论",
             "sequence": 1,
         },
         {
-            "chapter_id": _stable_id(course_id, "chapter", "web-labs"),
+            "chapter_id": _stable_id(course_id, "chapter", f"{catalog_key}:labs"),
             "course_id": course_id,
-            "title": "Web 安全实验",
+            "title": f"{pack.title}·实验",
             "sequence": 2,
         },
     ]
@@ -145,13 +144,14 @@ def _web_security_curriculum_rows(course_id: str) -> dict[str, list[dict]]:
     lessons = []
     for item in pack.lessons:
         if item.lesson_type == "THEORY":
-            sequence = int(item.lesson_code.split(".", 1)[1])
+            digits = item.lesson_code.split(".", 1)[-1]
+            sequence = int(digits) if digits.isdigit() else len([x for x in lessons if x["lesson_type"] == "THEORY"]) + 1
         else:
             digits = "".join(character for character in item.lesson_code if character.isdigit())
-            sequence = int(digits)
+            sequence = int(digits or "1")
         lessons.append(
             {
-                "lesson_id": _stable_id(course_id, "lesson", f"web:{item.lesson_code}"),
+                "lesson_id": _stable_id(course_id, "lesson", f"{catalog_key}:{item.lesson_code}"),
                 "course_id": course_id,
                 "chapter_id": chapter_by_type[item.lesson_type],
                 "lesson_code": item.lesson_code,
@@ -166,27 +166,29 @@ def _web_security_curriculum_rows(course_id: str) -> dict[str, list[dict]]:
 def curriculum_rows(course_id: str = COURSE_ID, catalog_key: str = DEFAULT_CATALOG_KEY) -> dict[str, list[dict]]:
     if catalog_key == DEFAULT_CATALOG_KEY:
         return _data_security_curriculum_rows(course_id)
-    if catalog_key == WEB_SECURITY_CATALOG_KEY:
-        return _web_security_curriculum_rows(course_id)
-    raise ValueError(f"未知课程模板：{catalog_key}")
+    return _content_pack_curriculum_rows(course_id, catalog_key)
 
 
 def catalog_metadata() -> list[dict[str, str | int]]:
-    return [
+    rows: list[dict[str, str | int]] = [
         {
             "catalog_key": DEFAULT_CATALOG_KEY,
             "name": "数据安全技术基础",
             "theory_lessons": len(THEORY_LESSONS),
             "lab_lessons": len(LAB_LESSONS),
-        },
-        {
-            "catalog_key": WEB_SECURITY_CATALOG_KEY,
-            "name": "Web 应用安全实训",
-            "theory_lessons": 12,
-            "lab_lessons": 12,
-        },
+        }
     ]
-
+    for item in course_pack_registry():
+        pack = load_course_pack_by_catalog(item["catalog_key"])
+        rows.append(
+            {
+                "catalog_key": item["catalog_key"],
+                "name": pack.title,
+                "theory_lessons": sum(lesson.lesson_type == "THEORY" for lesson in pack.lessons),
+                "lab_lessons": sum(lesson.lesson_type == "LAB" for lesson in pack.lessons),
+            }
+        )
+    return rows
 
 def lesson_id_by_code(course_id: str = COURSE_ID, catalog_key: str = DEFAULT_CATALOG_KEY) -> dict[str, str]:
     return {row["lesson_code"]: row["lesson_id"] for row in curriculum_rows(course_id, catalog_key)["lessons"]}
