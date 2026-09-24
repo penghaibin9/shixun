@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "authority_contracts": {
     "curriculum": {
       "owner": "A",
@@ -40,6 +40,18 @@
       "proof_event_type": "grading.score.proof.frozen",
       "proof_producer_actor_user_id": "service_teaching_score_prover",
       "rule": "A 只从 B 的独立审核且已发布题目冻结服务端题目版本、分值和判分依据；作业或测验提交只接受作答，A 将提交/作答、冻结题集、答题与判分证据、独立证明事件和最终成绩事件同事务写入。无证明或摘要不一致的历史提交不作为可复核成绩重放。"
+    },
+    "challenge_completion": {
+      "owner": "E",
+      "definition_owner": "C",
+      "definition_tables": [
+        "challenge_definition",
+        "challenge_hint",
+        "challenge_flag"
+      ],
+      "attempt_table": "challenge_attempt",
+      "score_owner": "F",
+      "rule": "C 定义挑战、提示与 Flag 校验配置；E 记录学生在班级/实验发布范围内的挑战尝试与完成事实；Challenge 不直接写课程成绩，F 仅消费现有受证明的 Checkpoint/成绩事件。"
     }
   },
   "owners": {
@@ -98,6 +110,9 @@
       "video_asset"
     ],
     "C": [
+      "challenge_definition",
+      "challenge_flag",
+      "challenge_hint",
       "lab_checkpoint",
       "lab_dag_edge",
       "lab_dag_node",
@@ -135,6 +150,7 @@
       "runtime_terminal_session"
     ],
     "E": [
+      "challenge_attempt",
       "classroom_consumed_event",
       "classroom_runtime_event",
       "classroom_runtime_projection",
