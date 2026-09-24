@@ -347,7 +347,7 @@ export const contentPackApi={
   list:()=>contentPackRequest<{items:ContentPackSummary[]}>('/api/v1/content-packs'),
   sources:()=>contentPackRequest<{items:ContentSource[]}>('/api/v1/content-sources'),
   webLabCandidates:()=>contentPackRequest<{labs:WebLabCandidate[]}>('/api/v1/content-packs/web_security_v1/lab-candidates'),
-  seedDomainMap:()=>contentPackRequest<{domain_map:{source_category:string;yueke_course:string;status:string}[]}>('/api/v1/content-packs/seed-domain-map'),
+  seedDomainMap:()=>contentPackRequest<{domain_map:{source_category:string;yueke_course:string;status:string}[]}>('/api/v1/content-source-maps/seed'),
   previewVulhub:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{items:unknown[];total:number}>('/api/v1/content-sources/vulhub/index/preview',{method:'POST',body})},
   scanCompose:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{passed:boolean;findings:{code:string;message:string;service?:string;blocking:boolean}[]}>('/api/v1/content-sources/compose/scan',{method:'POST',body})},
 }
