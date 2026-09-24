@@ -309,8 +309,9 @@ class TeachingService:
         self.require("teaching.course.write")
         if not self.user.teacher_id:
             raise ApiError("AUTH.TEACHER_REQUIRED", "当前身份没有关联教师", 403)
-        item = self.repo.add(m.Course(course_id=str(uuid4()), owner_teacher_id=self.user.teacher_id, created_at=now(), status="DRAFT", **body.model_dump()))
-        catalog = curriculum_rows(item.course_id)
+        course_fields = body.model_dump(exclude={"catalog_key"})
+        item = self.repo.add(m.Course(course_id=str(uuid4()), owner_teacher_id=self.user.teacher_id, created_at=now(), status="DRAFT", **course_fields))
+        catalog = curriculum_rows(item.course_id, body.catalog_key)
         for row in catalog["chapters"]:
             self.repo.add(m.CourseChapter(**row))
         for row in catalog["lessons"]:
