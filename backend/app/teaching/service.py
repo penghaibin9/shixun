@@ -17,7 +17,7 @@ from app.common.models import DomainEventOutbox
 from app.common.outbox import enqueue_event
 
 from . import models as m
-from .catalog import curriculum_rows
+from .catalog import catalog_metadata, curriculum_rows
 from .repository import TeachingRepository
 from .schemas import AssignmentCreate, AttendanceCreate, ClassCreate, CourseCreate, CoursePatch, MemberCreate, PollCreate, QuizCreate, QuizSubmitIn, SubmissionIn
 from .xlsx import parse_members
@@ -304,6 +304,10 @@ class TeachingService:
 
     def audit(self, action: str, aggregate_type: str, aggregate_id: str, payload: dict):
         enqueue_event(self.session, event_type="teaching.audit", aggregate_type=aggregate_type, aggregate_id=aggregate_id, actor_user_id=self.user.user_id, idempotency_key=f"{action}:{aggregate_id}:{uuid4()}", payload={"action": action, "actor_role": self.user.role, **payload})
+
+    def course_catalogs(self):
+        self.require("teaching.course.read")
+        return {"items": catalog_metadata()}
 
     def create_course(self, body: CourseCreate):
         self.require("teaching.course.write")
