@@ -355,7 +355,7 @@ export const contentPackApi={
 }
 
 export type ChallengeItem = {
-  challenge_id:string;course_id:string;lesson_id:string;lab_definition_id:string|null;checkpoint_key:string|null;
+  challenge_id:string;course_id:string;lesson_id:string;lab_definition_id:string|null;lab_version_id:string|null;checkpoint_key:string|null;
   prerequisite_challenge_id:string|null;unlocked:boolean;
   title:string;description:string;difficulty:string;max_attempts:number;status:string;flag_configured:boolean
 }
@@ -378,5 +378,5 @@ export const challengeApi={
   list:(courseId:string,role:'teacher'|'student')=>challengeRequest<{items:ChallengeItem[];total:number}>(`/api/v1/challenges?course_id=${encodeURIComponent(courseId)}`,role),
   hints:(id:string,role:'teacher'|'student')=>challengeRequest<{items:{hint_id:string;title:string;content:string;unlock_after_attempts:number}[];attempts:number;total:number}>(`/api/v1/challenges/${id}/hints`,role),
   configureFlag:(id:string,flag:string)=>challengeRequest(`/api/v1/challenges/${id}/flag`,'teacher',{method:'PUT',body:JSON.stringify({flag,case_sensitive:true})}),
-  submit:(id:string,submission:string,classId:string)=>challengeRequest<{attempt_id:string;accepted:boolean;remaining_attempts:number}>(`/api/v1/challenges/${id}/submit`,'student',{method:'POST',body:JSON.stringify({submission,class_id:classId,lab_release_id:null})}),
+  submit:(id:string,submission:string,classId:string,releaseId:string,runtimeInstanceId:string)=>challengeRequest<{attempt_id:string;runtime_instance_id:string|null;checkpoint_result_id:string|null;accepted:boolean;remaining_attempts:number}>(`/api/v1/challenges/${id}/submit`,'student',{method:'POST',body:JSON.stringify({submission,class_id:classId,lab_release_id:releaseId,runtime_instance_id:runtimeInstanceId})}),
 }
