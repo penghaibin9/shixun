@@ -31,6 +31,7 @@ class ChallengeDefinition(Base):
     description: Mapped[str] = mapped_column(Text)
     difficulty: Mapped[str] = mapped_column(String(24))
     max_attempts: Mapped[int] = mapped_column(Integer, default=10)
+    validation_mode: Mapped[str] = mapped_column(String(32), default="FLAG_AND_CHECKPOINT")
     status: Mapped[str] = mapped_column(String(24), default="DRAFT")
     created_by: Mapped[str] = mapped_column(String(36))
     created_at: Mapped[datetime] = mapped_column(DateTime)
