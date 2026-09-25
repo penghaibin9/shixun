@@ -10,58 +10,58 @@
       "source": "YUEKE_ORIGINAL",
       "license": "PROPRIETARY",
       "source_path": null,
-      "runtime_status": "AUTHORING_READY",
-      "reason": "可使用现有 Python/Nginx 安全镜像构建第一方教学目标。"
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "已落为跃科原创双节点 LabDefinition：Python 学生工作站真实请求隔离 Nginx 目标，并由固定 Checkpoint 判定。"
     },
     {
       "lesson_code": "实验02",
       "lab_definition_id": "lab_web_02",
       "title": "认证与对象授权验证",
-      "source": "OWASP Juice Shop",
-      "license": "MIT",
-      "source_path": "juice-shop/juice-shop",
-      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
-      "reason": "代码许可证可用，但正式运行镜像尚未冻结 digest。"
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "已改为跃科原创对象授权编码实验；固定判题合同覆盖本人允许、跨用户拒绝和教师授权，第三方综合靶场仅作后续扩展。"
     },
     {
       "lesson_code": "实验03",
       "lab_definition_id": "lab_web_03",
       "title": "SQL 注入原理与参数化修复",
-      "source": "Vulhub",
-      "license": "MIT",
-      "source_path": "cmsms/CVE-2019-9053",
-      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
-      "reason": "候选环境元数据已确认；需要 Compose 安全审查和镜像摘要冻结。"
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "已改为跃科原创 sqlite3 参数化修复实验；隔离判题器创建一次性教学数据库复核注入现象与参数化修复。"
     },
     {
       "lesson_code": "实验04",
       "lab_definition_id": "lab_web_04",
       "title": "XSS 输入输出边界",
-      "source": "OWASP Juice Shop",
-      "license": "MIT",
-      "source_path": "juice-shop/juice-shop",
-      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
-      "reason": "使用隔离综合靶场，不复制第三方课程文案。"
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "已改为跃科原创输出编码实验；固定测试载荷验证危险标签在安全输出中被上下文编码。"
     },
     {
       "lesson_code": "实验05",
       "lab_definition_id": "lab_web_05",
       "title": "文件上传与路径穿越防护",
-      "source": "Vulhub",
-      "license": "MIT",
-      "source_path": "coldfusion/CVE-2010-2861",
-      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
-      "reason": "先作为路径安全候选，不在未审核前自动启动。"
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "已改为跃科原创文件策略实验；固定判题合同验证绝对路径、目录穿越、危险扩展名和大小限制。"
     },
     {
       "lesson_code": "实验06",
       "lab_definition_id": "lab_web_06",
       "title": "SSRF 出口控制",
-      "source": "Vulhub",
-      "license": "MIT",
-      "source_path": "adminer/CVE-2021-21311",
-      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
-      "reason": "必须确认环境无 host network/docker.sock/危险挂载。"
+      "source": "YUEKE_ORIGINAL",
+      "license": "PROPRIETARY",
+      "source_path": null,
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "已改为跃科原创 SSRF 出口策略实验；固定判题合同验证协议、域名、localhost、私网和链路本地地址边界。"
     },
     {
       "lesson_code": "实验07",
