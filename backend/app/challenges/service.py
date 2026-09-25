@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.outbox import enqueue_event
-from app.labs.models import LabDefinition, LabRelease, LabVersion
+from app.labs.models import LabDefinition, LabPublishConfig, LabRelease, LabVersion
+from app.runtime.models import CheckpointResult, RuntimeInstance, RuntimeInstanceGroup, RuntimeRequest
 from app.teaching.models import CourseLesson
 
 from . import models as m
@@ -103,6 +104,7 @@ class ChallengeService:
         if body.checkpoint_key not in keys:
             raise ApiError("CHALLENGE.CHECKPOINT_NOT_FOUND", "挑战引用的 Checkpoint 不存在", 422)
         row.lab_definition_id = definition.lab_definition_id
+        row.lab_version_id = version.lab_version_id
         row.checkpoint_key = body.checkpoint_key
         self._event("challenge.bound", row, {"lab_definition_id": row.lab_definition_id, "checkpoint_key": row.checkpoint_key})
         self.session.commit()
@@ -170,8 +172,8 @@ class ChallengeService:
     def publish(self, challenge_id: str):
         self.require("labs.write")
         row = self._get(challenge_id)
-        if not row.lab_definition_id or not row.checkpoint_key:
-            raise ApiError("CHALLENGE.BIND_REQUIRED", "发布前必须绑定已发布实验版本的 Checkpoint", 409)
+        if not row.lab_definition_id or not row.lab_version_id or not row.checkpoint_key:
+            raise ApiError("CHALLENGE.BIND_REQUIRED", "发布前必须冻结已发布实验版本及其 Checkpoint", 409)
         if not self.repo.flag(challenge_id):
             raise ApiError("CHALLENGE.FLAG_REQUIRED", "发布前必须配置 Flag", 409)
         row.status = "PUBLISHED"
@@ -187,41 +189,42 @@ class ChallengeService:
             raise ApiError("CHALLENGE.NOT_PUBLISHED", "挑战尚未发布", 409)
         self.require_class(body.class_id)
         student_id = self._student_id()
-        if row.prerequisite_challenge_id and not self.repo.accepted(row.prerequisite_challenge_id, student_id):
-            raise ApiError("CHALLENGE.LOCKED", "请先完成前置挑战", 409)
-        accepted_before = self.repo.accepted(challenge_id, student_id)
+        if row.prerequisite_challenge_id and not self.repo.accepted(
+            row.prerequisite_challenge_id, student_id, class_id=body.class_id
+        ):
+            raise ApiError("CHALLENGE.LOCKED", "请先完成当前班级的前置挑战", 409)
+
+        accepted_before = self.repo.accepted(challenge_id, student_id, class_id=body.class_id)
         if accepted_before:
             remaining = max(0, row.max_attempts - accepted_before.attempt_no)
             return self._attempt(accepted_before, remaining)
-        count = self.repo.attempts(challenge_id, student_id)
+
+        count = self.repo.attempts(challenge_id, student_id, class_id=body.class_id)
         if count >= row.max_attempts:
             raise ApiError("CHALLENGE.ATTEMPTS_EXHAUSTED", "挑战提交次数已用完", 409)
         flag = self.repo.flag(challenge_id)
         if not flag:
             raise ApiError("CHALLENGE.FLAG_NOT_CONFIGURED", "挑战验证器未配置", 409)
-        if body.lab_release_id:
-            release = self.session.get(LabRelease, body.lab_release_id)
-            if (
-                not release
-                or release.course_id != row.course_id
-                or release.lesson_id != row.lesson_id
-                or release.class_id != body.class_id
-            ):
-                raise ApiError(
-                    "CHALLENGE.RELEASE_SCOPE_MISMATCH",
-                    "挑战提交引用的实验发布与课程、课时或班级不一致",
-                    422,
-                )
-            if release.status not in {"OPEN", "SCHEDULED"}:
-                raise ApiError("CHALLENGE.RELEASE_NOT_ACTIVE", "实验发布当前不可用于挑战提交", 409)
+
+        checkpoint = self._runtime_checkpoint(row, body, student_id)
         normalized = self._normalize(body.submission, flag.case_sensitive)
         accepted = hmac.compare_digest(self._flag_hash(flag.salt, normalized), flag.flag_hash)
+        if accepted and (not checkpoint or checkpoint.status != "PASSED"):
+            raise ApiError(
+                "CHALLENGE.CHECKPOINT_REQUIRED",
+                "Flag 正确，但权威运行时 Checkpoint 尚未通过；请先完成实验判定",
+                409,
+                {"checkpoint_key": row.checkpoint_key, "runtime_instance_id": body.runtime_instance_id},
+            )
+
         attempt = self.repo.add(m.ChallengeAttempt(
             attempt_id=str(uuid4()),
             challenge_id=challenge_id,
             student_id=student_id,
             class_id=body.class_id,
             lab_release_id=body.lab_release_id,
+            runtime_instance_id=body.runtime_instance_id,
+            checkpoint_result_id=checkpoint.checkpoint_result_id if accepted and checkpoint else None,
             attempt_no=count + 1,
             accepted=accepted,
             created_at=now(),
@@ -233,12 +236,73 @@ class ChallengeService:
                 "student_id": student_id,
                 "class_id": body.class_id,
                 "lab_release_id": body.lab_release_id,
-                "attempt_no": attempt.attempt_no,
+                "lab_version_id": row.lab_version_id,
+                "runtime_instance_id": body.runtime_instance_id,
                 "checkpoint_key": row.checkpoint_key,
+                "checkpoint_result_id": attempt.checkpoint_result_id,
+                "attempt_no": attempt.attempt_no,
             },
         )
         self.session.commit()
         return self._attempt(attempt, max(0, row.max_attempts - attempt.attempt_no))
+
+    def _runtime_checkpoint(self, row: m.ChallengeDefinition, body: FlagSubmit, student_id: str):
+        if not row.lab_version_id or not row.checkpoint_key:
+            raise ApiError("CHALLENGE.BIND_REQUIRED", "挑战没有冻结实验版本或 Checkpoint", 409)
+        release = self.session.get(LabRelease, body.lab_release_id)
+        if (
+            not release
+            or release.course_id != row.course_id
+            or release.lesson_id != row.lesson_id
+            or release.class_id != body.class_id
+            or release.lab_version_id != row.lab_version_id
+        ):
+            raise ApiError(
+                "CHALLENGE.RELEASE_SCOPE_MISMATCH",
+                "挑战提交引用的实验发布与冻结课程、课时、班级或版本不一致",
+                422,
+            )
+        config = self.session.scalar(
+            select(LabPublishConfig).where(LabPublishConfig.lab_release_id == release.lab_release_id)
+        )
+        stamp = now()
+        if (
+            release.status != "OPEN"
+            or not config
+            or not (config.opens_at <= stamp < config.closes_at)
+        ):
+            raise ApiError("CHALLENGE.RELEASE_NOT_ACTIVE", "实验发布当前未开放，不能提交挑战", 409)
+
+        instance = self.session.get(RuntimeInstance, body.runtime_instance_id)
+        group = self.session.get(RuntimeInstanceGroup, instance.runtime_group_id) if instance else None
+        request = self.session.get(RuntimeRequest, group.runtime_request_id) if group else None
+        if (
+            not instance
+            or not group
+            or not request
+            or instance.student_id != student_id
+            or instance.status != "RUNNING"
+            or request.mode != "STUDENT"
+            or request.student_id != student_id
+            or request.lab_release_id != body.lab_release_id
+            or request.lab_version_id != row.lab_version_id
+            or request.course_id != row.course_id
+            or request.class_id != body.class_id
+        ):
+            raise ApiError(
+                "CHALLENGE.RUNTIME_SCOPE_MISMATCH",
+                "挑战提交必须引用本人当前班级、当前发布和冻结实验版本的运行实例",
+                422,
+            )
+        return self.session.scalar(
+            select(CheckpointResult)
+            .where(
+                CheckpointResult.runtime_instance_id == body.runtime_instance_id,
+                CheckpointResult.checkpoint_id == row.checkpoint_key,
+            )
+            .order_by(CheckpointResult.attempt.desc(), CheckpointResult.judged_at.desc())
+            .limit(1)
+        )
 
     def _get(self, challenge_id: str):
         row = self.repo.challenge(challenge_id)
@@ -278,6 +342,7 @@ class ChallengeService:
             "course_id": row.course_id,
             "lesson_id": row.lesson_id,
             "lab_definition_id": row.lab_definition_id,
+            "lab_version_id": row.lab_version_id,
             "checkpoint_key": row.checkpoint_key,
             "prerequisite_challenge_id": row.prerequisite_challenge_id,
             "unlocked": (
@@ -312,6 +377,8 @@ class ChallengeService:
         return {
             "attempt_id": row.attempt_id,
             "challenge_id": row.challenge_id,
+            "runtime_instance_id": row.runtime_instance_id,
+            "checkpoint_result_id": row.checkpoint_result_id,
             "attempt_no": row.attempt_no,
             "accepted": row.accepted,
             "remaining_attempts": remaining,
