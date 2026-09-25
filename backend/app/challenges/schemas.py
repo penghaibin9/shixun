@@ -37,7 +37,8 @@ class FlagConfigure(StrictModel):
 class FlagSubmit(StrictModel):
     submission: str = Field(min_length=1, max_length=256)
     class_id: str = Field(min_length=1, max_length=36)
-    lab_release_id: str | None = Field(default=None, max_length=36)
+    lab_release_id: str = Field(min_length=1, max_length=36)
+    runtime_instance_id: str = Field(min_length=1, max_length=36)
 
 
 class ChallengeResponse(BaseModel):
@@ -45,6 +46,7 @@ class ChallengeResponse(BaseModel):
     course_id: str
     lesson_id: str
     lab_definition_id: str | None = None
+    lab_version_id: str | None = None
     checkpoint_key: str | None = None
     prerequisite_challenge_id: str | None = None
     unlocked: bool = True
@@ -90,6 +92,8 @@ class FlagConfiguredResponse(BaseModel):
 class ChallengeAttemptResponse(BaseModel):
     attempt_id: str
     challenge_id: str
+    runtime_instance_id: str | None = None
+    checkpoint_result_id: str | None = None
     attempt_no: int
     accepted: bool
     remaining_attempts: int
