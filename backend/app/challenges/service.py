@@ -43,17 +43,21 @@ class ChallengeService:
         if class_id not in self.user.class_ids:
             raise ApiError("AUTH.CLASS_SCOPE_DENIED", "无权访问该班级挑战", 403)
 
-    def list_challenges(self, course_id: str | None = None):
+    def list_challenges(self, course_id: str | None = None, class_id: str | None = None):
         self.require("labs.read", "classroom.lab.read", "classroom.lab.start")
         if course_id:
             self.require_course(course_id)
+        if class_id:
+            self.require_class(class_id)
         rows = self.repo.challenges(self.user.course_ids, course_id, published_only=self.user.role == "student")
-        return {"items": [self._challenge(row) for row in rows], "page": 1, "page_size": len(rows), "total": len(rows)}
+        return {"items": [self._challenge(row, class_id=class_id) for row in rows], "page": 1, "page_size": len(rows), "total": len(rows)}
 
-    def get_challenge(self, challenge_id: str):
+    def get_challenge(self, challenge_id: str, class_id: str | None = None):
         self.require("labs.read", "classroom.lab.read", "classroom.lab.start")
+        if class_id:
+            self.require_class(class_id)
         row = self._get(challenge_id)
-        return self._challenge(row)
+        return self._challenge(row, class_id=class_id)
 
     def create_challenge(self, body: ChallengeCreate):
         self.require("labs.write")
@@ -128,14 +132,17 @@ class ChallengeService:
         self.session.commit()
         return self._hint(hint)
 
-    def hints(self, challenge_id: str):
+    def hints(self, challenge_id: str, class_id: str | None = None):
         self.require("labs.read", "classroom.lab.read", "classroom.lab.start")
         row = self._get(challenge_id)
         if self.user.role == "student":
+            if not class_id:
+                raise ApiError("CHALLENGE.CLASS_REQUIRED", "查看学生挑战提示必须指定当前班级", 422)
+            self.require_class(class_id)
             student_id = self._student_id()
-            if row.prerequisite_challenge_id and not self.repo.accepted(row.prerequisite_challenge_id, student_id):
-                raise ApiError("CHALLENGE.LOCKED", "请先完成前置挑战", 409)
-            attempts = self.repo.attempts(challenge_id, student_id)
+            if row.prerequisite_challenge_id and not self.repo.accepted(row.prerequisite_challenge_id, student_id, class_id=class_id):
+                raise ApiError("CHALLENGE.LOCKED", "请先完成当前班级的前置挑战", 409)
+            attempts = self.repo.attempts(challenge_id, student_id, class_id=class_id)
             items = [hint for hint in self.repo.hints(challenge_id) if hint.unlock_after_attempts <= attempts]
         else:
             attempts = 0
@@ -336,7 +343,7 @@ class ChallengeService:
             payload={"course_id": row.course_id, "lesson_id": row.lesson_id, "challenge_id": row.challenge_id, **payload},
         )
 
-    def _challenge(self, row: m.ChallengeDefinition):
+    def _challenge(self, row: m.ChallengeDefinition, class_id: str | None = None):
         return {
             "challenge_id": row.challenge_id,
             "course_id": row.course_id,
@@ -348,7 +355,10 @@ class ChallengeService:
             "unlocked": (
                 self.user.role != "student"
                 or not row.prerequisite_challenge_id
-                or bool(self.repo.accepted(row.prerequisite_challenge_id, self._student_id()))
+                or (
+                    bool(class_id)
+                    and bool(self.repo.accepted(row.prerequisite_challenge_id, self._student_id(), class_id=class_id))
+                )
             ),
             "title": row.title,
             "description": row.description,
