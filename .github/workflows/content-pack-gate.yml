@@ -56,6 +56,7 @@ jobs:
           tests/test_external_source_adapters.py
           tests/test_external_runtime_gate.py
           tests/test_challenges.py
+          tests/test_lab_classroom.py
           tests/test_web_security_lab_catalog.py
           tests/test_web_security_node_agent_contract.py
           tests/test_lab_schema.py
