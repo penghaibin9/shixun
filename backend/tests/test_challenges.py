@@ -1,4 +1,7 @@
-from app.challenges.schemas import ChallengeCreate, FlagConfigure
+import pytest
+from pydantic import ValidationError
+
+from app.challenges.schemas import ChallengeCreate, FlagConfigure, FlagSubmit
 from app.challenges.service import ChallengeService
 
 
@@ -25,3 +28,18 @@ def test_challenge_contract_requires_lab_course_scope_fields():
     )
     assert body.max_attempts == 10
     assert FlagConfigure(flag="YK{demo}").case_sensitive is True
+
+
+
+def test_flag_submission_requires_authoritative_runtime_lineage():
+    body = FlagSubmit(
+        submission="YK{runtime-bound}",
+        class_id="class-a",
+        lab_release_id="release-a",
+        runtime_instance_id="runtime-a",
+    )
+    assert body.lab_release_id == "release-a"
+    assert body.runtime_instance_id == "runtime-a"
+
+    with pytest.raises(ValidationError):
+        FlagSubmit(submission="YK{bypass}", class_id="class-a")
