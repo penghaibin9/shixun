@@ -264,6 +264,45 @@ class ClassroomService:
         self.require("classroom.lab.submit"); student_id = self.require_student()
         data = self.student_release(release_id)
         return self.gateways.runtime.request("POST", f"/api/v1/runtime/lab-releases/{release_id}/submit", self.user, json={"student_id": student_id, "runtime_instance_id": data.get("runtime_instance_id")})
+    def student_rejudge(self, runtime_id: str):
+        # 学生只能触发“本人正在运行实例”的标准 Checkpoint 判题；不能获得教师的通用运行时控制权。
+        self.require("classroom.lab.read")
+        student_id = self.require_student()
+        instance = self.gateways.runtime.request("GET", f"/api/v1/runtime/instances/{runtime_id}", self.user)
+        self.require_class(instance["class_id"])
+        if instance.get("course_id"):
+            self.require_course(instance["course_id"])
+        if instance.get("student_id") != student_id:
+            raise ApiError("AUTH.SCOPE_DENIED", "只能检查本人实验实例", 403)
+        if str(instance.get("status") or "").upper() != "RUNNING":
+            raise ApiError("CLASSROOM.RUNTIME_NOT_RUNNING", "实验进入运行状态后才能执行检查点判定", 409)
+        delegated = UserContext(
+            user_id=self.user.user_id,
+            role=self.user.role,
+            teacher_id=self.user.teacher_id,
+            student_id=self.user.student_id,
+            permissions=frozenset(set(self.user.permissions) | {"classroom.runtime.rejudge"}),
+            course_ids=self.user.course_ids,
+            class_ids=self.user.class_ids,
+        )
+        result = self.gateways.runtime.request(
+            "POST",
+            f"/api/v1/runtime/instances/{runtime_id}/rejudge",
+            delegated,
+            json={"reason": "student_checkpoint_check"},
+        )
+        self.audit(
+            "student.checkpoint.rejudge",
+            runtime_id,
+            {
+                "course_id": instance.get("course_id"),
+                "class_id": instance["class_id"],
+                "student_id": student_id,
+                "lab_release_id": instance.get("lab_release_id"),
+            },
+        )
+        self.session.commit()
+        return result
     def terminal_token(self, runtime_id: str, assist: bool):
         self.require("classroom.terminal.assist" if assist else "classroom.terminal.use")
         instance = self.gateways.runtime.request("GET", f"/api/v1/runtime/instances/{runtime_id}", self.user); self.require_class(instance["class_id"])
