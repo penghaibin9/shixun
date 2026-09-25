@@ -82,6 +82,12 @@ def student_release(release_id: str, db: Db, user: CurrentUser, gateways: Gatewa
     response_model_exclude_none=True,
 )
 def student_submit(release_id: str, db: Db, user: CurrentUser, gateways: Gateways): return svc(db,user,gateways).student_submit(release_id)
+@router.post(
+    "/classroom/my/runtime/{runtime_id}/rejudge",
+    response_model=RuntimeInstanceDetailResponse,
+    response_model_exclude_none=True,
+)
+def student_rejudge(runtime_id: str, db: Db, user: CurrentUser, gateways: Gateways): return svc(db,user,gateways).student_rejudge(runtime_id)
 @router.get("/classroom/my/runtime/{runtime_id}/terminal-token", response_model=RuntimeTerminalTokenResponse)
 def student_terminal(runtime_id: str, db: Db, user: CurrentUser, gateways: Gateways): return svc(db,user,gateways).terminal_token(runtime_id, False)
 @router.get("/classroom/runtime/{runtime_id}/terminal-token", response_model=RuntimeTerminalTokenResponse)
