@@ -21,7 +21,90 @@ app = FastAPI(title="跃科实验节点代理", docs_url=None, redoc_url=None, o
 SAFE_ID = re.compile(r"^[a-zA-Z0-9_-]{2,64}$")
 SAFE_PATH = re.compile(r"^[a-zA-Z0-9_.-]{1,128}$")
 
+WEB01_VERIFY = """import json
+data = json.load(open("work/http-baseline.json", encoding="utf-8"))
+assert data.get("status") == 200
+assert data.get("url") == "http://target-web01:8080/health"
+assert str(data.get("body", "")).strip() == "ok"
+assert isinstance(data.get("headers"), dict)
+"""
+
+WEB02_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_auth", "work/auth_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert module.authorize("alice", "alice", "student") is True
+assert module.authorize("alice", "bob", "student") is False
+assert module.authorize("teacher-a", "bob", "teacher") is True
+assert module.authorize("", "bob", "student") is False
+"""
+
+WEB03_VERIFY = """import importlib.util, sqlite3
+spec = importlib.util.spec_from_file_location("student_sql", "work/sql_lab.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+db = sqlite3.connect(":memory:")
+db.execute("create table users(id integer primary key, name text)")
+db.executemany("insert into users(name) values(?)", [("alice",), ("bob",)])
+payload = "%' OR 1=1 --"
+unsafe = list(module.unsafe_search(db, payload))
+safe = list(module.safe_search(db, payload))
+assert len(unsafe) >= 2
+assert safe == []
+"""
+
+WEB04_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_xss", "work/xss_lab.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+payload = "<img src=x onerror=alert(1)>"
+unsafe = str(module.render_unsafe(payload))
+safe = str(module.render_safe(payload))
+assert payload in unsafe
+assert payload not in safe
+assert "&lt;img" in safe and "&gt;" in safe
+"""
+
+WEB05_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_file", "work/file_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert module.normalize_upload_name("report.txt") == "report.txt"
+for value in ("../etc/passwd", "/tmp/evil.txt", "a/../../b.txt"):
+    try:
+        module.normalize_upload_name(value)
+    except (ValueError, TypeError):
+        pass
+    else:
+        raise AssertionError("path traversal accepted")
+assert module.allow_upload("report.txt", "text/plain", 128) is True
+assert module.allow_upload("shell.php", "application/x-httpd-php", 32) is False
+assert module.allow_upload("huge.txt", "text/plain", 2 * 1024 * 1024) is False
+"""
+
+WEB06_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_ssrf", "work/ssrf_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert module.allow_url("https://example.edu/health") is True
+for value in (
+    "http://example.edu/health",
+    "https://localhost/admin",
+    "https://127.0.0.1/",
+    "https://169.254.169.254/latest/meta-data/",
+    "https://10.0.0.1/internal",
+    "file:///etc/passwd",
+):
+    assert module.allow_url(value) is False
+"""
+
 APPROVED_COMMANDS: dict[str, tuple[list[str], list[str]]] = {
+    "verify_web01": (["python3", "-c", WEB01_VERIFY], ["work/http-baseline.json"]),
+    "verify_web02": (["python3", "-c", WEB02_VERIFY], ["work/auth_policy.py"]),
+    "verify_web03": (["python3", "-c", WEB03_VERIFY], ["work/sql_lab.py"]),
+    "verify_web04": (["python3", "-c", WEB04_VERIFY], ["work/xss_lab.py"]),
+    "verify_web05": (["python3", "-c", WEB05_VERIFY], ["work/file_policy.py"]),
+    "verify_web06": (["python3", "-c", WEB06_VERIFY], ["work/ssrf_policy.py"]),
     "verify_signature": (["openssl", "dgst", "-sha256", "-verify", "public.pem", "-signature", "signature.bin", "source.txt"], ["public.pem", "signature.bin", "source.txt"]),
     "verify_lab01": (["/bin/sh", "-c", "test -s work/cipher.bin && test -s work/plain.out"], ["work/cipher.bin", "work/plain.out"]),
     "verify_lab02": (["/bin/sh", "-c", "test -s work/ecb.bin && test -s work/cbc.bin && test -s work/comparison.json"], ["work/ecb.bin", "work/cbc.bin", "work/comparison.json"]),
