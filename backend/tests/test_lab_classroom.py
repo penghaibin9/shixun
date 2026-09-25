@@ -184,6 +184,34 @@ def test_teacher_high_risk_action_audited_and_student_denied(client_db):
     assert other_token.status_code==403
 
 
+def test_student_can_rejudge_only_own_running_runtime_without_teacher_control_permission(client_db):
+    client,sessions=client_db
+    own=client.post(
+        "/api/v1/classroom/my/runtime/runtime-a/rejudge",
+        headers=student("student-a","classroom.lab.read"),
+        json={},
+    )
+    assert own.status_code==200
+    assert own.json()["runtime_instance_id"]=="runtime-a"
+    with sessions() as db:
+        events=list(db.scalars(select(DomainEventOutbox).where(DomainEventOutbox.event_type=="classroom.audit.requested")))
+        assert any(event.payload_json["action"]=="student.checkpoint.rejudge" for event in events)
+
+    other=client.post(
+        "/api/v1/classroom/my/runtime/runtime-a/rejudge",
+        headers=student("student-b","classroom.lab.read"),
+        json={},
+    )
+    assert other.status_code==403 and other.json()["code"]=="AUTH.SCOPE_DENIED"
+
+    generic=client.post(
+        "/api/v1/classroom/runtime/runtime-a/rejudge",
+        headers=student("student-a","classroom.lab.read"),
+        json={},
+    )
+    assert generic.status_code==403
+
+
 def test_rejected_runtime_action_does_not_emit_a_false_audit_success(client_db):
     class RejectActionRuntime(FakeClient):
         def request(self, method, path, user, *, params=None, json=None):
