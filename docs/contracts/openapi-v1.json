@@ -9869,6 +9869,65 @@
         }
       }
     },
+    "/api/v1/classroom/my/runtime/{runtime_id}/rejudge": {
+      "post": {
+        "summary": "Student Rejudge",
+        "operationId": "student_rejudge_api_v1_classroom_my_runtime__runtime_id__rejudge_post",
+        "parameters": [
+          {
+            "name": "runtime_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Runtime Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeInstanceDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/classroom/my/runtime/{runtime_id}/terminal-token": {
       "get": {
         "summary": "Student Terminal",
@@ -12914,6 +12973,22 @@
               ],
               "title": "Course Id"
             }
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Id"
+            }
           }
         ],
         "responses": {
@@ -13034,6 +13109,22 @@
             "schema": {
               "type": "string",
               "title": "Challenge Id"
+            }
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Id"
             }
           }
         ],
@@ -13238,6 +13329,22 @@
             "schema": {
               "type": "string",
               "title": "Challenge Id"
+            }
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Id"
             }
           }
         ],
@@ -16393,6 +16500,15 @@
             "title": "Max Attempts",
             "default": 10
           },
+          "validation_mode": {
+            "type": "string",
+            "enum": [
+              "CHECKPOINT_ONLY",
+              "FLAG_AND_CHECKPOINT"
+            ],
+            "title": "Validation Mode",
+            "default": "FLAG_AND_CHECKPOINT"
+          },
           "prerequisite_challenge_id": {
             "anyOf": [
               {
@@ -16526,6 +16642,10 @@
             "type": "integer",
             "title": "Max Attempts"
           },
+          "validation_mode": {
+            "type": "string",
+            "title": "Validation Mode"
+          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -16565,6 +16685,7 @@
           "description",
           "difficulty",
           "max_attempts",
+          "validation_mode",
           "status",
           "flag_configured",
           "created_by",
@@ -19206,9 +19327,15 @@
       "FlagSubmit": {
         "properties": {
           "submission": {
-            "type": "string",
-            "maxLength": 256,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Submission"
           },
           "class_id": {
@@ -19233,7 +19360,6 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "submission",
           "class_id",
           "lab_release_id",
           "runtime_instance_id"
