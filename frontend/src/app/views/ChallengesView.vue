@@ -20,7 +20,7 @@ function challengeRole(): 'teacher' | 'student' {
 
 async function load() {
   context.value = await getCurrentContext()
-  const result = await challengeApi.list(courseId.value, challengeRole())
+  const result = await challengeApi.list(courseId.value, challengeRole(), classId.value)
   items.value = result.items
   if (selected.value) selected.value = items.value.find(item => item.challenge_id === selected.value?.challenge_id)
   await loadRuntimeContext()
@@ -44,7 +44,7 @@ async function loadRuntimeContext() {
 
 async function choose(item: ChallengeItem) {
   selected.value = item
-  const result = await challengeApi.hints(item.challenge_id, challengeRole())
+  const result = await challengeApi.hints(item.challenge_id, challengeRole(), classId.value)
   hints.value = result.items
 }
 
