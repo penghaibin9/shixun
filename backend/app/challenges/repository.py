@@ -30,15 +30,21 @@ class ChallengeRepository:
     def hints(self, challenge_id: str):
         return list(self.session.scalars(select(m.ChallengeHint).where(m.ChallengeHint.challenge_id == challenge_id).order_by(m.ChallengeHint.sequence)))
 
-    def attempts(self, challenge_id: str, student_id: str) -> int:
-        return int(self.session.scalar(select(func.count()).select_from(m.ChallengeAttempt).where(
+    def attempts(self, challenge_id: str, student_id: str, class_id: str | None = None) -> int:
+        stmt = select(func.count()).select_from(m.ChallengeAttempt).where(
             m.ChallengeAttempt.challenge_id == challenge_id,
             m.ChallengeAttempt.student_id == student_id,
-        )) or 0)
+        )
+        if class_id:
+            stmt = stmt.where(m.ChallengeAttempt.class_id == class_id)
+        return int(self.session.scalar(stmt) or 0)
 
-    def accepted(self, challenge_id: str, student_id: str):
-        return self.session.scalar(select(m.ChallengeAttempt).where(
+    def accepted(self, challenge_id: str, student_id: str, class_id: str | None = None):
+        stmt = select(m.ChallengeAttempt).where(
             m.ChallengeAttempt.challenge_id == challenge_id,
             m.ChallengeAttempt.student_id == student_id,
             m.ChallengeAttempt.accepted.is_(True),
-        ).order_by(m.ChallengeAttempt.created_at.desc()).limit(1))
+        )
+        if class_id:
+            stmt = stmt.where(m.ChallengeAttempt.class_id == class_id)
+        return self.session.scalar(stmt.order_by(m.ChallengeAttempt.created_at.desc()).limit(1))
