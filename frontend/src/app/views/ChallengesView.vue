@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { challengeApi, getCurrentContext, type ChallengeItem, type UserContext } from '../api'
+import { challengeApi, classroomApi, getCurrentContext, type ApiError, type ChallengeItem, type UserContext } from '../api'
 
 const context = ref<UserContext | null>(null)
 const items = ref<ChallengeItem[]>([])
@@ -10,6 +10,9 @@ const flag = ref('')
 const message = ref('')
 const courseId = computed(() => localStorage.getItem('yk-course-id') || 'course_web_security')
 const classId = computed(() => localStorage.getItem('yk-class-id') || '')
+const releaseId = computed(() => localStorage.getItem('yk-release-id') || '')
+const runtimeInstanceId = ref('')
+const runtimeStatus = ref('')
 
 function challengeRole(): 'teacher' | 'student' {
   return context.value?.role === 'student' ? 'student' : 'teacher'
@@ -20,6 +23,23 @@ async function load() {
   const result = await challengeApi.list(courseId.value, challengeRole())
   items.value = result.items
   if (selected.value) selected.value = items.value.find(item => item.challenge_id === selected.value?.challenge_id)
+  await loadRuntimeContext()
+}
+
+async function loadRuntimeContext() {
+  runtimeInstanceId.value = ''
+  runtimeStatus.value = ''
+  if (challengeRole() !== 'student' || !releaseId.value) return
+  try {
+    const runtime = await classroomApi<{ runtime_instance_id?: string; status?: string }>(
+      `/api/v1/classroom/my/lab-releases/${encodeURIComponent(releaseId.value)}`,
+      'student',
+    )
+    runtimeInstanceId.value = runtime.runtime_instance_id || ''
+    runtimeStatus.value = runtime.status || ''
+  } catch {
+    runtimeStatus.value = 'UNAVAILABLE'
+  }
 }
 
 async function choose(item: ChallengeItem) {
@@ -41,10 +61,30 @@ async function submitFlag() {
     message.value = '请先选择班级并输入 Flag。'
     return
   }
-  const result = await challengeApi.submit(selected.value.challenge_id, flag.value, classId.value)
-  flag.value = ''
-  message.value = result.accepted ? '挑战验证通过；完成事实已记录，课程成绩仍以 Checkpoint 为准。' : `未通过，还可尝试 ${result.remaining_attempts} 次。`
-  await choose(selected.value)
+  await loadRuntimeContext()
+  if (!releaseId.value || !runtimeInstanceId.value || runtimeStatus.value !== 'RUNNING') {
+    message.value = '请先从“我的实验”启动当前实验，进入运行状态后再提交挑战。'
+    return
+  }
+  try {
+    const result = await challengeApi.submit(
+      selected.value.challenge_id,
+      flag.value,
+      classId.value,
+      releaseId.value,
+      runtimeInstanceId.value,
+    )
+    flag.value = ''
+    message.value = result.accepted
+      ? '挑战验证通过；完成事实已绑定真实 Checkpoint，成绩继续进入原有成绩链。'
+      : `Flag 未通过，还可尝试 ${result.remaining_attempts} 次。`
+    await choose(selected.value)
+  } catch (error) {
+    const detail = error as ApiError
+    message.value = detail.code === 'CHALLENGE.CHECKPOINT_REQUIRED'
+      ? 'Flag 正确，但当前 Checkpoint 还没有通过。请先完成实验判定，再回来提交。'
+      : detail.message || '挑战验证失败，请核对当前实验状态。'
+  }
 }
 
 onMounted(load)
@@ -66,7 +106,8 @@ onMounted(load)
       <section class="card">
         <template v-if="selected">
           <span class="badge">{{ selected.status }}</span><h2>{{ selected.title }}</h2><p>{{ selected.description }}</p>
-          <p class="muted">实验定义：{{ selected.lab_definition_id || '待绑定' }} · Checkpoint：{{ selected.checkpoint_key || '待真实实验版本完成后绑定' }}</p>
+          <p class="muted">实验定义：{{ selected.lab_definition_id || '待绑定' }} · 冻结版本：{{ selected.lab_version_id || '待绑定' }} · Checkpoint：{{ selected.checkpoint_key || '待真实实验版本完成后绑定' }}</p>
+          <p v-if="context?.role === 'student'" class="muted">当前实验：{{ releaseId || '未选择' }} · 运行实例：{{ runtimeInstanceId || '未启动' }} · {{ runtimeStatus || '待读取' }}</p>
           <h3>提示</h3>
           <article v-for="hint in hints" :key="hint.hint_id" class="hint"><strong>{{ hint.title }}</strong><p>{{ hint.content }}</p></article>
           <div class="flag-box">
