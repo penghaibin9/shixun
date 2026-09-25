@@ -15,6 +15,7 @@ class ChallengeCreate(StrictModel):
     description: str = Field(min_length=1, max_length=4000)
     difficulty: Literal["BEGINNER", "INTERMEDIATE", "ADVANCED"] = "BEGINNER"
     max_attempts: int = Field(default=10, ge=1, le=50)
+    validation_mode: Literal["CHECKPOINT_ONLY", "FLAG_AND_CHECKPOINT"] = "FLAG_AND_CHECKPOINT"
     prerequisite_challenge_id: str | None = Field(default=None, max_length=36)
 
 
@@ -35,7 +36,7 @@ class FlagConfigure(StrictModel):
 
 
 class FlagSubmit(StrictModel):
-    submission: str = Field(min_length=1, max_length=256)
+    submission: str | None = Field(default=None, max_length=256)
     class_id: str = Field(min_length=1, max_length=36)
     lab_release_id: str = Field(min_length=1, max_length=36)
     runtime_instance_id: str = Field(min_length=1, max_length=36)
@@ -54,6 +55,7 @@ class ChallengeResponse(BaseModel):
     description: str
     difficulty: str
     max_attempts: int
+    validation_mode: str
     status: str
     flag_configured: bool
     created_by: str
