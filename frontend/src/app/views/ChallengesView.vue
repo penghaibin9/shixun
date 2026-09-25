@@ -67,6 +67,12 @@ async function submitFlag() {
     return
   }
   try {
+    await classroomApi(
+      `/api/v1/classroom/my/runtime/${encodeURIComponent(runtimeInstanceId.value)}/rejudge`,
+      'student',
+      { method: 'POST', body: '{}' },
+    )
+    await loadRuntimeContext()
     const result = await challengeApi.submit(
       selected.value.challenge_id,
       flag.value,
@@ -76,7 +82,7 @@ async function submitFlag() {
     )
     flag.value = ''
     message.value = result.accepted
-      ? '挑战验证通过；完成事实已绑定真实 Checkpoint，成绩继续进入原有成绩链。'
+      ? '挑战验证通过；系统已先执行真实 Checkpoint，完成事实已绑定判题证据，成绩继续进入原有成绩链。'
       : `Flag 未通过，还可尝试 ${result.remaining_attempts} 次。`
     await choose(selected.value)
   } catch (error) {
