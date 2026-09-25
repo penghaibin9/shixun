@@ -19,13 +19,13 @@ def service(db: Session, user: CurrentUser) -> ChallengeService:
 
 
 @router.get("/challenges", response_model=ChallengeListResponse)
-def list_challenges(db: Db, user: CurrentUser, course_id: str | None = None):
-    return service(db, user).list_challenges(course_id)
+def list_challenges(db: Db, user: CurrentUser, course_id: str | None = None, class_id: str | None = None):
+    return service(db, user).list_challenges(course_id, class_id)
 
 
 @router.get("/challenges/{challenge_id}", response_model=ChallengeResponse)
-def get_challenge(challenge_id: str, db: Db, user: CurrentUser):
-    return service(db, user).get_challenge(challenge_id)
+def get_challenge(challenge_id: str, db: Db, user: CurrentUser, class_id: str | None = None):
+    return service(db, user).get_challenge(challenge_id, class_id)
 
 
 @router.post("/challenges", status_code=201, response_model=ChallengeResponse)
@@ -44,8 +44,8 @@ def add_hint(challenge_id: str, body: HintCreate, db: Db, user: CurrentUser):
 
 
 @router.get("/challenges/{challenge_id}/hints", response_model=HintListResponse)
-def list_hints(challenge_id: str, db: Db, user: CurrentUser):
-    return service(db, user).hints(challenge_id)
+def list_hints(challenge_id: str, db: Db, user: CurrentUser, class_id: str | None = None):
+    return service(db, user).hints(challenge_id, class_id)
 
 
 @router.put("/challenges/{challenge_id}/flag", response_model=FlagConfiguredResponse)
