@@ -21,6 +21,7 @@ class ChallengeDefinition(Base):
     course_id: Mapped[str] = mapped_column(String(36), nullable=False)
     lesson_id: Mapped[str] = mapped_column(String(36), nullable=False)
     lab_definition_id: Mapped[str | None] = mapped_column(ForeignKey("lab_definition.lab_definition_id", ondelete="RESTRICT"), nullable=True)
+    lab_version_id: Mapped[str | None] = mapped_column(ForeignKey("lab_version.lab_version_id", ondelete="RESTRICT"), nullable=True)
     checkpoint_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     prerequisite_challenge_id: Mapped[str | None] = mapped_column(
         ForeignKey("challenge_definition.challenge_id", ondelete="RESTRICT"),
@@ -71,6 +72,8 @@ class ChallengeAttempt(Base):
     student_id: Mapped[str] = mapped_column(String(36))
     class_id: Mapped[str] = mapped_column(ForeignKey("class.class_id", ondelete="RESTRICT"))
     lab_release_id: Mapped[str | None] = mapped_column(ForeignKey("lab_release.lab_release_id", ondelete="RESTRICT"), nullable=True)
+    runtime_instance_id: Mapped[str | None] = mapped_column(ForeignKey("runtime_instance.runtime_instance_id", ondelete="RESTRICT"), nullable=True)
+    checkpoint_result_id: Mapped[str | None] = mapped_column(ForeignKey("checkpoint_result.checkpoint_result_id", ondelete="RESTRICT"), nullable=True)
     attempt_no: Mapped[int] = mapped_column(Integer)
     accepted: Mapped[bool] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime)
