@@ -16276,6 +16276,28 @@
             "type": "string",
             "title": "Challenge Id"
           },
+          "runtime_instance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Instance Id"
+          },
+          "checkpoint_result_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Result Id"
+          },
           "attempt_no": {
             "type": "integer",
             "title": "Attempt No"
@@ -16449,6 +16471,17 @@
               }
             ],
             "title": "Lab Definition Id"
+          },
+          "lab_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Version Id"
           },
           "checkpoint_key": {
             "anyOf": [
@@ -19185,23 +19218,25 @@
             "title": "Class Id"
           },
           "lab_release_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 36
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
             "title": "Lab Release Id"
+          },
+          "runtime_instance_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Runtime Instance Id"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "submission",
-          "class_id"
+          "class_id",
+          "lab_release_id",
+          "runtime_instance_id"
         ],
         "title": "FlagSubmit"
       },

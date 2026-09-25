@@ -4046,6 +4046,10 @@ export interface components {
             attempt_id: string;
             /** Challenge Id */
             challenge_id: string;
+            /** Runtime Instance Id */
+            runtime_instance_id?: string | null;
+            /** Checkpoint Result Id */
+            checkpoint_result_id?: string | null;
             /** Attempt No */
             attempt_no: number;
             /** Accepted */
@@ -4110,6 +4114,8 @@ export interface components {
             lesson_id: string;
             /** Lab Definition Id */
             lab_definition_id?: string | null;
+            /** Lab Version Id */
+            lab_version_id?: string | null;
             /** Checkpoint Key */
             checkpoint_key?: string | null;
             /** Prerequisite Challenge Id */
@@ -5000,7 +5006,9 @@ export interface components {
             /** Class Id */
             class_id: string;
             /** Lab Release Id */
-            lab_release_id?: string | null;
+            lab_release_id: string;
+            /** Runtime Instance Id */
+            runtime_instance_id: string;
         };
         /** FreezeRequest */
         FreezeRequest: {
