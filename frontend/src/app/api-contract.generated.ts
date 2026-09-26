@@ -3219,6 +3219,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-sources/external-runtime/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** External Runtime Contracts */
+        get: operations["external_runtime_contracts_api_v1_content_sources_external_runtime_contracts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-source-maps/seed": {
         parameters: {
             query?: never;
@@ -4997,6 +5014,37 @@ export interface components {
             items: components["schemas"]["ExternalLabCandidate"][];
             /** Total */
             total: number;
+        };
+        /** ExternalRuntimeContractListResponse */
+        ExternalRuntimeContractListResponse: {
+            /** Version */
+            version: string;
+            /** Rule */
+            rule: string;
+            /** Items */
+            items: components["schemas"]["ExternalRuntimeContractResponse"][];
+        };
+        /** ExternalRuntimeContractResponse */
+        ExternalRuntimeContractResponse: {
+            /** Source Name */
+            source_name: string;
+            /** License Id */
+            license_id: string;
+            license_decision: components["schemas"]["LicenseDecision"];
+            /** License Reason */
+            license_reason: string;
+            /** Integration Mode */
+            integration_mode: string;
+            /** Source Compose Execution Allowed */
+            source_compose_execution_allowed: boolean;
+            /** External Frontend Embedding Allowed */
+            external_frontend_embedding_allowed: boolean;
+            /** Required Gates */
+            required_gates: string[];
+            /** Current Status */
+            current_status: string;
+            /** Notes */
+            notes: string[];
         };
         /** ExternalRuntimeRequirement */
         ExternalRuntimeRequirement: {
@@ -18596,6 +18644,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebLabReadinessRegistryResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    external_runtime_contracts_api_v1_content_sources_external_runtime_contracts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalRuntimeContractListResponse"];
                 };
             };
             /** @description 标准错误信封 */

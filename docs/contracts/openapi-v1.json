@@ -13813,6 +13813,57 @@
         }
       }
     },
+    "/api/v1/content-sources/external-runtime/contracts": {
+      "get": {
+        "tags": [
+          "内容包"
+        ],
+        "summary": "External Runtime Contracts",
+        "operationId": "external_runtime_contracts_api_v1_content_sources_external_runtime_contracts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalRuntimeContractListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "标准错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/content-source-maps/seed": {
       "get": {
         "tags": [
@@ -19259,6 +19310,95 @@
           "total"
         ],
         "title": "ExternalLabCandidateListResponse"
+      },
+      "ExternalRuntimeContractListResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalRuntimeContractResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "rule",
+          "items"
+        ],
+        "title": "ExternalRuntimeContractListResponse"
+      },
+      "ExternalRuntimeContractResponse": {
+        "properties": {
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          },
+          "license_id": {
+            "type": "string",
+            "title": "License Id"
+          },
+          "license_decision": {
+            "$ref": "#/components/schemas/LicenseDecision"
+          },
+          "license_reason": {
+            "type": "string",
+            "title": "License Reason"
+          },
+          "integration_mode": {
+            "type": "string",
+            "title": "Integration Mode"
+          },
+          "source_compose_execution_allowed": {
+            "type": "boolean",
+            "title": "Source Compose Execution Allowed"
+          },
+          "external_frontend_embedding_allowed": {
+            "type": "boolean",
+            "title": "External Frontend Embedding Allowed"
+          },
+          "required_gates": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Gates"
+          },
+          "current_status": {
+            "type": "string",
+            "title": "Current Status"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_name",
+          "license_id",
+          "license_decision",
+          "license_reason",
+          "integration_mode",
+          "source_compose_execution_allowed",
+          "external_frontend_embedding_allowed",
+          "required_gates",
+          "current_status",
+          "notes"
+        ],
+        "title": "ExternalRuntimeContractResponse"
       },
       "ExternalRuntimeRequirement": {
         "properties": {
