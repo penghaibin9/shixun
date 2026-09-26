@@ -121,7 +121,7 @@ def test_publishability_blocks_cycle_and_score_mismatch():
         ("FILE_HASH", {"left_path": "a", "right_path": "b", "algorithm": "sha256"}),
         ("COMMAND_EXIT", {"command_ref": "verify_signature", "expected_exit": 0}),
         ("PORT_LISTEN", {"host": "127.0.0.1", "port": 8080}),
-        ("HTTP_RESPONSE", {"path": "/health", "status_code": 200}),
+        ("HTTP_RESPONSE", {"path": "/health", "status_code": 200, "required_headers": {"X-Content-Type-Options": "nosniff"}}),
     ],
 )
 def test_all_five_judge_contracts_are_supported(judge_type: str, config: dict):
@@ -144,4 +144,30 @@ def test_control_plane_rejects_fields_from_another_judge_type():
     data = rsa_data()
     data["checkpoints"][0]["judge_config_json"] = {"path": "x", "expected_exit": 1}
     with pytest.raises(ValidationError, match="未批准配置"):
+        LabDefinitionSpec.model_validate(data)
+
+
+
+@pytest.mark.parametrize(
+    "required_headers",
+    [
+        [],
+        {"": "nosniff"},
+        {"X-" + "A" * 80: "value"},
+        {"X-Test": "v" * 513},
+        {f"X-Test-{index}": "ok" for index in range(21)},
+        {"X-Test": 123},
+    ],
+)
+def test_http_response_required_headers_reject_invalid_contracts(required_headers):
+    data = rsa_data()
+    checkpoint = copy.deepcopy(data["checkpoints"][0])
+    checkpoint["judge_type"] = "HTTP_RESPONSE"
+    checkpoint["judge_config_json"] = {
+        "path": "/health",
+        "status_code": 200,
+        "required_headers": required_headers,
+    }
+    data["checkpoints"][0] = checkpoint
+    with pytest.raises(ValidationError, match="HTTP 响应头要求"):
         LabDefinitionSpec.model_validate(data)
