@@ -16,6 +16,10 @@ WEB_TARGET_IMAGE = (
     "sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10",
 )
 
+# Only the four Yueke-original labs that can be expressed with already-audited
+# runtime images and fixed Node Agent graders belong here. External-target labs
+# stay as LabDefinition shells and content-pack candidates until their license,
+# compose scan, image digest, Linux runtime and teacher preview gates are real.
 LABS: tuple[dict[str, Any], ...] = (
     {
         "number": 1,
@@ -34,83 +38,57 @@ LABS: tuple[dict[str, Any], ...] = (
         ],
     },
     {
-        "number": 2,
-        "title": "认证与对象授权验证",
-        "category": "身份与访问控制",
+        "number": 8,
+        "title": "API 对象级权限测试",
+        "category": "API 安全",
         "duration": 60,
-        "solution_path": "work/auth_policy.py",
-        "evidence_path": "work/auth-matrix.md",
-        "verify_ref": "verify_web02",
-        "solution_checkpoint": "cp_web02_solution",
+        "solution_path": "work/api_policy.py",
+        "evidence_path": "work/api-access-matrix.md",
+        "verify_ref": "verify_web08",
+        "solution_checkpoint": "cp_web08_solution",
         "tasks": [
-            "实现 authorize(actor_id, owner_id, role) 权限函数。",
-            "覆盖本人访问、跨用户拒绝和教师授权三条路径。",
-            "把正向/负向验证矩阵写入 work/auth-matrix.md。",
-            "通过固定判题器验证对象级授权边界。",
+            "围绕 actor、resource owner 和 role 建立对象级访问矩阵。",
+            "在 work/api_policy.py 实现 authorize_object(actor_id, owner_id, role)。",
+            "在 work/api-access-matrix.md 记录本人允许、跨用户拒绝和教师授权三类证据。",
+            "由固定判题器执行允许路径与越权拒绝路径，不执行教师提供的任意命令。",
         ],
     },
     {
-        "number": 3,
-        "title": "SQL 注入原理与参数化修复",
-        "category": "注入安全",
-        "duration": 70,
-        "solution_path": "work/sql_lab.py",
-        "evidence_path": "work/sql-review.md",
-        "verify_ref": "verify_web03",
-        "solution_checkpoint": "cp_web03_solution",
-        "tasks": [
-            "使用 Python sqlite3 实现 unsafe_search 与 safe_search。",
-            "先观察字符串拼接查询在教学数据上的注入现象。",
-            "把 safe_search 改为参数化查询并记录修复差异。",
-            "由隔离判题器创建一次性数据库验证修复前后结果。",
-        ],
-    },
-    {
-        "number": 4,
-        "title": "XSS 输入输出边界",
+        "number": 9,
+        "title": "Cookie 与安全响应头配置",
         "category": "浏览器安全",
-        "duration": 60,
-        "solution_path": "work/xss_lab.py",
-        "evidence_path": "work/xss-review.md",
-        "verify_ref": "verify_web04",
-        "solution_checkpoint": "cp_web04_solution",
+        "duration": 55,
+        "solution_path": "work/header_policy.py",
+        "evidence_path": "work/header-review.md",
+        "verify_ref": "verify_web09",
+        "solution_checkpoint": "cp_web09_solution",
+        "service_required_headers": {
+            "Content-Security-Policy": "default-src 'self'",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Set-Cookie": "HttpOnly",
+        },
         "tasks": [
-            "实现 render_unsafe 与 render_safe 两个输出函数。",
-            "比较原样输出与上下文编码后的 HTML。",
-            "记录输入校验、输出编码和 CSP 的职责边界。",
-            "通过固定测试载荷验证危险标签不会出现在安全输出中。",
+            "请求隔离 Nginx 目标，观察 CSP、X-Content-Type-Options、Referrer-Policy 与 Set-Cookie。",
+            "在 work/header_policy.py 实现 secure_headers(headers)，同时校验 HttpOnly、Secure 与 SameSite。",
+            "在 work/header-review.md 记录真实响应头、缺失控制的风险和建议配置。",
+            "固定判题器同时验证安全配置与缺失关键头/Cookie 属性的负向用例。",
         ],
     },
     {
-        "number": 5,
-        "title": "文件上传与路径穿越防护",
-        "category": "文件安全",
+        "number": 10,
+        "title": "Web 日志检测与攻击链回放",
+        "category": "检测与审计",
         "duration": 65,
-        "solution_path": "work/file_policy.py",
-        "evidence_path": "work/file-review.md",
-        "verify_ref": "verify_web05",
-        "solution_checkpoint": "cp_web05_solution",
+        "solution_path": "work/web_detector.py",
+        "evidence_path": "work/incident-timeline.md",
+        "verify_ref": "verify_web10",
+        "solution_checkpoint": "cp_web10_solution",
         "tasks": [
-            "实现 normalize_upload_name，拒绝绝对路径和目录穿越。",
-            "实现 allow_upload，对扩展名、MIME 和大小做联合约束。",
-            "记录允许与拒绝样例及存储隔离原则。",
-            "由固定判题器执行正常文件、危险扩展名和穿越路径负向测试。",
-        ],
-    },
-    {
-        "number": 6,
-        "title": "SSRF 出口控制",
-        "category": "服务端请求安全",
-        "duration": 65,
-        "solution_path": "work/ssrf_policy.py",
-        "evidence_path": "work/ssrf-review.md",
-        "verify_ref": "verify_web06",
-        "solution_checkpoint": "cp_web06_solution",
-        "tasks": [
-            "实现 allow_url，对协议、主机和地址范围做显式允许判断。",
-            "允许课程指定 HTTPS 域名，拒绝 localhost、私网和链路本地地址。",
-            "记录 DNS 重绑定、重定向复核和出口代理的生产防护要点。",
-            "通过固定判题器执行允许/拒绝 URL 矩阵。",
+            "理解合成访问日志中的正常请求、注入特征和路径穿越特征。",
+            "在 work/web_detector.py 实现 detect(lines)，输出结构化检测结果。",
+            "在 work/incident-timeline.md 记录时间线、证据字段、告警原因和处置建议。",
+            "固定判题器用内置合成日志验证 SQLI_PATTERN 与 PATH_TRAVERSAL_PATTERN 两类检测事实。",
         ],
     },
 )
@@ -159,6 +137,9 @@ def _build_spec(item: dict[str, Any]) -> dict[str, Any]:
         {"from_node_key": steps[index]["node_key"], "to_node_key": steps[index + 1]["node_key"]}
         for index in range(len(steps) - 1)
     ]
+    service_config: dict[str, Any] = {"path": "/health", "port": 8080, "status_code": 200}
+    if item.get("service_required_headers"):
+        service_config["required_headers"] = item["service_required_headers"]
     return {
         "lab_definition_id": f"lab_web_{number:02d}",
         "version": 1,
@@ -186,7 +167,7 @@ def _build_spec(item: dict[str, Any]) -> dict[str, Any]:
             },
             {
                 "node_key": target_key,
-                "display_name": "隔离 Web 目标服务",
+                "display_name": "隔离 Nginx Web 目标服务",
                 "role": "TARGET",
                 "network_env": "ISOLATED",
                 "network_keys": [network_key],
@@ -222,12 +203,12 @@ def _build_spec(item: dict[str, Any]) -> dict[str, Any]:
             {
                 "checkpoint_id": f"cp_web{number:02d}_service",
                 "dag_node_id": "observe",
-                "name": "隔离 Web 目标服务可达",
+                "name": "隔离 Web 目标服务与安全基线可验证",
                 "score": 10,
                 "judge_type": "HTTP_RESPONSE",
                 "judge_target": f"{target_key}:/health",
-                "judge_config_json": {"path": "/health", "port": 8080, "status_code": 200},
-                "failure_message": "Web 目标服务未通过隔离网络健康检查。",
+                "judge_config_json": service_config,
+                "failure_message": "Web 目标服务或要求的安全响应头未通过隔离网络检查。",
                 "timeout_seconds": 15,
                 "order_no": 1,
             },
