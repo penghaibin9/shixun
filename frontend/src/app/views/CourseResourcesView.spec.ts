@@ -47,6 +47,22 @@ describe('课程资源页面', () => {
     expect(wrapper.text()).toContain('1 / 12')
   })
 
+  it('新课程蓝图只展示实际章节，不沿用数据安全七章', async () => {
+    const webTheory = theory.slice(0, 2).map(item => ({ ...item, chapter_no: 1 }))
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes('course-blueprint')) return json({ items: webTheory, total: 2, chapter_counts: { 1: 2 } })
+      if (String(input).includes('readiness')) return json({ ...readiness, catalog_key: 'web_security_v1', theory_required: 12, lab_required: 12 })
+      return json({ items: [], total: 0 })
+    }))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/course-blueprint', component: CourseResourcesView, meta: { page: 'blueprint' } }] })
+    await router.push('/course-blueprint'); await router.isReady()
+    const wrapper = mount(CourseResourcesView, { global: { plugins: [router] } })
+    await flushPromises()
+    expect(wrapper.findAll('.chapter-card')).toHaveLength(1)
+    expect(wrapper.find('.chapter-card').text()).toContain('第 1 章')
+    expect(wrapper.text()).not.toContain('第 7 章')
+  })
+
   it('视频中心展示媒体解析的真实时长与分辨率', async () => {
     const video = {
       resource_id: 'video-1', course_id: 'course_data_security', lesson_id: 't0', name: '1.1 正式讲解视频', resource_type: 'VIDEO', status: 'PUBLISHED', created_at: '2026-09-21T10:00:00',

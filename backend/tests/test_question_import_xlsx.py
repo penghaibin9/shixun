@@ -63,6 +63,36 @@ def test_parser_accepts_a_complete_196_row_workbook():
     assert {row["normalized_data"]["question_type"] for row in rows} == {"FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE"}
 
 
+def test_web_course_template_and_import_use_24_lesson_catalog():
+    lessons = curriculum_rows("course_web_security", "web_security_v1")["lessons"]
+    workbook = load_workbook(BytesIO(template_bytes(lessons)))
+    sheet = workbook["题目导入"]
+    assert sheet.max_row == 97
+    assert "24 个课时" in workbook["填写说明"]["B2"].value
+    assert "96 行" in workbook["填写说明"]["B2"].value
+    for row_number in range(2, 98):
+        question_type = sheet.cell(row_number, 3).value
+        sheet.cell(row_number, 4).value = f"第 {row_number - 1} 道{question_type}题"
+        sheet.cell(row_number, 10).value = "这是逐题解析"
+        if question_type == "填空":
+            sheet.cell(row_number, 9).value = "参考答案"
+        elif question_type == "单选":
+            sheet.cell(row_number, 5).value = "正确选项"
+            sheet.cell(row_number, 6).value = "干扰选项"
+            sheet.cell(row_number, 9).value = "A"
+        elif question_type == "多选":
+            sheet.cell(row_number, 5).value = "正确选项一"
+            sheet.cell(row_number, 6).value = "正确选项二"
+            sheet.cell(row_number, 9).value = "A,B"
+        else:
+            sheet.cell(row_number, 9).value = "A"
+    stream = BytesIO()
+    workbook.save(stream)
+    rows, total = parse_question_workbook(stream.getvalue(), lessons)
+    assert total == len(rows) == 96
+    assert all(row["status"] == "VALID" for row in rows)
+
+
 def test_parser_reports_formula_mismatch_and_answer_errors_by_excel_row():
     workbook = load_workbook(BytesIO(completed_workbook()))
     sheet = workbook["题目导入"]

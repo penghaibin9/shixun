@@ -38,6 +38,7 @@ const theory = computed(() => lessons.value.filter(item => item.lesson_kind === 
 const labs = computed(() => lessons.value.filter(item => item.lesson_kind === 'LAB'))
 const uploadLessons = computed(() => (uploadType.value === 'LAB_FILE' ? labs.value : uploadType.value === 'PPT' ? theory.value : lessons.value).map(item => ({ value: item.lesson_id, label: `${item.lesson_code} · ${item.title}` })))
 const chapterCounts = computed(() => theory.value.reduce<Record<number, number>>((all, item) => ({ ...all, [item.chapter_no || 0]: (all[item.chapter_no || 0] || 0) + 1 }), {}))
+const chapterNumbers = computed(() => Object.keys(chapterCounts.value).map(Number).filter(number => number > 0).sort((a, b) => a - b))
 const statusText = (status: string) => ({ DRAFT: '草稿', PENDING_REVIEW: '待审核', PUBLISHED: '已发布', FROZEN: '已冻结', REJECTED: '已驳回' }[status] || '未知状态')
 const typeText = (type: string) => ({ PPT: 'PPT（演示文稿）', VIDEO: '视频', QUESTION_BANK: '题库', LAB_FILE: '实验文件包' }[type] || '其他资源')
 const questionTypeText = (type: string) => ({ FILL: '填空题', SINGLE: '单选题', MULTIPLE: '多选题', TRUE_FALSE: '判断题' }[type] || '未知题型')
@@ -210,7 +211,7 @@ onMounted(load); onUnmounted(closeVideoPreview); watch(page, load)
         <div class="card table-card"><table class="data-table"><thead><tr><th>资源名称</th><th>课时</th><th>类型</th><th>发布状态</th><th>文件</th></tr></thead><tbody><tr v-for="item in filtered" :key="item.resource_id"><td>{{ item.name }}</td><td>{{ item.lesson_id || '课程级' }}</td><td>{{ typeText(item.resource_type) }}</td><td><span class="badge">{{ statusText(item.status) }}</span></td><td><button v-if="item.latest_version" class="yk-button" @click="downloadResource(item)">下载</button><span v-else class="muted">尚无版本</span></td></tr><tr v-if="!filtered.length"><td colspan="5" class="empty-cell">尚无满足条件的真实资源，请上传后进入版本审核流程。</td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'blueprint'">
-        <div class="chapter-grid"><div v-for="chapter in 7" :key="chapter" class="card chapter-card"><span class="badge">第 {{ chapter }} 章</span><b>{{ chapterCounts[chapter] || 0 }}</b><span>理论课时</span></div></div>
+        <div class="chapter-grid"><div v-for="chapter in chapterNumbers" :key="chapter" class="card chapter-card"><span class="badge">第 {{ chapter }} 章</span><b>{{ chapterCounts[chapter] }}</b><span>理论课时</span></div></div>
         <div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>章节</th><th>知识点</th><th>资源状态</th></tr></thead><tbody><tr v-for="item in theory" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>第 {{ item.chapter_no }} 章</td><td>{{ item.title }}</td><td><span class="badge">{{ lessonAssetSummary(item.lesson_id) }}</span></td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'theory'">
