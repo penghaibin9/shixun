@@ -50,6 +50,16 @@ class ChallengeService:
         if class_id:
             self.require_class(class_id)
         rows = self.repo.challenges(self.user.course_ids, course_id, published_only=self.user.role == "student")
+        if self.user.role == "student":
+            if not class_id:
+                raise ApiError("CHALLENGE.CLASS_REQUIRED", "查看学生挑战必须指定当前班级", 422)
+            student_id = self._student_id()
+            rows = [
+                row
+                for row in rows
+                if not row.prerequisite_challenge_id
+                or self.repo.accepted(row.prerequisite_challenge_id, student_id, class_id=class_id)
+            ]
         return {"items": [self._challenge(row, class_id=class_id) for row in rows], "page": 1, "page_size": len(rows), "total": len(rows)}
 
     def get_challenge(self, challenge_id: str, class_id: str | None = None):
@@ -57,6 +67,13 @@ class ChallengeService:
         if class_id:
             self.require_class(class_id)
         row = self._get(challenge_id)
+        if self.user.role == "student":
+            if not class_id:
+                raise ApiError("CHALLENGE.CLASS_REQUIRED", "查看学生挑战必须指定当前班级", 422)
+            if row.prerequisite_challenge_id and not self.repo.accepted(
+                row.prerequisite_challenge_id, self._student_id(), class_id=class_id
+            ):
+                raise ApiError("CHALLENGE.LOCKED", "请先完成当前班级的前置挑战", 409)
         return self._challenge(row, class_id=class_id)
 
     def create_challenge(self, body: ChallengeCreate):
@@ -83,6 +100,7 @@ class ChallengeService:
             description=body.description,
             difficulty=body.difficulty,
             max_attempts=body.max_attempts,
+            validation_mode=body.validation_mode,
             status="DRAFT",
             created_by=self.user.user_id,
             created_at=now(),
@@ -181,8 +199,12 @@ class ChallengeService:
         row = self._get(challenge_id)
         if not row.lab_definition_id or not row.lab_version_id or not row.checkpoint_key:
             raise ApiError("CHALLENGE.BIND_REQUIRED", "发布前必须冻结已发布实验版本及其 Checkpoint", 409)
-        if not self.repo.flag(challenge_id):
-            raise ApiError("CHALLENGE.FLAG_REQUIRED", "发布前必须配置 Flag", 409)
+        if row.prerequisite_challenge_id:
+            prerequisite = self.repo.challenge(row.prerequisite_challenge_id)
+            if not prerequisite or prerequisite.course_id != row.course_id or prerequisite.status != "PUBLISHED":
+                raise ApiError("CHALLENGE.PREREQUISITE_NOT_PUBLISHED", "前置挑战必须先发布", 409)
+        if row.validation_mode == "FLAG_AND_CHECKPOINT" and not self.repo.flag(challenge_id):
+            raise ApiError("CHALLENGE.FLAG_REQUIRED", "Flag + Checkpoint 模式发布前必须配置 Flag", 409)
         row.status = "PUBLISHED"
         row.published_at = now()
         self._event("challenge.published", row, {"lesson_id": row.lesson_id})
@@ -209,20 +231,31 @@ class ChallengeService:
         count = self.repo.attempts(challenge_id, student_id, class_id=body.class_id)
         if count >= row.max_attempts:
             raise ApiError("CHALLENGE.ATTEMPTS_EXHAUSTED", "挑战提交次数已用完", 409)
-        flag = self.repo.flag(challenge_id)
-        if not flag:
-            raise ApiError("CHALLENGE.FLAG_NOT_CONFIGURED", "挑战验证器未配置", 409)
-
         checkpoint = self._runtime_checkpoint(row, body, student_id)
-        normalized = self._normalize(body.submission, flag.case_sensitive)
-        accepted = hmac.compare_digest(self._flag_hash(flag.salt, normalized), flag.flag_hash)
-        if accepted and (not checkpoint or checkpoint.status != "PASSED"):
-            raise ApiError(
-                "CHALLENGE.CHECKPOINT_REQUIRED",
-                "Flag 正确，但权威运行时 Checkpoint 尚未通过；请先完成实验判定",
-                409,
-                {"checkpoint_key": row.checkpoint_key, "runtime_instance_id": body.runtime_instance_id},
-            )
+        if row.validation_mode == "CHECKPOINT_ONLY":
+            if not checkpoint or checkpoint.status != "PASSED":
+                raise ApiError(
+                    "CHALLENGE.CHECKPOINT_REQUIRED",
+                    "权威运行时 Checkpoint 尚未通过；请先完成实验判定",
+                    409,
+                    {"checkpoint_key": row.checkpoint_key, "runtime_instance_id": body.runtime_instance_id},
+                )
+            accepted = True
+        else:
+            flag = self.repo.flag(challenge_id)
+            if not flag:
+                raise ApiError("CHALLENGE.FLAG_NOT_CONFIGURED", "挑战验证器未配置", 409)
+            if body.submission is None:
+                raise ApiError("CHALLENGE.FLAG_REQUIRED", "当前挑战必须提交 Flag", 422)
+            normalized = self._normalize(body.submission, flag.case_sensitive)
+            accepted = hmac.compare_digest(self._flag_hash(flag.salt, normalized), flag.flag_hash)
+            if accepted and (not checkpoint or checkpoint.status != "PASSED"):
+                raise ApiError(
+                    "CHALLENGE.CHECKPOINT_REQUIRED",
+                    "Flag 正确，但权威运行时 Checkpoint 尚未通过；请先完成实验判定",
+                    409,
+                    {"checkpoint_key": row.checkpoint_key, "runtime_instance_id": body.runtime_instance_id},
+                )
 
         attempt = self.repo.add(m.ChallengeAttempt(
             attempt_id=str(uuid4()),
@@ -364,6 +397,7 @@ class ChallengeService:
             "description": row.description,
             "difficulty": row.difficulty,
             "max_attempts": row.max_attempts,
+            "validation_mode": row.validation_mode,
             "status": row.status,
             "flag_configured": bool(self.repo.flag(row.challenge_id)),
             "created_by": row.created_by,
