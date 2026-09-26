@@ -1,3 +1,4 @@
+from app.contentpacks.security import scan_compose_manifest
 from app.labs.schemas import LabDefinitionSpec
 from app.labs.service import publishability_errors
 
@@ -32,3 +33,48 @@ def test_external_runtime_requirement_blocks_publishability():
     })
     errors = publishability_errors(spec)
     assert any(item["code"] == "EXTERNAL_RUNTIME_NOT_READY" for item in errors)
+
+
+
+def test_compose_scanner_blocks_host_and_build_escape_surfaces():
+    compose = {
+        "services": {
+            "target": {
+                "image": "example/target:latest",
+                "network_mode": "service:gateway",
+                "ports": ["8080:80"],
+                "build": ".",
+                "extra_hosts": ["host.docker.internal:host-gateway"],
+                "uts": "host",
+                "userns_mode": "host",
+                "security_opt": ["seccomp=unconfined"],
+            }
+        }
+    }
+    codes = {finding.code for finding in scan_compose_manifest(compose)}
+    assert {
+        "COMPOSE.CUSTOM_NETWORK_MODE",
+        "COMPOSE.HOST_PORT",
+        "COMPOSE.BUILD",
+        "COMPOSE.HOST_GATEWAY",
+        "COMPOSE.HOST_UTS",
+        "COMPOSE.HOST_USERNS",
+        "COMPOSE.SECURITY_OPT",
+    } <= codes
+
+
+def test_compose_scanner_accepts_minimal_metadata_only_candidate():
+    findings = scan_compose_manifest(
+        {
+            "services": {
+                "target": {
+                    "image": "example/target@sha256:" + "a" * 64,
+                    "networks": ["lab-net"],
+                    "volumes": ["named-data:/var/lib/app"],
+                }
+            },
+            "networks": {"lab-net": {"internal": True}},
+            "volumes": {"named-data": {}},
+        }
+    )
+    assert findings == []
