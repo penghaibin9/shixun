@@ -1,6 +1,7 @@
 from app.resources.catalog import LAB_LESSONS, THEORY_LESSONS, lesson_rows
 from app.resources.media import parse_ffprobe_payload
 from app.resources.service import qualified_theory_videos
+from app.teaching.catalog import catalog_metadata, catalog_requirements
 
 
 def test_theory_catalog_is_exactly_37_with_required_chapter_shape_and_text():
@@ -38,3 +39,20 @@ def test_theory_video_gate_accepts_only_approximately_40_minutes():
         {"resource_id": "invalid", "duration_seconds": None},
     ]
     assert [item["resource_id"] for item in qualified_theory_videos(items)] == ["minimum", "target", "maximum"]
+
+
+def test_course_catalog_requirements_keep_data_security_and_content_packs_distinct():
+    rows = {row["catalog_key"]: row for row in catalog_metadata()}
+    assert len(rows) == 11
+
+    data_security = catalog_requirements("data_security_v1")
+    assert data_security["theory_required"] == 37
+    assert data_security["lab_required"] == 12
+
+    web_security = catalog_requirements("web_security_v1")
+    assert web_security["theory_required"] == 12
+    assert web_security["lab_required"] == 12
+
+    for row in rows.values():
+        assert row["question_types"] == ["FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE"]
+        assert row["resource_minimums"]["questions_per_lesson"] == 4
