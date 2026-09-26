@@ -11,8 +11,8 @@ if str(REPOSITORY_ROOT) not in sys.path:
 from node_agent.app import approved_command, approved_command_paths
 
 
-@pytest.mark.parametrize("number", range(1, 7))
-def test_first_web_security_graders_are_fixed_and_evidence_scoped(number: int):
+@pytest.mark.parametrize("number", [1, 8, 9, 10])
+def test_original_web_security_graders_are_fixed_and_evidence_scoped(number: int):
     ref = f"verify_web{number:02d}"
     command = approved_command(ref)
     paths = approved_command_paths(ref)
