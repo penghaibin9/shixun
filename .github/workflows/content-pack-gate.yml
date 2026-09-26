@@ -52,6 +52,7 @@ jobs:
         run: >
           pytest -q
           tests/test_contentpacks.py
+          tests/test_course_resource_catalog.py
           tests/test_content_source_policy.py
           tests/test_external_source_adapters.py
           tests/test_external_runtime_gate.py
@@ -84,6 +85,7 @@ jobs:
           engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
           with engine.connect() as connection:
               assert connection.execute(text("SELECT COUNT(*) FROM course_lesson WHERE course_id='course_web_security'")).scalar_one() == 24
+              assert connection.execute(text("SELECT catalog_key FROM course WHERE course_id='course_web_security'")).scalar_one() == "web_security_v1"
               assert connection.execute(text("SELECT COUNT(*) FROM lab_definition WHERE course_id='course_web_security'")).scalar_one() == 12
               assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security'")).scalar_one() == 12
               assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND prerequisite_challenge_id IS NOT NULL")).scalar_one() == 11
