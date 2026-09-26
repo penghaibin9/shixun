@@ -89,8 +89,10 @@ jobs:
               assert connection.execute(text("SELECT COUNT(*) FROM lab_definition WHERE course_id='course_web_security'")).scalar_one() == 12
               assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security'")).scalar_one() == 12
               assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND prerequisite_challenge_id IS NOT NULL")).scalar_one() == 11
-              assert connection.execute(text("SELECT COUNT(*) FROM lab_version lv JOIN lab_definition ld ON ld.lab_definition_id=lv.lab_definition_id WHERE ld.course_id='course_web_security' AND lv.version=1 AND lv.status='PUBLISHED'")).scalar_one() == 6
-              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND lab_version_id IS NOT NULL AND checkpoint_key IS NOT NULL")).scalar_one() == 6
+              assert connection.execute(text("SELECT COUNT(*) FROM lab_version lv JOIN lab_definition ld ON ld.lab_definition_id=lv.lab_definition_id WHERE ld.course_id='course_web_security' AND lv.version=1 AND lv.status='PUBLISHED'")).scalar_one() == 4
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND lab_version_id IS NOT NULL AND checkpoint_key IS NOT NULL")).scalar_one() == 4
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND validation_mode='CHECKPOINT_ONLY'")).scalar_one() == 4
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND validation_mode='FLAG_AND_CHECKPOINT'")).scalar_one() == 8
           PY
 
       - name: Set up Node
