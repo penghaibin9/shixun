@@ -53,6 +53,7 @@ jobs:
           pytest -q
           tests/test_contentpacks.py
           tests/test_course_resource_catalog.py
+          tests/test_multi_course_end_to_end.py
           tests/test_content_source_policy.py
           tests/test_external_source_adapters.py
           tests/test_external_runtime_gate.py
