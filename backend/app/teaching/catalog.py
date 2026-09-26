@@ -6,6 +6,15 @@ from app.contentpacks.catalog import course_pack_registry, load_course_pack_by_c
 COURSE_ID = "course_data_security"
 DEFAULT_CATALOG_KEY = "data_security_v1"
 
+QUESTION_TYPES = ("FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE")
+RESOURCE_MINIMUMS = {
+    "theory_ppt_per_lesson": 1,
+    "theory_video_per_lesson": 1,
+    "lab_file_per_lesson": 1,
+    "lab_video_per_lesson": 1,
+    "questions_per_lesson": len(QUESTION_TYPES),
+}
+
 THEORY_LESSONS = [
     (1, "1.1", "数据基础：定义、特征、分类与全生命周期"),
     (1, "1.2", "典型数据处理场景：开发利用、共享交易、跨境流动"),
@@ -169,13 +178,15 @@ def curriculum_rows(course_id: str = COURSE_ID, catalog_key: str = DEFAULT_CATAL
     return _content_pack_curriculum_rows(course_id, catalog_key)
 
 
-def catalog_metadata() -> list[dict[str, str | int]]:
-    rows: list[dict[str, str | int]] = [
+def catalog_metadata() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = [
         {
             "catalog_key": DEFAULT_CATALOG_KEY,
             "name": "数据安全技术基础",
             "theory_lessons": len(THEORY_LESSONS),
             "lab_lessons": len(LAB_LESSONS),
+            "question_types": list(QUESTION_TYPES),
+            "resource_minimums": dict(RESOURCE_MINIMUMS),
         }
     ]
     for item in course_pack_registry():
@@ -186,9 +197,24 @@ def catalog_metadata() -> list[dict[str, str | int]]:
                 "name": pack.title,
                 "theory_lessons": sum(lesson.lesson_type == "THEORY" for lesson in pack.lessons),
                 "lab_lessons": sum(lesson.lesson_type == "LAB" for lesson in pack.lessons),
+                "question_types": list(QUESTION_TYPES),
+                "resource_minimums": dict(RESOURCE_MINIMUMS),
             }
         )
     return rows
+
+def catalog_requirements(catalog_key: str) -> dict[str, object]:
+    for row in catalog_metadata():
+        if row["catalog_key"] == catalog_key:
+            return {
+                "catalog_key": catalog_key,
+                "theory_required": int(row["theory_lessons"]),
+                "lab_required": int(row["lab_lessons"]),
+                "question_types": list(row["question_types"]),
+                "resource_minimums": dict(row["resource_minimums"]),
+            }
+    raise ValueError(f"未知课程模板：{catalog_key}")
+
 
 def lesson_id_by_code(course_id: str = COURSE_ID, catalog_key: str = DEFAULT_CATALOG_KEY) -> dict[str, str]:
     return {row["lesson_code"]: row["lesson_id"] for row in curriculum_rows(course_id, catalog_key)["lessons"]}
