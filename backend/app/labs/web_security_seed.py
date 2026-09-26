@@ -18,11 +18,12 @@ SEED_USER_ID = "system_web_security_seed"
 
 
 def seed_web_security_labs() -> dict[str, int]:
-    """Freeze and publish the first six original Web-security labs.
+    """Install the four Yueke-original Web-security runtime specifications.
 
-    Alembic owns the course/lesson/definition shells. This installer adds the
-    immutable v1 runtime specs and binds each Challenge to the exact published
-    version/checkpoint; it refuses to overwrite drift.
+    Alembic owns all 12 course/lesson/definition shells. This installer creates
+    versions only for labs 01/08/09/10, validates their fixed-image/fixed-grader
+    contracts and binds the matching Challenge to that exact version/checkpoint.
+    It does not claim Linux Node Agent or teacher-preview acceptance.
     """
     session = create_session_factory()()
     context = UserContext(
@@ -39,7 +40,8 @@ def seed_web_security_labs() -> dict[str, int]:
     published = 0
     bound = 0
     try:
-        for record in web_security_definition_records():
+        records = web_security_definition_records()
+        for record in records:
             create = record["create"]
             spec = create.spec
             definition = session.get(LabDefinition, spec.lab_definition_id)
@@ -125,7 +127,7 @@ def seed_web_security_labs() -> dict[str, int]:
                 session.commit()
                 bound += 1
 
-        return {"definitions": 6, "created_versions": created, "published_versions": published, "bound_challenges": bound}
+        return {"definitions": len(records), "created_versions": created, "published_versions": published, "bound_challenges": bound}
     finally:
         session.close()
 
