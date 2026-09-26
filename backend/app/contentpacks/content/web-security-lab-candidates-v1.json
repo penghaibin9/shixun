@@ -1,7 +1,7 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "course_id": "course_web_security",
-  "safety_rule": "外部环境只做候选；必须固定镜像 digest、通过 Compose 安全扫描、教师预演和 Linux Node Agent 验收后才能生成已发布 LabVersion。",
+  "safety_rule": "外部环境只做候选；必须通过许可证策略、Compose 安全扫描、镜像 digest 冻结、Linux Node Agent 实跑和教师预演后，才能转为可发布 LabVersion。FORMAL_SPEC_READY 仅表示跃科原创规范、固定镜像与固定判题合同已落库，不代表真实 Linux 现场验收通过。",
   "labs": [
     {
       "lesson_code": "实验01",
@@ -11,57 +11,57 @@
       "license": "PROPRIETARY",
       "source_path": null,
       "runtime_status": "FORMAL_SPEC_READY",
-      "reason": "已落为跃科原创双节点 LabDefinition：Python 学生工作站真实请求隔离 Nginx 目标，并由固定 Checkpoint 判定。"
+      "reason": "使用仓库已有固定摘要 Python 学生镜像与 Nginx 1.27 目标镜像；LabVersion/Checkpoint 合同可进入 CI，真实 Linux Node Agent 与教师预演仍需现场证据。"
     },
     {
       "lesson_code": "实验02",
       "lab_definition_id": "lab_web_02",
       "title": "认证与对象授权验证",
-      "source": "YUEKE_ORIGINAL",
-      "license": "PROPRIETARY",
-      "source_path": null,
-      "runtime_status": "FORMAL_SPEC_READY",
-      "reason": "已改为跃科原创对象授权编码实验；固定判题合同覆盖本人允许、跨用户拒绝和教师授权，第三方综合靶场仅作后续扩展。"
+      "source": "OWASP Juice Shop",
+      "license": "MIT",
+      "source_path": "juice-shop/juice-shop",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "保留外部综合靶场候选；必须固定镜像 digest、隔离网络实跑并完成教师预演，不能沿用旧版原创已发布口径。"
     },
     {
       "lesson_code": "实验03",
       "lab_definition_id": "lab_web_03",
       "title": "SQL 注入原理与参数化修复",
-      "source": "YUEKE_ORIGINAL",
-      "license": "PROPRIETARY",
+      "source": "Vulhub",
+      "license": "MIT",
       "source_path": null,
-      "runtime_status": "FORMAL_SPEC_READY",
-      "reason": "已改为跃科原创 sqlite3 参数化修复实验；隔离判题器创建一次性教学数据库复核注入现象与参数化修复。"
+      "runtime_status": "REVIEW_REQUIRED",
+      "reason": "只登记知识方向与候选来源；尚未选定具体 Vulhub 环境，也未扫描 Compose 或冻结镜像 digest。"
     },
     {
       "lesson_code": "实验04",
       "lab_definition_id": "lab_web_04",
       "title": "XSS 输入输出边界",
-      "source": "YUEKE_ORIGINAL",
-      "license": "PROPRIETARY",
-      "source_path": null,
-      "runtime_status": "FORMAL_SPEC_READY",
-      "reason": "已改为跃科原创输出编码实验；固定测试载荷验证危险标签在安全输出中被上下文编码。"
+      "source": "OWASP Juice Shop",
+      "license": "MIT",
+      "source_path": "juice-shop/juice-shop",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "使用独立 Juice Shop 靶场候选；不得融合其前端代码，镜像 digest 和真实隔离运行尚未验收。"
     },
     {
       "lesson_code": "实验05",
       "lab_definition_id": "lab_web_05",
       "title": "文件上传与路径穿越防护",
-      "source": "YUEKE_ORIGINAL",
-      "license": "PROPRIETARY",
-      "source_path": null,
-      "runtime_status": "FORMAL_SPEC_READY",
-      "reason": "已改为跃科原创文件策略实验；固定判题合同验证绝对路径、目录穿越、危险扩展名和大小限制。"
+      "source": "OWASP Juice Shop",
+      "license": "MIT",
+      "source_path": "juice-shop/juice-shop",
+      "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
+      "reason": "仅作为独立靶场候选；运行镜像、教师预演和 Checkpoint 证据尚未完成。"
     },
     {
       "lesson_code": "实验06",
       "lab_definition_id": "lab_web_06",
       "title": "SSRF 出口控制",
-      "source": "YUEKE_ORIGINAL",
-      "license": "PROPRIETARY",
+      "source": "Vulhub",
+      "license": "MIT",
       "source_path": null,
-      "runtime_status": "FORMAL_SPEC_READY",
-      "reason": "已改为跃科原创 SSRF 出口策略实验；固定判题合同验证协议、域名、localhost、私网和链路本地地址边界。"
+      "runtime_status": "REVIEW_REQUIRED",
+      "reason": "只登记候选方向；具体环境、Compose 安全扫描、出口隔离验证和镜像摘要均未冻结。"
     },
     {
       "lesson_code": "实验07",
@@ -71,7 +71,7 @@
       "license": "GPL-2.0-or-later",
       "source_path": "WebGoat/WebGoat",
       "runtime_status": "LICENSE_REVIEW_REQUIRED",
-      "reason": "GPL 组件可研究和独立部署，但进入商业交付包前需完成分发义务复核。"
+      "reason": "进入商业交付前必须完成 GPL 分发义务与独立部署边界复核，当前禁止自动打包。"
     },
     {
       "lesson_code": "实验08",
@@ -80,8 +80,8 @@
       "source": "YUEKE_ORIGINAL",
       "license": "PROPRIETARY",
       "source_path": null,
-      "runtime_status": "AUTHORING_READY",
-      "reason": "适合使用跃科自建最小 API 教学靶场，避免依赖外部漏洞实现。"
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "已落为跃科原创固定判题实验，覆盖本人允许、跨用户拒绝和教师授权；真实 Linux Node Agent 与教师预演仍需现场证据。"
     },
     {
       "lesson_code": "实验09",
@@ -90,8 +90,8 @@
       "source": "YUEKE_ORIGINAL",
       "license": "PROPRIETARY",
       "source_path": null,
-      "runtime_status": "AUTHORING_READY",
-      "reason": "使用现有 Nginx/Python 教学镜像即可完成正反配置验证。"
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "使用固定摘要 Nginx 目标，Node Agent 对真实 HTTP 响应头与学生策略代码双重判定；现场 Linux 运行仍未宣称通过。"
     },
     {
       "lesson_code": "实验10",
@@ -100,8 +100,8 @@
       "source": "YUEKE_ORIGINAL",
       "license": "PROPRIETARY",
       "source_path": null,
-      "runtime_status": "AUTHORING_READY",
-      "reason": "使用合成访问日志与现有 PCAP/审计能力，不需要危险目标。"
+      "runtime_status": "FORMAL_SPEC_READY",
+      "reason": "使用内置合成日志固定用例验证学生检测器，不依赖危险漏洞靶场；现场 Linux 运行仍需验收。"
     },
     {
       "lesson_code": "实验11",
@@ -111,7 +111,7 @@
       "license": "MIT",
       "source_path": "juice-shop/juice-shop",
       "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
-      "reason": "用于修复前后验证模式，镜像必须固定版本和摘要。"
+      "reason": "独立靶场候选；固定版本、镜像摘要、隔离运行、教师预演与回归 Checkpoint 尚未完成。"
     },
     {
       "lesson_code": "实验12",
@@ -121,7 +121,7 @@
       "license": "MIT",
       "source_path": "juice-shop/juice-shop",
       "runtime_status": "EXTERNAL_IMAGE_REQUIRED",
-      "reason": "综合挑战使用独立隔离靶场；Flag 只记录完成事实，成绩仍来自 Checkpoint。"
+      "reason": "综合挑战使用独立隔离靶场；Flag 只记录挑战完成事实，成绩继续由 Checkpoint→F 线处理。"
     }
   ]
 }
