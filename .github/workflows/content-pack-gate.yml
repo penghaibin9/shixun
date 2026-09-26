@@ -127,8 +127,20 @@ jobs:
             echo "Generated contracts already frozen."
             exit 0
           fi
+
+          # Long-running gate jobs can overlap while this feature branch is
+          # under active construction. Never turn a stale runner into a false
+          # CI failure or overwrite newer work. A newer push will regenerate
+          # and freeze the same deterministic contracts.
+          git fetch origin feat/content-pack-web-security-v1
+          remote_head="$(git rev-parse origin/feat/content-pack-web-security-v1)"
+          if [ "$remote_head" != "$GITHUB_SHA" ]; then
+            echo "Branch advanced from $GITHUB_SHA to $remote_head; skip stale contract write-back."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/contracts/openapi-v1.json frontend/src/app/api-contract.generated.ts
           git commit -m "chore(contracts): freeze content-pack API"
-          git push
+          git push origin HEAD:feat/content-pack-web-security-v1
