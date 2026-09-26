@@ -49,16 +49,21 @@ async function choose(item: ChallengeItem) {
 }
 
 async function configureFlag() {
-  if (!selected.value || !flag.value.trim()) return
+  if (!selected.value || selected.value.validation_mode !== 'FLAG_AND_CHECKPOINT' || !flag.value.trim()) return
   await challengeApi.configureFlag(selected.value.challenge_id, flag.value)
   flag.value = ''
   message.value = 'Flag 已以哈希方式保存，明文不会落库。'
   await load()
 }
 
-async function submitFlag() {
-  if (!selected.value || !flag.value.trim() || !classId.value) {
-    message.value = '请先选择班级并输入 Flag。'
+async function submitChallenge() {
+  if (!selected.value || !classId.value) {
+    message.value = '请先选择当前班级。'
+    return
+  }
+  const checkpointOnly = selected.value.validation_mode === 'CHECKPOINT_ONLY'
+  if (!checkpointOnly && !flag.value.trim()) {
+    message.value = '当前挑战需要输入 Flag。'
     return
   }
   await loadRuntimeContext()
@@ -75,20 +80,20 @@ async function submitFlag() {
     await loadRuntimeContext()
     const result = await challengeApi.submit(
       selected.value.challenge_id,
-      flag.value,
+      checkpointOnly ? null : flag.value,
       classId.value,
       releaseId.value,
       runtimeInstanceId.value,
     )
     flag.value = ''
     message.value = result.accepted
-      ? '挑战验证通过；系统已先执行真实 Checkpoint，完成事实已绑定判题证据，成绩继续进入原有成绩链。'
+      ? '挑战验证通过；完成事实已绑定真实 Checkpoint 证据，成绩继续进入原有成绩链。'
       : `Flag 未通过，还可尝试 ${result.remaining_attempts} 次。`
     await choose(selected.value)
   } catch (error) {
     const detail = error as ApiError
     message.value = detail.code === 'CHALLENGE.CHECKPOINT_REQUIRED'
-      ? 'Flag 正确，但当前 Checkpoint 还没有通过。请先完成实验判定，再回来提交。'
+      ? '当前 Checkpoint 还没有通过。请先完成实验判定，再回来验证挑战。'
       : detail.message || '挑战验证失败，请核对当前实验状态。'
   }
 }
@@ -105,7 +110,7 @@ onMounted(load)
         <h3>挑战列表</h3>
         <button v-for="item in items" :key="item.challenge_id" type="button" class="challenge-row" :class="{ selected: selected?.challenge_id === item.challenge_id }" @click="choose(item)">
           <span><strong>{{ item.title }}</strong><small>{{ item.difficulty }} · {{ item.status }}</small></span>
-          <span class="badge">{{ !item.unlocked ? '未解锁' : item.flag_configured ? 'Flag 已配置' : '待配置' }}</span>
+          <span class="badge">{{ !item.unlocked ? '未解锁' : item.validation_mode === 'CHECKPOINT_ONLY' ? 'Checkpoint 判定' : item.flag_configured ? 'Flag 已配置' : '待配置 Flag' }}</span>
         </button>
         <p v-if="!items.length" class="muted">当前课程暂无可见挑战。</p>
       </section>
@@ -116,11 +121,16 @@ onMounted(load)
           <p v-if="context?.role === 'student'" class="muted">当前实验：{{ releaseId || '未选择' }} · 运行实例：{{ runtimeInstanceId || '未启动' }} · {{ runtimeStatus || '待读取' }}</p>
           <h3>提示</h3>
           <article v-for="hint in hints" :key="hint.hint_id" class="hint"><strong>{{ hint.title }}</strong><p>{{ hint.content }}</p></article>
-          <div class="flag-box">
+          <p class="muted">验证方式：{{ selected.validation_mode === 'CHECKPOINT_ONLY' ? '仅使用权威 Checkpoint，不需要 Flag' : 'Flag + 权威 Checkpoint 双重验证' }}</p>
+          <div v-if="selected.validation_mode === 'FLAG_AND_CHECKPOINT'" class="flag-box">
             <input v-model="flag" :placeholder="context?.role === 'student' ? '输入 Flag' : '设置 Flag（明文不会保存）'">
             <button v-if="context?.role === 'teacher'" class="yk-button primary" :disabled="!flag.trim()" @click="configureFlag">安全保存 Flag</button>
-            <button v-else class="yk-button primary" :disabled="selected.status !== 'PUBLISHED' || !selected.unlocked || !flag.trim()" @click="submitFlag">{{ selected.unlocked ? '提交验证' : '请先完成前置挑战' }}</button>
+            <button v-else class="yk-button primary" :disabled="selected.status !== 'PUBLISHED' || !selected.unlocked || !flag.trim()" @click="submitChallenge">{{ selected.unlocked ? '提交 Flag + Checkpoint 验证' : '请先完成前置挑战' }}</button>
           </div>
+          <div v-else-if="context?.role === 'student'" class="flag-box">
+            <button class="yk-button primary" :disabled="selected.status !== 'PUBLISHED' || !selected.unlocked" @click="submitChallenge">{{ selected.unlocked ? '验证当前 Checkpoint' : '请先完成前置挑战' }}</button>
+          </div>
+          <p v-else class="muted">本挑战不配置 Flag；发布后由学生完成绑定实验的 Checkpoint 即可验证。</p>
         </template>
         <p v-else class="muted">从左侧选择一个挑战。</p>
       </section>
