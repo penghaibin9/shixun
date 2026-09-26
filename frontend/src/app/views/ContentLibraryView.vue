@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { contentPackApi, type ContentPackSummary, type ContentSource, type WebLabCandidate } from '../api'
+import { contentPackApi, type ContentPackSummary, type ContentSource, type ExternalRuntimeContract, type WebLabCandidate } from '../api'
 
 const packs = ref<ContentPackSummary[]>([])
 const sources = ref<ContentSource[]>([])
+const externalContracts = ref<ExternalRuntimeContract[]>([])
+const externalRule = ref('')
 const labs = ref<WebLabCandidate[]>([])
 const seedDomains = ref<{ source_category: string; yueke_course: string; status: string }[]>([])
 const vulhubFile = ref<File>()
@@ -18,14 +20,17 @@ const message = ref('')
 
 async function load() {
   try {
-    const [packResult, sourceResult, labResult, seedResult] = await Promise.all([
+    const [packResult, sourceResult, contractResult, labResult, seedResult] = await Promise.all([
       contentPackApi.list(),
       contentPackApi.sources(),
+      contentPackApi.externalRuntimeContracts(),
       contentPackApi.webLabCandidates(),
       contentPackApi.seedDomainMap(),
     ])
     packs.value = packResult.items
     sources.value = sourceResult.items
+    externalContracts.value = contractResult.items
+    externalRule.value = contractResult.rule
     labs.value = labResult.labs
     seedDomains.value = seedResult.domain_map
   } catch (error) {
@@ -86,6 +91,29 @@ onMounted(load)
       <table class="data-table">
         <thead><tr><th>来源</th><th>许可证</th><th>用途</th><th>判定</th><th>原因</th></tr></thead>
         <tbody><tr v-for="source in sources" :key="source.name"><td>{{ source.name }}</td><td>{{ source.license_id }}</td><td>{{ source.use_mode }}</td><td><span class="badge">{{ source.license_decision }}</span></td><td>{{ source.license_reason }}</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="card section-gap">
+      <div class="section-head">
+        <div>
+          <h3>外部靶场接入门禁</h3>
+          <p class="muted">{{ externalRule }}</p>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>来源</th><th>接入方式</th><th>许可证</th><th>当前状态</th><th>直接运行源码 Compose</th><th>融合外部前端</th><th>还必须通过</th></tr></thead>
+        <tbody>
+          <tr v-for="item in externalContracts" :key="item.source_name">
+            <td><b>{{ item.source_name }}</b></td>
+            <td>{{ item.integration_mode === 'ISOLATED_TARGET_SERVICE' ? '独立隔离靶场' : '元数据转实验定义' }}</td>
+            <td>{{ item.license_id }} · {{ item.license_decision }}</td>
+            <td><span class="badge">{{ item.current_status }}</span></td>
+            <td>{{ item.source_compose_execution_allowed ? '允许' : '禁止' }}</td>
+            <td>{{ item.external_frontend_embedding_allowed ? '允许' : '禁止' }}</td>
+            <td>{{ item.required_gates.join(' → ') }}</td>
+          </tr>
+        </tbody>
       </table>
     </section>
 
