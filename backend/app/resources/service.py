@@ -146,21 +146,24 @@ class ResourceService:
         theory_total = sum(kind == "THEORY" for kind in kinds.values())
         lab_total = sum(kind == "LAB" for kind in kinds.values())
         lesson_total = len(lessons)
+        expected_theory = int(requirements["theory_required"])
+        expected_lab = int(requirements["lab_required"])
+        expected_lessons = expected_theory + expected_lab
         return {
             "course_id": course_id,
             "catalog_key": str(requirements["catalog_key"]),
-            "theory_required": int(requirements["theory_required"]),
-            "lab_required": int(requirements["lab_required"]),
+            "theory_required": expected_theory,
+            "lab_required": expected_lab,
             "question_types": list(requirements["question_types"]),
             "resource_minimums": dict(requirements["resource_minimums"]),
             "theory_lessons": theory_total,
             "lab_lessons": lab_total,
-            "ppt": {"ready": count("PPT", "THEORY"), "required": theory_total},
-            "theory_video": {"ready": count("VIDEO", "THEORY"), "required": theory_total},
-            "lab_file": {"ready": count("LAB_FILE", "LAB"), "required": lab_total},
-            "lab_video": {"ready": count("VIDEO", "LAB"), "required": lab_total},
-            "question_lessons": {"ready": sum(check["passed"] for check in audit["checks"] if check["requirement"] == "QUESTION_BANK"), "required": lesson_total},
-            "published_questions": {"ready": question_total, "required": lesson_total * len(requirements["question_types"])},
+            "ppt": {"ready": count("PPT", "THEORY"), "required": expected_theory},
+            "theory_video": {"ready": count("VIDEO", "THEORY"), "required": expected_theory},
+            "lab_file": {"ready": count("LAB_FILE", "LAB"), "required": expected_lab},
+            "lab_video": {"ready": count("VIDEO", "LAB"), "required": expected_lab},
+            "question_lessons": {"ready": sum(check["passed"] for check in audit["checks"] if check["requirement"] == "QUESTION_BANK"), "required": expected_lessons},
+            "published_questions": {"ready": question_total, "required": expected_lessons * len(requirements["question_types"])},
             "blocking": audit["blocking"],
         }
 
