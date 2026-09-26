@@ -329,6 +329,11 @@ export type ContentPackSummary = {
 }
 export type ContentSource = { name: string; url: string; license_id: string; use_mode: string; license_decision: string; license_reason: string }
 export type WebLabCandidate = { lesson_code: string; lab_definition_id: string; title: string; source: string; license: string; source_path: string | null; runtime_status: string; reason: string }
+export type ExternalRuntimeContract = {
+  source_name: string; license_id: string; license_decision: string; license_reason: string;
+  integration_mode: string; source_compose_execution_allowed: boolean; external_frontend_embedding_allowed: boolean;
+  required_gates: string[]; current_status: string; notes: string[]
+}
 
 function contentPackHeaders(): Record<string,string> {
   if (!import.meta.env.DEV) return {}
@@ -346,6 +351,7 @@ async function contentPackRequest<T>(path:string, init:RequestInit={}):Promise<T
 export const contentPackApi={
   list:()=>contentPackRequest<{items:ContentPackSummary[]}>('/api/v1/content-packs'),
   sources:()=>contentPackRequest<{items:ContentSource[]}>('/api/v1/content-sources'),
+  externalRuntimeContracts:()=>contentPackRequest<{version:string;rule:string;items:ExternalRuntimeContract[]}>('/api/v1/content-sources/external-runtime/contracts'),
   webLabCandidates:()=>contentPackRequest<{labs:WebLabCandidate[]}>('/api/v1/content-packs/web_security_v1/lab-candidates'),
   seedDomainMap:()=>contentPackRequest<{domain_map:{source_category:string;yueke_course:string;status:string}[]}>('/api/v1/content-source-maps/seed'),
   previewVulhub:(file:File)=>{const body=new FormData();body.append('file',file);return contentPackRequest<{items:unknown[];total:number}>('/api/v1/content-sources/vulhub/index/preview',{method:'POST',body})},
