@@ -110,6 +110,22 @@ assert module.authorize_object("", "bob", "student") is False
 """
 
 
+WEB09_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_header_policy", "work/header_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+secure = {
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Set-Cookie": "session=demo; HttpOnly; Secure; SameSite=Lax",
+}
+assert module.secure_headers(secure) is True
+assert module.secure_headers({**secure, "Content-Security-Policy": ""}) is False
+assert module.secure_headers({**secure, "Set-Cookie": "session=demo"}) is False
+"""
+
+
 WEB10_VERIFY = """import importlib.util
 spec = importlib.util.spec_from_file_location("student_web_detector", "work/web_detector.py")
 module = importlib.util.module_from_spec(spec)
@@ -134,6 +150,7 @@ APPROVED_COMMANDS: dict[str, tuple[list[str], list[str]]] = {
     "verify_web05": (["python3", "-c", WEB05_VERIFY], ["work/file_policy.py"]),
     "verify_web06": (["python3", "-c", WEB06_VERIFY], ["work/ssrf_policy.py"]),
     "verify_web08": (["python3", "-c", WEB08_VERIFY], ["work/api_policy.py"]),
+    "verify_web09": (["python3", "-c", WEB09_VERIFY], ["work/header_policy.py"]),
     "verify_web10": (["python3", "-c", WEB10_VERIFY], ["work/web_detector.py"]),
     "verify_signature": (["openssl", "dgst", "-sha256", "-verify", "public.pem", "-signature", "signature.bin", "source.txt"], ["public.pem", "signature.bin", "source.txt"]),
     "verify_lab01": (["/bin/sh", "-c", "test -s work/cipher.bin && test -s work/plain.out"], ["work/cipher.bin", "work/plain.out"]),
