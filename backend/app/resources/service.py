@@ -13,6 +13,7 @@ from app.common.context import UserContext
 from app.common.errors import ApiError
 from app.common.models import FileObject
 from app.common.outbox import enqueue_event
+from app.teaching.catalog import catalog_requirements
 from app.teaching.models import Course, CourseLesson
 
 from .catalog import COURSE_ID
@@ -71,6 +72,20 @@ class ResourceService:
         if not self.session.get(Course, course_id):
             raise ApiError("RESOURCE.COURSE_NOT_FOUND", "课程不存在，请先在教学核心中创建课程", 404)
 
+    def _catalog_requirements(self, course_id: str) -> dict[str, object]:
+        course = self.session.get(Course, course_id)
+        if not course:
+            raise ApiError("RESOURCE.COURSE_NOT_FOUND", "课程不存在，请先在教学核心中创建课程", 404)
+        try:
+            return catalog_requirements(course.catalog_key)
+        except ValueError as error:
+            raise ApiError(
+                "RESOURCE.CATALOG_NOT_FOUND",
+                "课程绑定的权威模板不存在或已失效，资源门禁按失败关闭处理",
+                409,
+                {"course_id": course_id, "catalog_key": course.catalog_key},
+            ) from error
+
     def list_resources(self, course_id: str, status: str | None, name: str | None, resource_type: str | None) -> dict:
         self._course(course_id)
         items = self.repo.list_resources(course_id=course_id, status=status, name=name, resource_type=resource_type)
@@ -121,6 +136,7 @@ class ResourceService:
         self._course(course_id)
         lessons = self.repo.lessons(course_id)
         kinds = {row.lesson_id: row.lesson_kind for row in lessons}
+        requirements = self._catalog_requirements(course_id)
         audit = self.audit(course_id, persist=False)
 
         def count(requirement: str, kind: str) -> int:
@@ -130,16 +146,24 @@ class ResourceService:
         theory_total = sum(kind == "THEORY" for kind in kinds.values())
         lab_total = sum(kind == "LAB" for kind in kinds.values())
         lesson_total = len(lessons)
+        expected_theory = int(requirements["theory_required"])
+        expected_lab = int(requirements["lab_required"])
+        expected_lessons = expected_theory + expected_lab
         return {
             "course_id": course_id,
+            "catalog_key": str(requirements["catalog_key"]),
+            "theory_required": expected_theory,
+            "lab_required": expected_lab,
+            "question_types": list(requirements["question_types"]),
+            "resource_minimums": dict(requirements["resource_minimums"]),
             "theory_lessons": theory_total,
             "lab_lessons": lab_total,
-            "ppt": {"ready": count("PPT", "THEORY"), "required": theory_total},
-            "theory_video": {"ready": count("VIDEO", "THEORY"), "required": theory_total},
-            "lab_file": {"ready": count("LAB_FILE", "LAB"), "required": lab_total},
-            "lab_video": {"ready": count("VIDEO", "LAB"), "required": lab_total},
-            "question_lessons": {"ready": sum(check["passed"] for check in audit["checks"] if check["requirement"] == "QUESTION_BANK"), "required": lesson_total},
-            "published_questions": {"ready": question_total, "required": lesson_total * len(QUESTION_TYPES)},
+            "ppt": {"ready": count("PPT", "THEORY"), "required": expected_theory},
+            "theory_video": {"ready": count("VIDEO", "THEORY"), "required": expected_theory},
+            "lab_file": {"ready": count("LAB_FILE", "LAB"), "required": expected_lab},
+            "lab_video": {"ready": count("VIDEO", "LAB"), "required": expected_lab},
+            "question_lessons": {"ready": sum(check["passed"] for check in audit["checks"] if check["requirement"] == "QUESTION_BANK"), "required": expected_lessons},
+            "published_questions": {"ready": question_total, "required": expected_lessons * len(requirements["question_types"])},
             "blocking": audit["blocking"],
         }
 
@@ -577,27 +601,67 @@ class ResourceService:
 
     def coverage(self, course_id: str) -> dict:
         self._course(course_id)
+        requirements = self._catalog_requirements(course_id)
+        required_types = set(requirements["question_types"])
         coverage = self.repo.question_coverage(course_id)
         counts = self.repo.question_counts(course_id)
         lessons = self.repo.lessons(course_id)
-        items = [{"lesson_id": row.lesson_id, "lesson_code": row.lesson_code, "types": sorted(coverage.get(row.lesson_id, set())), "question_count": counts.get(row.lesson_id, 0), "passed": coverage.get(row.lesson_id, set()) == QUESTION_TYPES and counts.get(row.lesson_id, 0) == 4} for row in lessons]
+        items = [
+            {
+                "lesson_id": row.lesson_id,
+                "lesson_code": row.lesson_code,
+                "types": sorted(coverage.get(row.lesson_id, set())),
+                "question_count": counts.get(row.lesson_id, 0),
+                "passed": coverage.get(row.lesson_id, set()) == required_types
+                and counts.get(row.lesson_id, 0) == len(required_types),
+            }
+            for row in lessons
+        ]
         return {"items": items, "total": len(items), "passed": sum(item["passed"] for item in items)}
 
     def audit(self, course_id: str, *, persist: bool = True) -> dict:
         self._course(course_id)
         lessons = self.repo.lessons(course_id)
+        requirements = self._catalog_requirements(course_id)
+        required_types = set(requirements["question_types"])
         evidence = self.repo.asset_evidence(course_id)
         question_evidence = self.repo.question_evidence(course_id)
         checks, blockers = [], []
+        theory_count = sum(item.lesson_kind == "THEORY" for item in lessons)
+        lab_count = sum(item.lesson_kind == "LAB" for item in lessons)
+        expected_theory = int(requirements["theory_required"])
+        expected_lab = int(requirements["lab_required"])
+        catalog_passed = theory_count == expected_theory and lab_count == expected_lab
+        checks.append(
+            {
+                "lesson_id": course_id,
+                "lesson_code": "课程目录",
+                "requirement": "CATALOG",
+                "passed": catalog_passed,
+                "evidence": [
+                    {
+                        "catalog_key": requirements["catalog_key"],
+                        "theory_actual": theory_count,
+                        "theory_required": expected_theory,
+                        "lab_actual": lab_count,
+                        "lab_required": expected_lab,
+                    }
+                ],
+            }
+        )
+        if not catalog_passed:
+            blockers.append(
+                f"课程目录与模板不一致：理论 {theory_count}/{expected_theory}，实验 {lab_count}/{expected_lab}"
+            )
         for lesson in lessons:
             lesson_assets = evidence.get(lesson.lesson_id, {})
             lesson_questions = question_evidence.get(lesson.lesson_id, [])
             video_evidence = lesson_assets.get("VIDEO", [])
             question_types = {item["question_type"] for item in lesson_questions}
-            questions_pass = question_types == QUESTION_TYPES and len(lesson_questions) == 4
+            questions_pass = question_types == required_types and len(lesson_questions) == len(required_types)
             if lesson.lesson_kind == "THEORY":
                 video_evidence = qualified_theory_videos(video_evidence)
-                requirements = {"PPT": "PPT", "VIDEO": "35～45分钟讲解视频", "QUESTION_BANK": "四类题型", "REVIEW": "审核发布"}
+                lesson_requirements = {"PPT": "PPT", "VIDEO": "35～45分钟讲解视频", "QUESTION_BANK": f"{len(required_types)} 类题型", "REVIEW": "审核发布"}
                 passed = {
                     "PPT": bool(lesson_assets.get("PPT")),
                     "VIDEO": bool(video_evidence),
@@ -605,14 +669,14 @@ class ResourceService:
                     "REVIEW": bool(lesson_assets.get("PPT")) and bool(video_evidence) and questions_pass,
                 }
             else:
-                requirements = {"INTRO": "介绍四段", "LAB_FILE": "实验文件", "VIDEO": "讲解视频", "QUESTION_BANK": "四类题型"}
+                lesson_requirements = {"INTRO": "介绍四段", "LAB_FILE": "实验文件", "VIDEO": "讲解视频", "QUESTION_BANK": f"{len(required_types)} 类题型"}
                 passed = {
                     "INTRO": bool(lesson.purpose and lesson.environment and lesson.principle and lesson.steps_summary),
                     "LAB_FILE": bool(lesson_assets.get("LAB_FILE")),
                     "VIDEO": bool(lesson_assets.get("VIDEO")),
                     "QUESTION_BANK": questions_pass,
                 }
-            for key, label in requirements.items():
+            for key, label in lesson_requirements.items():
                 if key == "QUESTION_BANK":
                     item_evidence = lesson_questions
                 elif key == "REVIEW":
@@ -700,18 +764,24 @@ class ResourceService:
             raise
 
     def _question_catalog(self, course_id: str) -> list[ResourceLesson]:
+        requirements = self._catalog_requirements(course_id)
         lessons = self.repo.lessons(course_id)
         theory_count = sum(item.lesson_kind == "THEORY" for item in lessons)
         lab_count = sum(item.lesson_kind == "LAB" for item in lessons)
-        if theory_count != 37 or lab_count != 12:
+        expected_theory = int(requirements["theory_required"])
+        expected_lab = int(requirements["lab_required"])
+        if theory_count != expected_theory or lab_count != expected_lab:
             raise ApiError(
                 "QUESTION_IMPORT.CATALOG_INCOMPLETE",
-                "当前课程必须先具备完整的 37 个理论课时和 12 个实验课时目录",
+                f"当前课程必须先具备模板要求的 {expected_theory} 个理论课时和 {expected_lab} 个实验课时目录",
                 409,
                 {
+                    "catalog_key": requirements["catalog_key"],
                     "lesson_count": len(lessons),
                     "theory_lesson_count": theory_count,
+                    "theory_required": expected_theory,
                     "lab_lesson_count": lab_count,
+                    "lab_required": expected_lab,
                 },
             )
         return lessons
@@ -807,8 +877,8 @@ class ResourceService:
     def procurement_mapping() -> list[dict]:
         return [
             {"requirement": "课程资源管理", "owner": "B", "evidence": "状态/名称/类型三维筛选"},
-            {"requirement": "理论课程资源", "owner": "B", "evidence": "37 理论课时资源门禁"},
-            {"requirement": "实验课程资源", "owner": "B", "evidence": "12 实验课时与 8 类核心映射"},
+            {"requirement": "理论课程资源", "owner": "B", "evidence": "按课程模板的理论课时与资源最低要求动态门禁"},
+            {"requirement": "实验课程资源", "owner": "B", "evidence": "按课程模板的实验课时与实验定义关联动态门禁"},
             {"requirement": "签到、投票", "owner": "A", "evidence": "只读 API 聚合，B 不读取 A 表"},
             {"requirement": "知识点讲解图、场景、DAG", "owner": "C", "evidence": "冻结标识引用"},
             {"requirement": "实例", "owner": "D/E", "evidence": "只读 API 聚合"},

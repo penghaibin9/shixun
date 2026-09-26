@@ -5,7 +5,7 @@ import CourseResourcesView from './CourseResourcesView.vue'
 
 const theory = Array.from({ length: 37 }, (_, index) => ({ course_id: 'course_data_security', lesson_id: `t${index}`, lesson_kind: 'THEORY', chapter_no: index < 5 ? 1 : index < 8 ? 2 : index < 14 ? 3 : index < 21 ? 4 : index < 28 ? 5 : index < 33 ? 6 : 7, lesson_code: index === 36 ? '7.4' : `课时${index + 1}`, title: index === 36 ? '典型数据安全产品选型指南（加密类/脱敏类/审计类/管控类/备份类）' : `知识点${index + 1}`, purpose: null, environment: null, principle: null, steps_summary: null, core_experiment: null }))
 const labs = Array.from({ length: 12 }, (_, index) => ({ course_id: 'course_data_security', lesson_id: `l${index}`, lesson_kind: 'LAB', chapter_no: null, lesson_code: `实验${String(index + 1).padStart(2, '0')}`, title: `实验主题${index + 1}`, purpose: '实验目的', environment: '隔离环境', principle: '实验原理', steps_summary: '实验步骤', core_experiment: index < 2 ? 'AES/DES' : '综合实践' }))
-const readiness = { course_id: 'course_data_security', theory_lessons: 37, lab_lessons: 12, ppt: { ready: 0, required: 37 }, theory_video: { ready: 0, required: 37 }, lab_file: { ready: 0, required: 12 }, lab_video: { ready: 0, required: 12 }, question_lessons: { ready: 0, required: 49 }, published_questions: { ready: 0, required: 196 }, blocking: 196 }
+const readiness = { course_id: 'course_data_security', catalog_key: 'data_security_v1', theory_required: 37, lab_required: 12, question_types: ['FILL', 'SINGLE', 'MULTIPLE', 'TRUE_FALSE'], resource_minimums: { theory_ppt_per_lesson: 1, theory_video_per_lesson: 1, lab_file_per_lesson: 1, lab_video_per_lesson: 1, questions_per_lesson: 4 }, theory_lessons: 37, lab_lessons: 12, ppt: { ready: 0, required: 37 }, theory_video: { ready: 0, required: 37 }, lab_file: { ready: 0, required: 12 }, lab_video: { ready: 0, required: 12 }, question_lessons: { ready: 0, required: 49 }, published_questions: { ready: 0, required: 196 }, blocking: 196 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 async function mountQuestions() {
@@ -18,16 +18,49 @@ async function mountQuestions() {
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 describe('课程资源页面', () => {
-  it('从接口渲染 37/12 蓝图而非前端写死完成状态', async () => {
+  it('从接口渲染数据安全蓝图而不是依赖前端固定课程文案', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(String(input).includes('course-blueprint') ? { items: [...theory, ...labs], total: 49, chapter_counts: {} } : { items: [], total: 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
     const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/course-blueprint', component: CourseResourcesView, meta: { page: 'blueprint' } }] })
     await router.push('/course-blueprint'); await router.isReady()
     const wrapper = mount(CourseResourcesView, { global: { plugins: [router] } })
     await flushPromises()
-    expect(wrapper.text()).toContain('37 个理论课时')
+    expect(wrapper.text()).toContain('章节和课时数量来自当前课程的权威模板')
     expect(wrapper.text()).toContain('7.4')
     expect(wrapper.text()).toContain('典型数据安全产品选型指南')
     expect(wrapper.findAll('tbody tr')).toHaveLength(37)
+  })
+
+  it('资源总览按当前课程模板动态展示课时要求', async () => {
+    const smallTheory = theory.slice(0, 2)
+    const smallLabs = labs.slice(0, 1)
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.includes('course-blueprint')) return json({ items: [...smallTheory, ...smallLabs], total: 3, chapter_counts: {} })
+      if (path.includes('readiness')) return json({ ...readiness, catalog_key: 'web_security_v1', theory_required: 12, lab_required: 12, theory_lessons: 2, lab_lessons: 1, question_lessons: { ready: 0, required: 3 }, published_questions: { ready: 0, required: 12 } })
+      return json({ items: [], total: 0 })
+    }))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/resources', component: CourseResourcesView, meta: { page: 'overview' } }] })
+    await router.push('/resources'); await router.isReady()
+    const wrapper = mount(CourseResourcesView, { global: { plugins: [router] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('2 / 12')
+    expect(wrapper.text()).toContain('1 / 12')
+  })
+
+  it('新课程蓝图只展示实际章节，不沿用数据安全七章', async () => {
+    const webTheory = theory.slice(0, 2).map(item => ({ ...item, chapter_no: 1 }))
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes('course-blueprint')) return json({ items: webTheory, total: 2, chapter_counts: { 1: 2 } })
+      if (String(input).includes('readiness')) return json({ ...readiness, catalog_key: 'web_security_v1', theory_required: 12, lab_required: 12 })
+      return json({ items: [], total: 0 })
+    }))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/course-blueprint', component: CourseResourcesView, meta: { page: 'blueprint' } }] })
+    await router.push('/course-blueprint'); await router.isReady()
+    const wrapper = mount(CourseResourcesView, { global: { plugins: [router] } })
+    await flushPromises()
+    expect(wrapper.findAll('.chapter-card')).toHaveLength(1)
+    expect(wrapper.find('.chapter-card').text()).toContain('第 1 章')
+    expect(wrapper.text()).not.toContain('第 7 章')
   })
 
   it('视频中心展示媒体解析的真实时长与分辨率', async () => {
@@ -117,7 +150,7 @@ describe('课程资源页面', () => {
 
     Object.defineProperty(input.element, 'files', { value: [new File([new Uint8Array([80, 75, 3, 4])], 'questions.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', lastModified: 1 })], configurable: true })
     await input.trigger('change')
-    await wrapper.findAll('form').find(form => form.text().includes('导入 196 行题库数据'))!.trigger('submit')
+    await wrapper.findAll('form').find(form => form.text().includes('批量导入课程题库'))!.trigger('submit')
     await vi.waitFor(() => expect(fetchMock.mock.calls.some(call => String(call[0]).endsWith('/questions/import'))).toBe(true))
     await flushPromises()
     const importCall = fetchMock.mock.calls.find(call => String(call[0]).endsWith('/questions/import'))

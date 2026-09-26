@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "crypto_security_v1",
+  "course_id": "course_crypto_security",
+  "title": "密码学与安全协议实训",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "密码学目标与威胁模型",
+      "lesson_type": "THEORY",
+      "summary": "围绕“密码学目标与威胁模型”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释密码学目标与威胁模型的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "随机数、熵与密钥材料",
+      "lesson_type": "THEORY",
+      "summary": "围绕“随机数、熵与密钥材料”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释随机数、熵与密钥材料的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "对称密码与工作模式",
+      "lesson_type": "THEORY",
+      "summary": "围绕“对称密码与工作模式”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释对称密码与工作模式的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "消息认证码与完整性",
+      "lesson_type": "THEORY",
+      "summary": "围绕“消息认证码与完整性”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释消息认证码与完整性的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "公钥密码与密钥交换",
+      "lesson_type": "THEORY",
+      "summary": "围绕“公钥密码与密钥交换”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释公钥密码与密钥交换的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "数字签名与证书体系",
+      "lesson_type": "THEORY",
+      "summary": "围绕“数字签名与证书体系”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释数字签名与证书体系的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "哈希函数与密码存储",
+      "lesson_type": "THEORY",
+      "summary": "围绕“哈希函数与密码存储”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释哈希函数与密码存储的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "TLS 与安全信道",
+      "lesson_type": "THEORY",
+      "summary": "围绕“TLS 与安全信道”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释TLS 与安全信道的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "国密算法与应用边界",
+      "lesson_type": "THEORY",
+      "summary": "围绕“国密算法与应用边界”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释国密算法与应用边界的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "密钥生命周期与 HSM 基础",
+      "lesson_type": "THEORY",
+      "summary": "围绕“密钥生命周期与 HSM 基础”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释密钥生命周期与 HSM 基础的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "常见密码误用与设计缺陷",
+      "lesson_type": "THEORY",
+      "summary": "围绕“常见密码误用与设计缺陷”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释常见密码误用与设计缺陷的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "协议设计、验证与迁移",
+      "lesson_type": "THEORY",
+      "summary": "围绕“协议设计、验证与迁移”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释协议设计、验证与迁移的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "随机数质量与密钥生成",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“随机数质量与密钥生成”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成随机数质量与密钥生成的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "AES 模式与完整性组合",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“AES 模式与完整性组合”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成AES 模式与完整性组合的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "HMAC 消息认证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“HMAC 消息认证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成HMAC 消息认证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "RSA/ECC 密钥操作",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“RSA/ECC 密钥操作”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成RSA/ECC 密钥操作的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "数字签名与验签",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“数字签名与验签”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成数字签名与验签的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "证书链与主机名验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“证书链与主机名验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成证书链与主机名验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "口令哈希与盐值验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“口令哈希与盐值验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成口令哈希与盐值验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "TLS 配置与握手检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“TLS 配置与握手检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成TLS 配置与握手检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "SM2/SM3/SM4 基础验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“SM2/SM3/SM4 基础验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成SM2/SM3/SM4 基础验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "密钥轮换与吊销演练",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“密钥轮换与吊销演练”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成密钥轮换与吊销演练的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "密码误用代码审计",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“密码误用代码审计”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成密码误用代码审计的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "安全协议综合配置",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“安全协议综合配置”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成安全协议综合配置的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "密码学与安全协议实训",
+      "lab_profile": "crypto_security",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}

@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "network_security_v1",
+  "course_id": "course_network_security",
+  "title": "网络协议与攻防基础",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "TCP/IP 分层与网络信任边界",
+      "lesson_type": "THEORY",
+      "summary": "围绕“TCP/IP 分层与网络信任边界”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释TCP/IP 分层与网络信任边界的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "以太网、ARP 与二层安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“以太网、ARP 与二层安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释以太网、ARP 与二层安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "IPv4/IPv6 地址与路由安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“IPv4/IPv6 地址与路由安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释IPv4/IPv6 地址与路由安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "TCP/UDP 会话与状态管理",
+      "lesson_type": "THEORY",
+      "summary": "围绕“TCP/UDP 会话与状态管理”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释TCP/UDP 会话与状态管理的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "DNS 解析链与域名安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“DNS 解析链与域名安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释DNS 解析链与域名安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "DHCP、NAT 与边界设备",
+      "lesson_type": "THEORY",
+      "summary": "围绕“DHCP、NAT 与边界设备”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释DHCP、NAT 与边界设备的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "HTTP/TLS 网络通信基础",
+      "lesson_type": "THEORY",
+      "summary": "围绕“HTTP/TLS 网络通信基础”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释HTTP/TLS 网络通信基础的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "网络扫描、资产识别与暴露面管理",
+      "lesson_type": "THEORY",
+      "summary": "围绕“网络扫描、资产识别与暴露面管理”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释网络扫描、资产识别与暴露面管理的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "防火墙、ACL 与网络分区",
+      "lesson_type": "THEORY",
+      "summary": "围绕“防火墙、ACL 与网络分区”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释防火墙、ACL 与网络分区的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "VPN、隧道与远程接入安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“VPN、隧道与远程接入安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释VPN、隧道与远程接入安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "流量分析、PCAP 与异常识别",
+      "lesson_type": "THEORY",
+      "summary": "围绕“流量分析、PCAP 与异常识别”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释流量分析、PCAP 与异常识别的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "网络攻击面治理与纵深防御",
+      "lesson_type": "THEORY",
+      "summary": "围绕“网络攻击面治理与纵深防御”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释网络攻击面治理与纵深防御的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "抓包与协议字段观察",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“抓包与协议字段观察”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成抓包与协议字段观察的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "ARP 邻居关系与异常检测",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“ARP 邻居关系与异常检测”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成ARP 邻居关系与异常检测的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "路由与网段隔离验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“路由与网段隔离验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成路由与网段隔离验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "TCP 会话状态分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“TCP 会话状态分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成TCP 会话状态分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "DNS 解析与异常记录分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“DNS 解析与异常记录分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成DNS 解析与异常记录分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "NAT 与访问边界验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“NAT 与访问边界验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成NAT 与访问边界验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "TLS 握手与证书检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“TLS 握手与证书检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成TLS 握手与证书检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "授权资产探测与端口基线",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“授权资产探测与端口基线”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成授权资产探测与端口基线的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "防火墙 ACL 正反向验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“防火墙 ACL 正反向验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成防火墙 ACL 正反向验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "受控 VPN 访问策略验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“受控 VPN 访问策略验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成受控 VPN 访问策略验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "PCAP 流量调查与时间线",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“PCAP 流量调查与时间线”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成PCAP 流量调查与时间线的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "小型校园网安全分区综合实训",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“小型校园网安全分区综合实训”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成小型校园网安全分区综合实训的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "网络协议与攻防基础",
+      "lab_profile": "network_security",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}

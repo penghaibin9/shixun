@@ -69,6 +69,11 @@ class ResourceReadinessCounterResponse(BaseModel):
 
 class ResourceReadinessResponse(BaseModel):
     course_id: str
+    catalog_key: str
+    theory_required: int
+    lab_required: int
+    question_types: list[str]
+    resource_minimums: dict[str, int]
     theory_lessons: int
     lab_lessons: int
     ppt: ResourceReadinessCounterResponse

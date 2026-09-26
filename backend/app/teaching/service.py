@@ -17,7 +17,7 @@ from app.common.models import DomainEventOutbox
 from app.common.outbox import enqueue_event
 
 from . import models as m
-from .catalog import curriculum_rows
+from .catalog import catalog_metadata, curriculum_rows
 from .repository import TeachingRepository
 from .schemas import AssignmentCreate, AttendanceCreate, ClassCreate, CourseCreate, CoursePatch, MemberCreate, PollCreate, QuizCreate, QuizSubmitIn, SubmissionIn
 from .xlsx import parse_members
@@ -305,17 +305,31 @@ class TeachingService:
     def audit(self, action: str, aggregate_type: str, aggregate_id: str, payload: dict):
         enqueue_event(self.session, event_type="teaching.audit", aggregate_type=aggregate_type, aggregate_id=aggregate_id, actor_user_id=self.user.user_id, idempotency_key=f"{action}:{aggregate_id}:{uuid4()}", payload={"action": action, "actor_role": self.user.role, **payload})
 
+    def course_catalogs(self):
+        self.require("teaching.course.read")
+        return {"items": catalog_metadata()}
+
     def create_course(self, body: CourseCreate):
         self.require("teaching.course.write")
         if not self.user.teacher_id:
             raise ApiError("AUTH.TEACHER_REQUIRED", "当前身份没有关联教师", 403)
-        item = self.repo.add(m.Course(course_id=str(uuid4()), owner_teacher_id=self.user.teacher_id, created_at=now(), status="DRAFT", **body.model_dump()))
-        catalog = curriculum_rows(item.course_id)
+        course_fields = body.model_dump()
+        course_id = str(uuid4())
+        try:
+            catalog = curriculum_rows(course_id, body.catalog_key)
+        except ValueError as error:
+            raise ApiError(
+                "TEACHING.CATALOG_NOT_FOUND",
+                "课程模板不存在或内容包无效",
+                422,
+                {"catalog_key": body.catalog_key},
+            ) from error
+        item = self.repo.add(m.Course(course_id=course_id, owner_teacher_id=self.user.teacher_id, created_at=now(), status="DRAFT", **course_fields))
         for row in catalog["chapters"]:
             self.repo.add(m.CourseChapter(**row))
         for row in catalog["lessons"]:
             self.repo.add(m.CourseLesson(**row))
-        self.audit("course.created", "course", item.course_id, {"course_id": item.course_id})
+        self.audit("course.created", "course", item.course_id, {"course_id": item.course_id, "catalog_key": item.catalog_key})
         self.session.commit()
         return entity_dict(item) | {
             "theory_lesson_count": sum(row["lesson_type"] == "THEORY" for row in catalog["lessons"]),

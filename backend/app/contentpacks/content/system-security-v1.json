@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "system_security_v1",
+  "course_id": "course_system_security",
+  "title": "Linux 与系统安全",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "Linux 用户、组与身份模型",
+      "lesson_type": "THEORY",
+      "summary": "围绕“Linux 用户、组与身份模型”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释Linux 用户、组与身份模型的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "文件权限、ACL 与最小权限",
+      "lesson_type": "THEORY",
+      "summary": "围绕“文件权限、ACL 与最小权限”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释文件权限、ACL 与最小权限的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "进程、服务与 systemd 安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“进程、服务与 systemd 安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释进程、服务与 systemd 安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "SUID、Capabilities 与特权边界",
+      "lesson_type": "THEORY",
+      "summary": "围绕“SUID、Capabilities 与特权边界”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释SUID、Capabilities 与特权边界的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "软件包、更新与供应链基础",
+      "lesson_type": "THEORY",
+      "summary": "围绕“软件包、更新与供应链基础”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释软件包、更新与供应链基础的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "SSH 与远程管理安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“SSH 与远程管理安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释SSH 与远程管理安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "日志、审计与时间同步",
+      "lesson_type": "THEORY",
+      "summary": "围绕“日志、审计与时间同步”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释日志、审计与时间同步的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "主机防火墙与网络服务暴露",
+      "lesson_type": "THEORY",
+      "summary": "围绕“主机防火墙与网络服务暴露”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释主机防火墙与网络服务暴露的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "容器与 Namespace/Cgroup 隔离",
+      "lesson_type": "THEORY",
+      "summary": "围绕“容器与 Namespace/Cgroup 隔离”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释容器与 Namespace/Cgroup 隔离的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "沙箱、Seccomp 与受限执行",
+      "lesson_type": "THEORY",
+      "summary": "围绕“沙箱、Seccomp 与受限执行”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释沙箱、Seccomp 与受限执行的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "主机加固基线与配置核查",
+      "lesson_type": "THEORY",
+      "summary": "围绕“主机加固基线与配置核查”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释主机加固基线与配置核查的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "系统事件响应与恢复",
+      "lesson_type": "THEORY",
+      "summary": "围绕“系统事件响应与恢复”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释系统事件响应与恢复的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "用户组与最小权限配置",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“用户组与最小权限配置”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成用户组与最小权限配置的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "文件权限与 ACL 验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“文件权限与 ACL 验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成文件权限与 ACL 验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "服务账户与 systemd 加固",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“服务账户与 systemd 加固”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成服务账户与 systemd 加固的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "SUID 与 Capability 风险检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“SUID 与 Capability 风险检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成SUID 与 Capability 风险检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "软件包来源与完整性校验",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“软件包来源与完整性校验”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成软件包来源与完整性校验的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "SSH 安全配置检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“SSH 安全配置检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成SSH 安全配置检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "auditd 与系统日志调查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“auditd 与系统日志调查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成auditd 与系统日志调查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "主机防火墙规则验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“主机防火墙规则验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成主机防火墙规则验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "容器隔离边界观察",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“容器隔离边界观察”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成容器隔离边界观察的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "Seccomp 受限行为验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“Seccomp 受限行为验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成Seccomp 受限行为验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "Linux 加固基线自动核查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“Linux 加固基线自动核查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成Linux 加固基线自动核查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "主机异常事件综合处置",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“主机异常事件综合处置”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成主机异常事件综合处置的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "Linux 与系统安全",
+      "lab_profile": "system_security",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}

@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "blue_team_v1",
+  "course_id": "course_blue_team",
+  "title": "蓝队检测与应急响应",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "安全运营中心与事件生命周期",
+      "lesson_type": "THEORY",
+      "summary": "围绕“安全运营中心与事件生命周期”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释安全运营中心与事件生命周期的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "MITRE ATT&CK 与检测映射",
+      "lesson_type": "THEORY",
+      "summary": "围绕“MITRE ATT&CK 与检测映射”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释MITRE ATT&CK 与检测映射的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "Windows/Linux 日志基础",
+      "lesson_type": "THEORY",
+      "summary": "围绕“Windows/Linux 日志基础”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释Windows/Linux 日志基础的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "网络流量与 IDS 检测思路",
+      "lesson_type": "THEORY",
+      "summary": "围绕“网络流量与 IDS 检测思路”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释网络流量与 IDS 检测思路的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "身份认证异常与账号风险",
+      "lesson_type": "THEORY",
+      "summary": "围绕“身份认证异常与账号风险”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释身份认证异常与账号风险的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "Web 与 API 攻击检测",
+      "lesson_type": "THEORY",
+      "summary": "围绕“Web 与 API 攻击检测”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释Web 与 API 攻击检测的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "端点行为与进程链分析",
+      "lesson_type": "THEORY",
+      "summary": "围绕“端点行为与进程链分析”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释端点行为与进程链分析的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "告警去重、关联与优先级",
+      "lesson_type": "THEORY",
+      "summary": "围绕“告警去重、关联与优先级”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释告警去重、关联与优先级的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "事件分级、遏制与证据保护",
+      "lesson_type": "THEORY",
+      "summary": "围绕“事件分级、遏制与证据保护”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释事件分级、遏制与证据保护的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "数字取证基础与时间线",
+      "lesson_type": "THEORY",
+      "summary": "围绕“数字取证基础与时间线”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释数字取证基础与时间线的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "威胁狩猎与假设驱动分析",
+      "lesson_type": "THEORY",
+      "summary": "围绕“威胁狩猎与假设驱动分析”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释威胁狩猎与假设驱动分析的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "复盘、整改与检测工程闭环",
+      "lesson_type": "THEORY",
+      "summary": "围绕“复盘、整改与检测工程闭环”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释复盘、整改与检测工程闭环的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "日志接入与字段规范化",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“日志接入与字段规范化”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成日志接入与字段规范化的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "ATT&CK 技术映射练习",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“ATT&CK 技术映射练习”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成ATT&CK 技术映射练习的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "认证失败与异常登录检测",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“认证失败与异常登录检测”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成认证失败与异常登录检测的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "PCAP 异常流量调查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“PCAP 异常流量调查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成PCAP 异常流量调查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "可疑账号活动时间线",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“可疑账号活动时间线”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成可疑账号活动时间线的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "Web 攻击日志识别",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“Web 攻击日志识别”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成Web 攻击日志识别的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "进程树与端点事件分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“进程树与端点事件分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成进程树与端点事件分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "多源告警关联与降噪",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“多源告警关联与降噪”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成多源告警关联与降噪的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "事件遏制桌面推演",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“事件遏制桌面推演”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成事件遏制桌面推演的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "文件与日志证据保全",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“文件与日志证据保全”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成文件与日志证据保全的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "威胁狩猎查询与证据记录",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“威胁狩猎查询与证据记录”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成威胁狩猎查询与证据记录的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "蓝队综合事件响应演练",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“蓝队综合事件响应演练”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成蓝队综合事件响应演练的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "蓝队检测与应急响应",
+      "lab_profile": "blue_team",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}

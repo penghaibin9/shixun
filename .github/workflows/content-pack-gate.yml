@@ -1,0 +1,147 @@
+name: Content Pack Gate
+
+on:
+  push:
+    branches:
+      - feat/content-pack-web-security-v1
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  content-pack-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: yueke-ci-root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pyueke-ci-root"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend
+        run: python -m pip install -e "./backend[test]"
+
+      - name: Python syntax check
+        run: python -m compileall -q backend/app backend/tests
+
+      - name: Freeze OpenAPI
+        run: python scripts/freeze_openapi.py
+
+      - name: Backend contract and content tests
+        working-directory: backend
+        run: >
+          pytest -q
+          tests/test_contentpacks.py
+          tests/test_course_resource_catalog.py
+          tests/test_question_import_xlsx.py
+          tests/test_multi_course_end_to_end.py
+          tests/test_content_source_policy.py
+          tests/test_external_source_adapters.py
+          tests/test_external_runtime_gate.py
+          tests/test_challenges.py
+          tests/test_lab_classroom.py
+          tests/test_web_security_lab_catalog.py
+          tests/test_web_security_node_agent_contract.py
+          tests/test_lab_schema.py
+          tests/test_contracts.py
+
+      - name: MySQL 8.4 migration gate
+        env:
+          YUEKE_DATABASE_URL: mysql+pymysql://root:yueke-ci-root@127.0.0.1:3306/yueke_content_gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pymysql
+          connection = pymysql.connect(host="127.0.0.1", user="root", password="yueke-ci-root", autocommit=True)
+          with connection.cursor() as cursor:
+              cursor.execute("DROP DATABASE IF EXISTS yueke_content_gate")
+              cursor.execute("CREATE DATABASE yueke_content_gate CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+          connection.close()
+          PY
+          cd backend
+          alembic upgrade head
+          python -m app.labs.web_security_seed
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+          engine = create_engine(os.environ["YUEKE_DATABASE_URL"])
+          with engine.connect() as connection:
+              assert connection.execute(text("SELECT COUNT(*) FROM course_lesson WHERE course_id='course_web_security'")).scalar_one() == 24
+              assert connection.execute(text("SELECT catalog_key FROM course WHERE course_id='course_web_security'")).scalar_one() == "web_security_v1"
+              assert connection.execute(text("SELECT COUNT(*) FROM lab_definition WHERE course_id='course_web_security'")).scalar_one() == 12
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security'")).scalar_one() == 12
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND prerequisite_challenge_id IS NOT NULL")).scalar_one() == 11
+              assert connection.execute(text("SELECT COUNT(*) FROM lab_version lv JOIN lab_definition ld ON ld.lab_definition_id=lv.lab_definition_id WHERE ld.course_id='course_web_security' AND lv.version=1 AND lv.status='PUBLISHED'")).scalar_one() == 4
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND lab_version_id IS NOT NULL AND checkpoint_key IS NOT NULL")).scalar_one() == 4
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND validation_mode='CHECKPOINT_ONLY'")).scalar_one() == 4
+              assert connection.execute(text("SELECT COUNT(*) FROM challenge_definition WHERE course_id='course_web_security' AND validation_mode='FLAG_AND_CHECKPOINT'")).scalar_one() == 8
+          PY
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Regenerate frontend API types
+        working-directory: frontend
+        run: npm run contracts:generate
+
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Frontend production build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Commit frozen generated contracts on feature branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/content-pack-web-security-v1'
+        shell: bash
+        run: |
+          if git diff --quiet -- docs/contracts/openapi-v1.json frontend/src/app/api-contract.generated.ts; then
+            echo "Generated contracts already frozen."
+            exit 0
+          fi
+
+          # Long-running gate jobs can overlap while this feature branch is
+          # under active construction. Never turn a stale runner into a false
+          # CI failure or overwrite newer work. A newer push will regenerate
+          # and freeze the same deterministic contracts.
+          git fetch origin feat/content-pack-web-security-v1
+          remote_head="$(git rev-parse origin/feat/content-pack-web-security-v1)"
+          if [ "$remote_head" != "$GITHUB_SHA" ]; then
+            echo "Branch advanced from $GITHUB_SHA to $remote_head; skip stale contract write-back."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/contracts/openapi-v1.json frontend/src/app/api-contract.generated.ts
+          git commit -m "chore(contracts): freeze content-pack API"
+          git push origin HEAD:feat/content-pack-web-security-v1

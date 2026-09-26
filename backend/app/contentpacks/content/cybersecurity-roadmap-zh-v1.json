@@ -1,0 +1,114 @@
+{
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "product": "跃科网络空间安全实训平台",
+  "rule": "第三方资料只作为体系参考或独立运行依赖；商业交付中的中文讲义、题库、实验说明、判分逻辑由跃科原创。",
+  "courses": [
+    {
+      "course_id": "course_data_security",
+      "title": "数据安全技术基础",
+      "status": "EXISTING",
+      "priority": 0
+    },
+    {
+      "course_id": "course_web_security",
+      "title": "Web 应用安全实训",
+      "status": "FIRST_BATCH",
+      "priority": 1
+    },
+    {
+      "course_id": "course_network_security",
+      "title": "网络协议与攻防基础",
+      "status": "PLANNED",
+      "priority": 2
+    },
+    {
+      "course_id": "course_system_security",
+      "title": "Linux 与系统安全",
+      "status": "PLANNED",
+      "priority": 3
+    },
+    {
+      "course_id": "course_software_security",
+      "title": "漏洞分析与软件安全",
+      "status": "PLANNED",
+      "priority": 4
+    },
+    {
+      "course_id": "course_blue_team",
+      "title": "蓝队检测与应急响应",
+      "status": "PLANNED",
+      "priority": 5
+    },
+    {
+      "course_id": "course_ctf_foundation",
+      "title": "CTF 与综合挑战训练",
+      "status": "PLANNED",
+      "priority": 6
+    },
+    {
+      "course_id": "course_crypto_security",
+      "title": "密码学与安全协议实训",
+      "status": "PLANNED",
+      "priority": 7
+    },
+    {
+      "course_id": "course_blockchain_security",
+      "title": "区块链安全基础实训",
+      "status": "PLANNED",
+      "priority": 8
+    },
+    {
+      "course_id": "course_mobile_security",
+      "title": "移动应用安全基础",
+      "status": "PLANNED",
+      "priority": 9
+    },
+    {
+      "course_id": "course_hardware_security",
+      "title": "硬件与侧信道安全导论",
+      "status": "PLANNED",
+      "priority": 10
+    }
+  ],
+  "reference_sources": [
+    {
+      "name": "SEED Labs",
+      "url": "https://github.com/seed-labs/seed-labs",
+      "license": "CC BY-NC-SA 4.0",
+      "use_mode": "REFERENCE_ONLY",
+      "direct_translation_in_commercial_bundle": false,
+      "note": "官方 LICENSE.md 明确课程及相关材料为非商业许可，并明确翻译属于衍生作品。仅用于知识域与课程体系对照，不复制、翻译或打包其教材内容。"
+    },
+    {
+      "name": "pwn.college",
+      "url": "https://github.com/pwncollege/dojo",
+      "license": "BSD-2-Clause (dojo engine)",
+      "use_mode": "ARCHITECTURE_REFERENCE"
+    },
+    {
+      "name": "Vulhub",
+      "url": "https://github.com/vulhub/vulhub",
+      "license": "MIT",
+      "use_mode": "EXTERNAL_RUNTIME"
+    },
+    {
+      "name": "OWASP Juice Shop",
+      "url": "https://github.com/juice-shop/juice-shop",
+      "license": "MIT",
+      "use_mode": "EXTERNAL_RUNTIME"
+    },
+    {
+      "name": "Atomic Red Team",
+      "url": "https://github.com/redcanaryco/atomic-red-team",
+      "license": "MIT",
+      "use_mode": "EXTERNAL_RUNTIME_OR_REFERENCE"
+    },
+    {
+      "name": "CTFd",
+      "url": "https://github.com/CTFd/CTFd",
+      "license": "Apache-2.0",
+      "use_mode": "FEATURE_REFERENCE"
+    }
+  ]
+}

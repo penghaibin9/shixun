@@ -1,0 +1,393 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "web_security_v1",
+  "course_id": "course_web_security",
+  "title": "Web 应用安全实训",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。课程讲义、题目、实验说明与判分设计为跃科原创内容；第三方靶场仅按各自许可证作为独立运行依赖接入。",
+  "sources": [
+    {
+      "name": "OWASP Juice Shop",
+      "url": "https://github.com/juice-shop/juice-shop",
+      "license_id": "MIT",
+      "use_mode": "EXTERNAL_RUNTIME"
+    },
+    {
+      "name": "Vulhub",
+      "url": "https://github.com/vulhub/vulhub",
+      "license_id": "MIT",
+      "use_mode": "EXTERNAL_RUNTIME"
+    },
+    {
+      "name": "OWASP Web Security Testing Guide",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/",
+      "license_id": "CC-BY-SA-4.0",
+      "use_mode": "REFERENCE_ONLY"
+    }
+  ],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "Web 安全与 HTTP 攻击面",
+      "lesson_type": "THEORY",
+      "summary": "理解请求、响应、会话、输入边界与服务端信任边界。",
+      "objectives": [
+        "识别常见 Web 攻击面",
+        "理解客户端输入不可信原则"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Web安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "身份认证、会话与访问控制",
+      "lesson_type": "THEORY",
+      "summary": "从身份、会话、对象权限三个层次理解 Web 鉴权失败。",
+      "objectives": [
+        "区分认证与授权",
+        "理解最小权限与对象级授权"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "身份与访问控制",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "输入验证与 SQL 注入原理",
+      "lesson_type": "THEORY",
+      "summary": "理解字符串拼接、参数化查询和数据/指令边界。",
+      "objectives": [
+        "识别注入根因",
+        "理解参数化查询防护"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "注入安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "XSS 与浏览器信任边界",
+      "lesson_type": "THEORY",
+      "summary": "理解输出编码、DOM 上下文和内容安全策略的作用。",
+      "objectives": [
+        "区分存储型与反射型风险",
+        "理解上下文编码"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "浏览器安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "文件上传与路径安全",
+      "lesson_type": "THEORY",
+      "summary": "理解文件类型、存储路径、访问控制和路径规范化风险。",
+      "objectives": [
+        "识别不安全上传链",
+        "理解路径规范化"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "文件安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "SSRF 与服务端网络边界",
+      "lesson_type": "THEORY",
+      "summary": "理解服务端代请求、内网资源和出口控制。",
+      "objectives": [
+        "识别 SSRF 风险",
+        "理解目标地址与协议白名单"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "服务端请求安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "XML、反序列化与数据解析风险",
+      "lesson_type": "THEORY",
+      "summary": "理解危险解析器能力、对象构造与不可信数据边界。",
+      "objectives": [
+        "理解 XXE 防护原则",
+        "理解反序列化风险控制"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "解析安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "API 安全与对象级授权",
+      "lesson_type": "THEORY",
+      "summary": "围绕 REST API 的身份、资源范围、速率和错误处理建立安全模型。",
+      "objectives": [
+        "理解 BOLA/IDOR 类问题",
+        "设计 API 授权检查"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "API安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "安全响应头、Cookie 与浏览器防护",
+      "lesson_type": "THEORY",
+      "summary": "学习 SameSite、HttpOnly、Secure、CSP 等基础浏览器安全控制。",
+      "objectives": [
+        "正确解释关键 Cookie 属性",
+        "理解响应头防护边界"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "浏览器安全",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "日志、审计与 Web 攻击检测",
+      "lesson_type": "THEORY",
+      "summary": "把请求日志、认证事件、异常状态和攻击特征串成可追溯证据。",
+      "objectives": [
+        "设计最小审计字段",
+        "识别异常请求模式"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "检测与审计",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "漏洞修复验证与回归测试",
+      "lesson_type": "THEORY",
+      "summary": "学习从漏洞复现证据转向修复、负向测试和回归门禁。",
+      "objectives": [
+        "编写安全验收用例",
+        "区分修复与临时绕过"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "安全测试",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "Web 安全综合攻防与复盘",
+      "lesson_type": "THEORY",
+      "summary": "用资产、入口、漏洞、利用链、检测与修复形成完整复盘。",
+      "objectives": [
+        "形成攻击链复盘",
+        "输出整改与验证证据"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "综合实践",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "HTTP 请求观察与安全基线",
+      "lesson_type": "LAB",
+      "summary": "在隔离靶场观察请求、响应、Cookie 和安全响应头，建立 Web 请求证据基线。",
+      "objectives": [
+        "完成请求证据采集",
+        "识别缺失的基础安全控制"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "Web安全基础",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "认证与对象授权验证",
+      "lesson_type": "LAB",
+      "summary": "在教学靶场验证不同身份访问相同资源时的授权边界与拒绝路径。",
+      "objectives": [
+        "验证允许与拒绝路径",
+        "形成对象级授权测试表"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "身份与访问控制",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "SQL 注入原理与参数化修复",
+      "lesson_type": "LAB",
+      "summary": "在专用漏洞靶场观察不安全查询行为，并通过安全实现验证修复结果。",
+      "objectives": [
+        "识别注入根因",
+        "验证参数化修复"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "注入安全",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "XSS 输入输出边界",
+      "lesson_type": "LAB",
+      "summary": "在隔离页面观察不安全输出与安全编码差异。",
+      "objectives": [
+        "区分输入校验与输出编码",
+        "完成修复前后对比"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "浏览器安全",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "文件上传与路径穿越防护",
+      "lesson_type": "LAB",
+      "summary": "通过教学样例验证文件名、扩展名、存储路径和下载授权的安全边界。",
+      "objectives": [
+        "验证上传限制",
+        "验证路径规范化与授权"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "文件安全",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "SSRF 出口控制",
+      "lesson_type": "LAB",
+      "summary": "在双节点隔离网络中验证服务端请求对允许目标与禁止目标的不同结果。",
+      "objectives": [
+        "验证目标白名单",
+        "验证内网访问拒绝"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "服务端请求安全",
+      "lab_profile": "web-dual-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "XML 解析与安全配置",
+      "lesson_type": "LAB",
+      "summary": "比较危险解析配置和安全解析配置的行为差异。",
+      "objectives": [
+        "识别解析器危险能力",
+        "验证安全配置"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "解析安全",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "API 对象级权限测试",
+      "lesson_type": "LAB",
+      "summary": "围绕资源 ID、用户身份和数据范围完成 API 正向与越权负向测试。",
+      "objectives": [
+        "完成 API 授权矩阵",
+        "验证跨用户拒绝"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "API安全",
+      "lab_profile": "api-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "Cookie 与安全响应头配置",
+      "lesson_type": "LAB",
+      "summary": "为教学 Web 服务配置关键 Cookie 属性与安全响应头并自动检查。",
+      "objectives": [
+        "正确配置 Cookie 安全属性",
+        "通过响应头检查点"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "浏览器安全",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "Web 日志检测与攻击链回放",
+      "lesson_type": "LAB",
+      "summary": "从访问日志中识别异常模式并形成事件时间线。",
+      "objectives": [
+        "提取关键日志证据",
+        "完成事件时间线"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "检测与审计",
+      "lab_profile": "log-analysis",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "漏洞修复回归门禁",
+      "lesson_type": "LAB",
+      "summary": "对同一漏洞建立修复前失败证据、修复后通过证据和负向回归检查。",
+      "objectives": [
+        "建立安全回归用例",
+        "形成修复证据包"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "安全测试",
+      "lab_profile": "web-single-target",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "Web 综合靶场挑战",
+      "lesson_type": "LAB",
+      "summary": "在授权隔离靶场完成多阶段安全检查、Flag/Checkpoint 与最终整改复盘。",
+      "objectives": [
+        "完成阶段性 Checkpoint",
+        "输出完整复盘报告"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "综合实践",
+      "lab_profile": "juice-shop-isolated",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}

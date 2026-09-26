@@ -21,7 +21,137 @@ app = FastAPI(title="跃科实验节点代理", docs_url=None, redoc_url=None, o
 SAFE_ID = re.compile(r"^[a-zA-Z0-9_-]{2,64}$")
 SAFE_PATH = re.compile(r"^[a-zA-Z0-9_.-]{1,128}$")
 
+WEB01_VERIFY = """import json
+data = json.load(open("work/http-baseline.json", encoding="utf-8"))
+assert data.get("status") == 200
+assert data.get("url") == "http://target-web01:8080/health"
+assert str(data.get("body", "")).strip() == "ok"
+assert isinstance(data.get("headers"), dict)
+"""
+
+WEB02_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_auth", "work/auth_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert module.authorize("alice", "alice", "student") is True
+assert module.authorize("alice", "bob", "student") is False
+assert module.authorize("teacher-a", "bob", "teacher") is True
+assert module.authorize("", "bob", "student") is False
+"""
+
+WEB03_VERIFY = """import importlib.util, sqlite3
+spec = importlib.util.spec_from_file_location("student_sql", "work/sql_lab.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+db = sqlite3.connect(":memory:")
+db.execute("create table users(id integer primary key, name text)")
+db.executemany("insert into users(name) values(?)", [("alice",), ("bob",)])
+payload = "%' OR 1=1 --"
+unsafe = list(module.unsafe_search(db, payload))
+safe = list(module.safe_search(db, payload))
+assert len(unsafe) >= 2
+assert safe == []
+"""
+
+WEB04_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_xss", "work/xss_lab.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+payload = "<img src=x onerror=alert(1)>"
+unsafe = str(module.render_unsafe(payload))
+safe = str(module.render_safe(payload))
+assert payload in unsafe
+assert payload not in safe
+assert "&lt;img" in safe and "&gt;" in safe
+"""
+
+WEB05_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_file", "work/file_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert module.normalize_upload_name("report.txt") == "report.txt"
+for value in ("../etc/passwd", "/tmp/evil.txt", "a/../../b.txt"):
+    try:
+        module.normalize_upload_name(value)
+    except (ValueError, TypeError):
+        pass
+    else:
+        raise AssertionError("path traversal accepted")
+assert module.allow_upload("report.txt", "text/plain", 128) is True
+assert module.allow_upload("shell.php", "application/x-httpd-php", 32) is False
+assert module.allow_upload("huge.txt", "text/plain", 2 * 1024 * 1024) is False
+"""
+
+WEB06_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_ssrf", "work/ssrf_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert module.allow_url("https://example.edu/health") is True
+for value in (
+    "http://example.edu/health",
+    "https://localhost/admin",
+    "https://127.0.0.1/",
+    "https://169.254.169.254/latest/meta-data/",
+    "https://10.0.0.1/internal",
+    "file:///etc/passwd",
+):
+    assert module.allow_url(value) is False
+"""
+
+
+WEB08_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_api_policy", "work/api_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert module.authorize_object("alice", "alice", "student") is True
+assert module.authorize_object("alice", "bob", "student") is False
+assert module.authorize_object("teacher-a", "bob", "teacher") is True
+assert module.authorize_object("", "bob", "student") is False
+"""
+
+
+WEB09_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_header_policy", "work/header_policy.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+secure = {
+    "Content-Security-Policy": "default-src 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Set-Cookie": "session=demo; HttpOnly; Secure; SameSite=Lax",
+}
+assert module.secure_headers(secure) is True
+assert module.secure_headers({**secure, "Content-Security-Policy": ""}) is False
+assert module.secure_headers({**secure, "Set-Cookie": "session=demo"}) is False
+"""
+
+
+WEB10_VERIFY = """import importlib.util
+spec = importlib.util.spec_from_file_location("student_web_detector", "work/web_detector.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+lines = [
+    '10.0.0.5 - - [26/Sep/2026:08:00:00 +0800] "GET /index HTTP/1.1" 200 321',
+    '10.0.0.9 - - [26/Sep/2026:08:00:01 +0800] "GET /search?q=%27%20OR%201%3D1-- HTTP/1.1" 500 12',
+    '10.0.0.9 - - [26/Sep/2026:08:00:02 +0800] "GET /profile?id=../../etc/passwd HTTP/1.1" 403 8',
+]
+findings = module.detect(lines)
+assert isinstance(findings, list)
+kinds = {str(item.get("kind")) for item in findings if isinstance(item, dict)}
+assert "SQLI_PATTERN" in kinds
+assert "PATH_TRAVERSAL_PATTERN" in kinds
+"""
+
 APPROVED_COMMANDS: dict[str, tuple[list[str], list[str]]] = {
+    "verify_web01": (["python3", "-c", WEB01_VERIFY], ["work/http-baseline.json"]),
+    "verify_web02": (["python3", "-c", WEB02_VERIFY], ["work/auth_policy.py"]),
+    "verify_web03": (["python3", "-c", WEB03_VERIFY], ["work/sql_lab.py"]),
+    "verify_web04": (["python3", "-c", WEB04_VERIFY], ["work/xss_lab.py"]),
+    "verify_web05": (["python3", "-c", WEB05_VERIFY], ["work/file_policy.py"]),
+    "verify_web06": (["python3", "-c", WEB06_VERIFY], ["work/ssrf_policy.py"]),
+    "verify_web08": (["python3", "-c", WEB08_VERIFY], ["work/api_policy.py"]),
+    "verify_web09": (["python3", "-c", WEB09_VERIFY], ["work/header_policy.py"]),
+    "verify_web10": (["python3", "-c", WEB10_VERIFY], ["work/web_detector.py"]),
     "verify_signature": (["openssl", "dgst", "-sha256", "-verify", "public.pem", "-signature", "signature.bin", "source.txt"], ["public.pem", "signature.bin", "source.txt"]),
     "verify_lab01": (["/bin/sh", "-c", "test -s work/cipher.bin && test -s work/plain.out"], ["work/cipher.bin", "work/plain.out"]),
     "verify_lab02": (["/bin/sh", "-c", "test -s work/ecb.bin && test -s work/cbc.bin && test -s work/comparison.json"], ["work/ecb.bin", "work/cbc.bin", "work/comparison.json"]),
@@ -45,6 +175,10 @@ http {
   access_log /dev/stdout;
   server {
     listen 8080;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Content-Security-Policy "default-src 'self'" always;
+    add_header Set-Cookie "yk_training=1; Path=/; HttpOnly; Secure; SameSite=Lax" always;
     location = /health { access_log off; default_type text/plain; return 200 'ok\\n'; }
     location / { root /usr/share/nginx/html; index index.html; }
   }
@@ -879,7 +1013,7 @@ def execute_checkpoint(group_id: str, spec: ExecSpec):
         "FILE_HASH": {"left_path", "right_path", "algorithm"},
         "COMMAND_EXIT": {"command_ref", "expected_exit", "output_contains"},
         "PORT_LISTEN": {"host", "port"},
-        "HTTP_RESPONSE": {"path", "port", "status_code"},
+        "HTTP_RESPONSE": {"path", "port", "status_code", "required_headers"},
     }
     if kind in allowed_config and set(config) - allowed_config[kind]:
         raise HTTPException(422, "检查点判定配置包含未批准字段")
@@ -934,12 +1068,34 @@ def execute_checkpoint(group_id: str, spec: ExecSpec):
         if port is None:
             port = profile_service_port(container_startup_profile(target_name)) or 80
         status_code = config.get("status_code")
+        required_headers = config.get("required_headers", {})
         if not isinstance(path, str) or not path.startswith("/") or len(path) > 256:
             raise HTTPException(422, "网页响应判定路径无效")
         if not isinstance(port, int) or not 1 <= port <= 65535 or not isinstance(status_code, int) or not 100 <= status_code <= 599:
             raise HTTPException(422, "网页响应判定端口或状态码无效")
+        if (
+            not isinstance(required_headers, dict)
+            or len(required_headers) > 20
+            or not all(
+                isinstance(key, str)
+                and isinstance(value, str)
+                and 1 <= len(key) <= 80
+                and len(value) <= 512
+                for key, value in required_headers.items()
+            )
+        ):
+            raise HTTPException(422, "网页响应判定头部要求无效")
         host = target_name
-        command = ["python3", "-c", "import http.client,sys; conn=http.client.HTTPConnection(sys.argv[1],int(sys.argv[2]),timeout=3); conn.request('GET',sys.argv[3]); response=conn.getresponse(); raise SystemExit(0 if response.status==int(sys.argv[4]) else 1)", host, str(port), path, str(status_code)]
+        command = [
+            "python3",
+            "-c",
+            "import http.client,json,sys; conn=http.client.HTTPConnection(sys.argv[1],int(sys.argv[2]),timeout=3); conn.request('GET',sys.argv[3]); response=conn.getresponse(); headers={k.lower():v for k,v in response.getheaders()}; required=json.loads(sys.argv[5]); ok=response.status==int(sys.argv[4]) and all(v.lower() in headers.get(k.lower(),'').lower() for k,v in required.items()); raise SystemExit(0 if ok else 1)",
+            host,
+            str(port),
+            path,
+            str(status_code),
+            json.dumps(required_headers, ensure_ascii=False, sort_keys=True),
+        ]
     else:
         raise HTTPException(422, "检查点类型未获节点代理批准")
     checkpoint_id = str(checkpoint.get("checkpoint_id", "cp"))

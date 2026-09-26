@@ -1,0 +1,68 @@
+{
+  "version": "1.0.0",
+  "rule": "外部项目只能作为候选运行来源。任何合同都不得绕过许可证、Compose 静态安全、镜像摘要冻结、Linux Node Agent、教师预演和 Checkpoint 真实判定。",
+  "items": [
+    {
+      "source_name": "Vulhub",
+      "license_id": "MIT",
+      "integration_mode": "METADATA_TO_LAB_DEFINITION",
+      "source_compose_execution_allowed": false,
+      "external_frontend_embedding_allowed": false,
+      "required_gates": [
+        "LICENSE_PASS",
+        "COMPOSE_SAFETY_PASS",
+        "IMAGE_DIGEST_FROZEN",
+        "LINUX_NODE_AGENT_PASS",
+        "TEACHER_PREVIEW_PASS",
+        "CHECKPOINT_PASS"
+      ],
+      "current_status": "REVIEW_REQUIRED",
+      "notes": [
+        "environments.toml 仅导入候选元数据",
+        "原始 Compose 不允许直接 docker compose up",
+        "审核后必须转换为跃科 LabDefinition 与隔离网络"
+      ]
+    },
+    {
+      "source_name": "OWASP Juice Shop",
+      "license_id": "MIT",
+      "integration_mode": "ISOLATED_TARGET_SERVICE",
+      "source_compose_execution_allowed": false,
+      "external_frontend_embedding_allowed": false,
+      "required_gates": [
+        "LICENSE_PASS",
+        "COMPOSE_SAFETY_PASS",
+        "IMAGE_DIGEST_FROZEN",
+        "LINUX_NODE_AGENT_PASS",
+        "TEACHER_PREVIEW_PASS",
+        "CHECKPOINT_PASS"
+      ],
+      "current_status": "EXTERNAL_IMAGE_REQUIRED",
+      "notes": [
+        "Juice Shop 只作为独立 target 服务",
+        "跃科学生终端、Checkpoint 和 F 线成绩保持权威",
+        "不得把 Juice Shop 前端源码融合进跃科 UI"
+      ]
+    },
+    {
+      "source_name": "WebGoat",
+      "license_id": "GPL-2.0-or-later",
+      "integration_mode": "ISOLATED_TARGET_SERVICE",
+      "source_compose_execution_allowed": false,
+      "external_frontend_embedding_allowed": false,
+      "required_gates": [
+        "LICENSE_REVIEW_PASS",
+        "COMPOSE_SAFETY_PASS",
+        "IMAGE_DIGEST_FROZEN",
+        "LINUX_NODE_AGENT_PASS",
+        "TEACHER_PREVIEW_PASS",
+        "CHECKPOINT_PASS"
+      ],
+      "current_status": "LICENSE_REVIEW_REQUIRED",
+      "notes": [
+        "商业交付前必须完成 GPL 分发义务与部署边界复核",
+        "未完成许可证复核时禁止打包进入商业交付物"
+      ]
+    }
+  ]
+}

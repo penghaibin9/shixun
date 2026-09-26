@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -36,6 +36,14 @@ class NetworkEnvironment(StrEnum):
     ISOLATED = "ISOLATED"
     SHARED = "SHARED"
     CUSTOM = "CUSTOM"
+
+
+class ExternalRuntimeRequirement(StrictModel):
+    source_name: str = Field(min_length=1, max_length=160)
+    source_ref: str = Field(min_length=1, max_length=1000)
+    license_id: str = Field(min_length=1, max_length=80)
+    status: Literal["READY", "REVIEW_REQUIRED"] = "REVIEW_REQUIRED"
+    reason: str = Field(min_length=1, max_length=1000)
 
 
 class RuntimePolicy(StrictModel):
@@ -140,7 +148,7 @@ class Checkpoint(StrictModel):
             JudgeType.FILE_HASH: {"left_path", "right_path", "algorithm"},
             JudgeType.COMMAND_EXIT: {"command_ref", "expected_exit", "output_contains"},
             JudgeType.PORT_LISTEN: {"host", "port"},
-            JudgeType.HTTP_RESPONSE: {"path", "port", "status_code"},
+            JudgeType.HTTP_RESPONSE: {"path", "port", "status_code", "required_headers"},
         }
         missing = required[self.judge_type] - config.keys()
         if missing:
@@ -152,6 +160,20 @@ class Checkpoint(StrictModel):
             raise ValueError("文件哈希判定当前只允许 sha256")
         if self.judge_type == JudgeType.COMMAND_EXIT and not re.fullmatch(r"[a-z][a-z0-9_.-]{1,63}", str(config.get("command_ref", ""))):
             raise ValueError("命令判定必须引用经 D 线审核的命令标识，不能提交原始脚本")
+        if self.judge_type == JudgeType.HTTP_RESPONSE:
+            required_headers = config.get("required_headers", {})
+            if (
+                not isinstance(required_headers, dict)
+                or len(required_headers) > 20
+                or not all(
+                    isinstance(key, str)
+                    and isinstance(value, str)
+                    and 1 <= len(key) <= 80
+                    and len(value) <= 512
+                    for key, value in required_headers.items()
+                )
+            ):
+                raise ValueError("HTTP 响应头要求必须是最多 20 项的字符串键值映射")
         return self
 
 
@@ -168,6 +190,7 @@ class LabDefinitionSpec(StrictModel):
     edges: list[DagEdge] = Field(max_length=256)
     checkpoints: list[Checkpoint] = Field(max_length=128)
     runtime_policy: RuntimePolicy
+    external_requirements: list[ExternalRuntimeRequirement] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
     def validate_references_and_uniqueness(self):

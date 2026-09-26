@@ -11,6 +11,7 @@ class Course(Base):
     course_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(128))
     term: Mapped[str] = mapped_column(String(64))
+    catalog_key: Mapped[str] = mapped_column(String(64), default="data_security_v1")
     owner_teacher_id: Mapped[str] = mapped_column(String(36), index=True)
     major: Mapped[str | None] = mapped_column(String(128))
     description: Mapped[str | None] = mapped_column(Text)

@@ -48,7 +48,6 @@ QUESTION_TYPE_NAMES = {
     "TRUE_FALSE": "判断",
 }
 QUESTION_TYPE_ORDER = ("FILL", "SINGLE", "MULTIPLE", "TRUE_FALSE")
-MAX_IMPORT_ROWS = 196
 class InvalidQuestionWorkbook(ValueError):
     def __init__(self, code: str, message: str):
         super().__init__(message)
@@ -110,7 +109,7 @@ def template_bytes(lessons: Iterable) -> bytes:
     guide = workbook.create_sheet("填写说明")
     guide_rows = [
         ["题库批量导入说明"],
-        ["1", "模板已按 49 个课时、每课时四种题型预置 196 行，请勿增删行或修改课时标识、课时编号和题型。"],
+        ["1", f"模板已按 {len(lesson_items)} 个课时、每课时四种题型预置 {len(lesson_items) * len(QUESTION_TYPE_ORDER)} 行，请勿增删行或修改课时标识、课时编号和题型。"],
         ["2", "单选题正确答案填写一个选项字母，例如 A。"],
         ["3", "多选题正确答案使用英文逗号分隔，例如 A,B。"],
         ["4", "判断题固定选项 A=正确、B=错误，正确答案填写 A 或 B。"],
@@ -182,14 +181,15 @@ def parse_question_workbook(data: bytes, lessons: Iterable) -> tuple[list[dict],
         raise InvalidQuestionWorkbook("QUESTION_IMPORT.HEADER_MISMATCH", "题目导入表头与模板不一致")
 
     lesson_items = list(lessons)
+    expected_count = len(lesson_items) * len(QUESTION_TYPE_ORDER)
     by_id = {_lesson_value(item, "lesson_id"): item for item in lesson_items}
     by_code = {_lesson_value(item, "lesson_code"): item for item in lesson_items}
 
-    rows = list(islice(sheet.iter_rows(min_row=2, min_col=1, max_col=len(HEADERS)), MAX_IMPORT_ROWS + 1))
-    has_extra_row = len(rows) > MAX_IMPORT_ROWS
+    rows = list(islice(sheet.iter_rows(min_row=2, min_col=1, max_col=len(HEADERS)), expected_count + 1))
+    has_extra_row = len(rows) > expected_count
     if has_extra_row:
-        rows = rows[:MAX_IMPORT_ROWS]
-        actual_count = max((sheet.max_row or (MAX_IMPORT_ROWS + 2)) - 1, MAX_IMPORT_ROWS + 1)
+        rows = rows[:expected_count]
+        actual_count = max((sheet.max_row or (expected_count + 2)) - 1, expected_count + 1)
     else:
         while rows and all(cell.value in (None, "") for cell in rows[-1]):
             rows.pop()
@@ -298,8 +298,8 @@ def parse_question_workbook(data: bytes, lessons: Iterable) -> tuple[list[dict],
         )
 
     file_errors: list[dict] = []
-    if actual_count != MAX_IMPORT_ROWS:
-        file_errors.append(_error("文件", "QUESTION_IMPORT.ROW_COUNT_INVALID", f"题目数据必须正好 196 行，当前为 {actual_count} 行"))
+    if actual_count != expected_count:
+        file_errors.append(_error("文件", "QUESTION_IMPORT.ROW_COUNT_INVALID", f"题目数据必须正好 {expected_count} 行，当前为 {actual_count} 行"))
 
     expected_slots = {(_lesson_value(lesson, "lesson_id"), question_type) for lesson in lesson_items for question_type in QUESTION_TYPE_ORDER}
     actual_slots = set(seen_slots)

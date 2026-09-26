@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "hardware_security_v1",
+  "course_id": "course_hardware_security",
+  "title": "硬件与侧信道安全导论",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "硬件安全边界与威胁模型",
+      "lesson_type": "THEORY",
+      "summary": "围绕“硬件安全边界与威胁模型”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释硬件安全边界与威胁模型的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "启动链、固件与可信根",
+      "lesson_type": "THEORY",
+      "summary": "围绕“启动链、固件与可信根”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释启动链、固件与可信根的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "调试接口与物理访问风险",
+      "lesson_type": "THEORY",
+      "summary": "围绕“调试接口与物理访问风险”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释调试接口与物理访问风险的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "存储介质与数据残留",
+      "lesson_type": "THEORY",
+      "summary": "围绕“存储介质与数据残留”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释存储介质与数据残留的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "侧信道基本概念与测量误差",
+      "lesson_type": "THEORY",
+      "summary": "围绕“侧信道基本概念与测量误差”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释侧信道基本概念与测量误差的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "时间侧信道与恒定时间设计",
+      "lesson_type": "THEORY",
+      "summary": "围绕“时间侧信道与恒定时间设计”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释时间侧信道与恒定时间设计的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "功耗/电磁侧信道概览",
+      "lesson_type": "THEORY",
+      "summary": "围绕“功耗/电磁侧信道概览”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释功耗/电磁侧信道概览的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "故障注入与鲁棒性概览",
+      "lesson_type": "THEORY",
+      "summary": "围绕“故障注入与鲁棒性概览”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释故障注入与鲁棒性概览的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "TPM、Secure Element 与密钥保护",
+      "lesson_type": "THEORY",
+      "summary": "围绕“TPM、Secure Element 与密钥保护”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释TPM、Secure Element 与密钥保护的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "嵌入式通信接口安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“嵌入式通信接口安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释嵌入式通信接口安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "固件供应链与更新机制",
+      "lesson_type": "THEORY",
+      "summary": "围绕“固件供应链与更新机制”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释固件供应链与更新机制的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "硬件安全验证与实验室规范",
+      "lesson_type": "THEORY",
+      "summary": "围绕“硬件安全验证与实验室规范”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释硬件安全验证与实验室规范的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "固件镜像结构识别",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“固件镜像结构识别”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成固件镜像结构识别的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "安全启动链资料分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“安全启动链资料分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成安全启动链资料分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "调试接口暴露清单",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“调试接口暴露清单”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成调试接口暴露清单的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "存储介质擦除验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“存储介质擦除验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成存储介质擦除验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "时间差异统计实验",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“时间差异统计实验”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成时间差异统计实验的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "恒定时间实现对比",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“恒定时间实现对比”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成恒定时间实现对比的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "合成侧信道数据分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“合成侧信道数据分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成合成侧信道数据分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "故障场景桌面仿真",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“故障场景桌面仿真”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成故障场景桌面仿真的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "TPM 密钥封装基础实验",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“TPM 密钥封装基础实验”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成TPM 密钥封装基础实验的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "串口/I2C/SPI 协议观察",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“串口/I2C/SPI 协议观察”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成串口/I2C/SPI 协议观察的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "固件签名与更新验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“固件签名与更新验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成固件签名与更新验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "硬件安全综合风险评估",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“硬件安全综合风险评估”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成硬件安全综合风险评估的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "硬件与侧信道安全导论",
+      "lab_profile": "hardware_security",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}

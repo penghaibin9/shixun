@@ -23,9 +23,9 @@ const selectedQuestion = ref<QuestionReviewItem | null>(null), reviewDecision = 
 const previewResource = ref<Resource | null>(null), previewUrl = ref(''), previewLoading = ref(false), previewError = ref('')
 const titles: Record<string, [string, string]> = {
   overview: ['教学资源生产与课程建设中心', '每个课时应有什么、缺什么、由谁审核、能否交付均来自真实资源事实。'],
-  blueprint: ['课程蓝图', '37 个理论课时按采购知识点结构展开，第 7 章固定为 4 节。'],
+  blueprint: ['课程蓝图', '章节和课时数量来自当前课程的权威模板，不在前端写死。'],
   theory: ['理论课时资源', '每课时以 PPT（演示文稿）、真实讲解视频和四类练习作为最小完整单元。'],
-  labs: ['实验课程资源', '8 类核心实验映射为 12 个教学课时；B 线维护资源，实验定义由 C 线提供。'],
+  labs: ['实验课程资源', '实验课时来自当前课程模板；B 线维护资源，实验定义由 C 线提供。'],
   ppt: ['PPT / 课时讲义', '发布前必须完成人工内容、溢出、动画遮挡和版权抽检。'],
   video: ['视频中心', '只显示媒体解析写入的真实时长；未上传视频不会显示原型示例时长。'],
   questions: ['题库中心', '每课时默认 4 题，并覆盖填空、单选、多选、判断。'],
@@ -38,6 +38,7 @@ const theory = computed(() => lessons.value.filter(item => item.lesson_kind === 
 const labs = computed(() => lessons.value.filter(item => item.lesson_kind === 'LAB'))
 const uploadLessons = computed(() => (uploadType.value === 'LAB_FILE' ? labs.value : uploadType.value === 'PPT' ? theory.value : lessons.value).map(item => ({ value: item.lesson_id, label: `${item.lesson_code} · ${item.title}` })))
 const chapterCounts = computed(() => theory.value.reduce<Record<number, number>>((all, item) => ({ ...all, [item.chapter_no || 0]: (all[item.chapter_no || 0] || 0) + 1 }), {}))
+const chapterNumbers = computed(() => Object.keys(chapterCounts.value).map(Number).filter(number => number > 0).sort((a, b) => a - b))
 const statusText = (status: string) => ({ DRAFT: '草稿', PENDING_REVIEW: '待审核', PUBLISHED: '已发布', FROZEN: '已冻结', REJECTED: '已驳回' }[status] || '未知状态')
 const typeText = (type: string) => ({ PPT: 'PPT（演示文稿）', VIDEO: '视频', QUESTION_BANK: '题库', LAB_FILE: '实验文件包' }[type] || '其他资源')
 const questionTypeText = (type: string) => ({ FILL: '填空题', SINGLE: '单选题', MULTIPLE: '多选题', TRUE_FALSE: '判断题' }[type] || '未知题型')
@@ -206,22 +207,22 @@ onMounted(load); onUnmounted(closeVideoPreview); watch(page, load)
       <template v-if="page === 'overview'">
         <div class="card filter-bar"><YkSelect v-model="statusFilter" aria-label="发布状态" :options="[{label:'全部发布状态',value:''},{label:'草稿',value:'DRAFT'},{label:'待审核',value:'PENDING_REVIEW'},{label:'已发布',value:'PUBLISHED'},{label:'已冻结',value:'FROZEN'}]"/><input v-model="nameFilter" class="yk-input" placeholder="按资源名称搜索"/><YkSelect v-model="typeFilter" aria-label="资源类型" :options="[{label:'全部类型',value:''},{label:'PPT（演示文稿）',value:'PPT'},{label:'视频',value:'VIDEO'},{label:'题库',value:'QUESTION_BANK'},{label:'实验文件',value:'LAB_FILE'}]"/><button class="yk-button primary" @click="openUpload">＋ 新增资源</button></div>
         <p v-if="uploadMessage" class="success-notice">{{ uploadMessage }}</p>
-        <div class="grid grid-4 summary-grid"><div class="card kpi"><span>理论课时</span><b>{{ theory.length }} / 37</b></div><div class="card kpi"><span>实验课时</span><b>{{ labs.length }} / 12</b></div><div class="card kpi"><span>真实资源记录</span><b>{{ resources.length }}</b></div><div class="card kpi"><span>交付阻断项</span><b>{{ readiness?.blocking ?? '—' }}</b></div></div>
+        <div class="grid grid-4 summary-grid"><div class="card kpi"><span>理论课时</span><b>{{ theory.length }} / {{ readiness?.theory_required ?? theory.length }}</b></div><div class="card kpi"><span>实验课时</span><b>{{ labs.length }} / {{ readiness?.lab_required ?? labs.length }}</b></div><div class="card kpi"><span>真实资源记录</span><b>{{ resources.length }}</b></div><div class="card kpi"><span>交付阻断项</span><b>{{ readiness?.blocking ?? '—' }}</b></div></div>
         <div class="card table-card"><table class="data-table"><thead><tr><th>资源名称</th><th>课时</th><th>类型</th><th>发布状态</th><th>文件</th></tr></thead><tbody><tr v-for="item in filtered" :key="item.resource_id"><td>{{ item.name }}</td><td>{{ item.lesson_id || '课程级' }}</td><td>{{ typeText(item.resource_type) }}</td><td><span class="badge">{{ statusText(item.status) }}</span></td><td><button v-if="item.latest_version" class="yk-button" @click="downloadResource(item)">下载</button><span v-else class="muted">尚无版本</span></td></tr><tr v-if="!filtered.length"><td colspan="5" class="empty-cell">尚无满足条件的真实资源，请上传后进入版本审核流程。</td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'blueprint'">
-        <div class="chapter-grid"><div v-for="chapter in 7" :key="chapter" class="card chapter-card"><span class="badge">第 {{ chapter }} 章</span><b>{{ chapterCounts[chapter] || 0 }}</b><span>理论课时</span></div></div>
+        <div class="chapter-grid"><div v-for="chapter in chapterNumbers" :key="chapter" class="card chapter-card"><span class="badge">第 {{ chapter }} 章</span><b>{{ chapterCounts[chapter] }}</b><span>理论课时</span></div></div>
         <div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>章节</th><th>知识点</th><th>资源状态</th></tr></thead><tbody><tr v-for="item in theory" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>第 {{ item.chapter_no }} 章</td><td>{{ item.title }}</td><td><span class="badge">{{ lessonAssetSummary(item.lesson_id) }}</span></td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'theory'">
         <div class="lesson-grid"><article v-for="item in theory" :key="item.lesson_id" class="card lesson-card"><div><span class="badge">第 {{ item.chapter_no }} 章</span><span class="badge">PPT（演示文稿）：{{ resourceStateText(item.lesson_id, 'PPT') }}</span><span class="badge">视频：{{ resourceStateText(item.lesson_id, 'VIDEO') }}</span></div><h3>{{ item.lesson_code }} {{ item.title }}</h3><p>四类题型与独立审核结果以完整性审计为准。</p></article></div>
       </template>
       <template v-else-if="page === 'labs'">
-        <div class="card core-map"><b>8 类核心实验映射</b><span v-for="core in [...new Set(labs.map(x => x.core_experiment))]" :key="core || ''" class="badge">{{ core }}</span></div>
+        <div class="card core-map"><b>核心实验映射</b><span v-for="core in [...new Set(labs.map(x => x.core_experiment))]" :key="core || ''" class="badge">{{ core }}</span></div>
         <div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>核心实验</th><th>主题</th><th>结构化介绍</th><th>真实内容</th></tr></thead><tbody><tr v-for="item in labs" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>{{ item.core_experiment }}</td><td>{{ item.title }}</td><td><details><summary>查看介绍</summary><p><b>目的：</b>{{ item.purpose }}</p><p><b>环境：</b>{{ item.environment }}</p><p><b>原理：</b>{{ item.principle }}</p></details></td><td><span class="badge">文件包：{{ resourceStateText(item.lesson_id, 'LAB_FILE') }}</span><span class="badge">视频：{{ resourceStateText(item.lesson_id, 'VIDEO') }}</span></td></tr></tbody></table></div>
       </template>
       <template v-else-if="page === 'ppt' || page === 'video'">
-        <div class="grid grid-4 summary-grid"><div class="card kpi"><span>要求课时</span><b>{{ page === 'ppt' ? 37 : 49 }}</b></div><div class="card kpi"><span>已登记真实文件</span><b>{{ resources.filter(r => r.resource_type === (page === 'ppt' ? 'PPT' : 'VIDEO') && r.latest_version).length }}</b></div><div class="card kpi"><span>门禁通过</span><b>{{ page === 'ppt' ? readiness?.ppt.ready : (readiness?.theory_video.ready || 0) + (readiness?.lab_video.ready || 0) }}</b></div><div class="card kpi"><span>{{ page === 'ppt' ? '人工抽检' : '真实时长' }}</span><b>按证据核验</b></div></div><div class="state-panel">只有已上传、已解析、已独立审核并发布的真实教学{{ page === 'ppt' ? '演示文稿' : '视频' }}才计入门禁。</div>
+        <div class="grid grid-4 summary-grid"><div class="card kpi"><span>要求课时</span><b>{{ page === 'ppt' ? (readiness?.theory_required ?? theory.length) : ((readiness?.theory_required ?? theory.length) + (readiness?.lab_required ?? labs.length)) }}</b></div><div class="card kpi"><span>已登记真实文件</span><b>{{ resources.filter(r => r.resource_type === (page === 'ppt' ? 'PPT' : 'VIDEO') && r.latest_version).length }}</b></div><div class="card kpi"><span>门禁通过</span><b>{{ page === 'ppt' ? readiness?.ppt.ready : (readiness?.theory_video.ready || 0) + (readiness?.lab_video.ready || 0) }}</b></div><div class="card kpi"><span>{{ page === 'ppt' ? '人工抽检' : '真实时长' }}</span><b>按证据核验</b></div></div><div class="state-panel">只有已上传、已解析、已独立审核并发布的真实教学{{ page === 'ppt' ? '演示文稿' : '视频' }}才计入门禁。</div>
         <div v-if="page === 'video' && previewResource" class="card video-preview-card"><div class="section-head"><div><h3>正在预览：{{ previewResource.name }}</h3><p class="muted">{{ durationText(previewResource.latest_version?.video?.duration_seconds) }} · {{ previewResource.latest_version?.video?.width }}×{{ previewResource.latest_version?.video?.height }}</p></div><button class="yk-button" @click="closeVideoPreview">关闭预览</button></div><video class="video-preview" controls :src="previewUrl" preload="metadata"></video></div>
         <p v-if="page === 'video' && previewLoading" class="state-panel">正在准备视频预览…</p>
         <p v-if="page === 'video' && previewError" class="status-error">{{ previewError }}</p>
@@ -233,10 +234,10 @@ onMounted(load); onUnmounted(closeVideoPreview); watch(page, load)
         <p v-if="reviewMessage" class="success-notice">{{ reviewMessage }}</p>
         <YkTabs v-model="questionTab" :tabs="questionTabs" />
         <template v-if="questionTab === 'overview'">
-          <div class="grid grid-4 summary-grid"><div class="card kpi"><span>课时总数</span><b>{{ coverage.length }}</b></div><div class="card kpi"><span>覆盖通过</span><b>{{ readiness?.question_lessons.ready || 0 }} / 49</b></div><div class="card kpi"><span>已审核发布题目</span><b>{{ readiness?.published_questions.ready || 0 }} / 196</b></div><div class="card kpi"><span>四种题型</span><b>填/单/多/判</b></div></div><div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>已有题型</th><th>门禁</th></tr></thead><tbody><tr v-for="item in coverage" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>{{ item.types.map(questionTypeText).join('、') || '尚无已审核题目' }}</td><td><span class="badge" :class="{ warn: !item.passed }">{{ item.passed ? '通过' : '阻断' }}</span></td></tr></tbody></table></div>
+          <div class="grid grid-4 summary-grid"><div class="card kpi"><span>课时总数</span><b>{{ coverage.length }}</b></div><div class="card kpi"><span>覆盖通过</span><b>{{ readiness?.question_lessons.ready || 0 }} / {{ readiness?.question_lessons.required ?? coverage.length }}</b></div><div class="card kpi"><span>已审核发布题目</span><b>{{ readiness?.published_questions.ready || 0 }} / {{ readiness?.published_questions.required ?? 0 }}</b></div><div class="card kpi"><span>模板题型</span><b>{{ readiness?.question_types?.map(questionTypeText).join(' / ') || '按课程模板' }}</b></div></div><div class="card table-card"><table class="data-table"><thead><tr><th>课时</th><th>已有题型</th><th>门禁</th></tr></thead><tbody><tr v-for="item in coverage" :key="item.lesson_id"><td>{{ item.lesson_code }}</td><td>{{ item.types.map(questionTypeText).join('、') || '尚无已审核题目' }}</td><td><span class="badge" :class="{ warn: !item.passed }">{{ item.passed ? '通过' : '阻断' }}</span></td></tr></tbody></table></div>
         </template>
         <template v-else-if="questionTab === 'import'">
-          <div v-if="!questionImportJob" class="state-panel"><b>尚无本次导入结果</b><span>请先下载模板，按模板准备 196 行题目，再选择 XLSX（电子表格）文件导入。</span><div class="actions"><button class="yk-button" @click="downloadQuestionTemplate">下载模板</button><button class="yk-button primary" @click="openQuestionImport">选择文件并导入</button></div></div>
+          <div v-if="!questionImportJob" class="state-panel"><b>尚无本次导入结果</b><span>请先下载当前课程模板，按模板要求准备题目，再选择 XLSX（电子表格）文件导入。</span><div class="actions"><button class="yk-button" @click="downloadQuestionTemplate">下载模板</button><button class="yk-button primary" @click="openQuestionImport">选择文件并导入</button></div></div>
           <template v-else>
             <div class="card row-between"><div><b>{{ questionImportJob.original_filename || '题库导入文件' }}</b><p class="muted">处理状态：{{ importStatusText(questionImportJob.status) }}</p></div><div class="actions"><button class="yk-button" @click="refreshQuestionImportJob">刷新处理结果</button><button v-if="questionImportJob.error_count" class="yk-button" @click="downloadQuestionErrors">下载错误明细</button></div></div>
             <div class="grid grid-4 summary-grid"><div class="card kpi"><span>文件数据行</span><b>{{ questionImportJob.total_count }}</b></div><div class="card kpi"><span>导入成功</span><b>{{ questionImportJob.imported_count }}</b></div><div class="card kpi"><span>错误行</span><b>{{ questionImportJob.error_count }}</b></div><div class="card kpi"><span>进入待审核</span><b>{{ questionImportJob.review_queue_count }}</b></div></div>
@@ -270,7 +271,7 @@ onMounted(load); onUnmounted(closeVideoPreview); watch(page, load)
     </YkModal>
     <YkModal :open="questionImportOpen" title="批量导入题库" @close="questionImportOpen = false">
       <form class="form-grid" @submit.prevent="submitQuestionImport">
-        <div class="wide"><b>导入 196 行题库数据</b><p class="muted">请使用本页下载的模板。系统逐行校验课时、题型、题干、选项、答案和解析，有效题目进入独立审核队列。</p></div>
+        <div class="wide"><b>批量导入课程题库</b><p class="muted">请使用本页下载的当前课程模板。系统逐行校验课时、题型、题干、选项、答案和解析，有效题目进入独立审核队列。</p></div>
         <label class="wide"><span>选择 XLSX（电子表格）文件</span><input class="input" aria-label="选择题库文件" type="file" accept=".xlsx" @change="selectQuestionFile" /></label>
         <p v-if="questionFile" class="wide">已选择：{{ questionFile.name }}</p>
         <p v-if="questionImportError" class="wide status-error">{{ questionImportError }}</p>

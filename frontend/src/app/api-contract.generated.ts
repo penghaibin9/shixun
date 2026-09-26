@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/course-catalogs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Course Catalogs */
+        get: operations["list_course_catalogs_api_v1_course_catalogs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/courses": {
         parameters: {
             query?: never;
@@ -2313,6 +2330,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/classroom/my/runtime/{runtime_id}/rejudge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Student Rejudge */
+        post: operations["student_rejudge_api_v1_classroom_my_runtime__runtime_id__rejudge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/classroom/my/runtime/{runtime_id}/terminal-token": {
         parameters: {
             query?: never;
@@ -2996,6 +3030,297 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/challenges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Challenges */
+        get: operations["list_challenges_api_v1_challenges_get"];
+        put?: never;
+        /** Create Challenge */
+        post: operations["create_challenge_api_v1_challenges_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/challenges/{challenge_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Challenge */
+        get: operations["get_challenge_api_v1_challenges__challenge_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/challenges/{challenge_id}/bind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bind Challenge */
+        post: operations["bind_challenge_api_v1_challenges__challenge_id__bind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/challenges/{challenge_id}/hints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Hints */
+        get: operations["list_hints_api_v1_challenges__challenge_id__hints_get"];
+        put?: never;
+        /** Add Hint */
+        post: operations["add_hint_api_v1_challenges__challenge_id__hints_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/challenges/{challenge_id}/flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Configure Flag */
+        put: operations["configure_flag_api_v1_challenges__challenge_id__flag_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/challenges/{challenge_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Challenge */
+        post: operations["publish_challenge_api_v1_challenges__challenge_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/challenges/{challenge_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Flag */
+        post: operations["submit_flag_api_v1_challenges__challenge_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Content Packs */
+        get: operations["list_content_packs_api_v1_content_packs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-packs/{pack_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Content Pack */
+        get: operations["get_content_pack_api_v1_content_packs__pack_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Content Sources */
+        get: operations["list_content_sources_api_v1_content_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-packs/web_security_v1/lab-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Web Lab Candidates */
+        get: operations["web_lab_candidates_api_v1_content_packs_web_security_v1_lab_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-sources/external-runtime/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** External Runtime Contracts */
+        get: operations["external_runtime_contracts_api_v1_content_sources_external_runtime_contracts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-source-maps/seed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Seed Domain Map */
+        get: operations["seed_domain_map_api_v1_content_source_maps_seed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-sources/vulhub/index/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Vulhub Index */
+        post: operations["preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-sources/compose/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan Compose */
+        post: operations["scan_compose_api_v1_content_sources_compose_scan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-sources/atomic-red-team/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Atomic Red Team */
+        post: operations["preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-sources/pwncollege/dojo/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Pwncollege Dojo */
+        post: operations["preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -3389,6 +3714,35 @@ export interface components {
              */
             submitted_at: string;
         };
+        /** AtomicTechniquePreviewResponse */
+        AtomicTechniquePreviewResponse: {
+            /** Attack Technique */
+            attack_technique: string;
+            /** Display Name */
+            display_name: string;
+            /** Test Count */
+            test_count: number;
+            /** Tests */
+            tests: components["schemas"]["AtomicTestMetadataResponse"][];
+            /**
+             * Execution Imported
+             * @default false
+             */
+            execution_imported: boolean;
+        };
+        /** AtomicTestMetadataResponse */
+        AtomicTestMetadataResponse: {
+            /** Name */
+            name: string;
+            /** Guid */
+            guid?: string | null;
+            /** Supported Platforms */
+            supported_platforms: string[];
+            /** Executor Name */
+            executor_name: string;
+            /** Dependency Count */
+            dependency_count: number;
+        };
         /** AttendanceCreate */
         AttendanceCreate: {
             /** Course Id */
@@ -3693,12 +4047,147 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post */
+        Body_preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post */
+        Body_preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post */
+        Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_scan_compose_api_v1_content_sources_compose_scan_post */
+        Body_scan_compose_api_v1_content_sources_compose_scan_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_resource_file_api_v1_resources_files_post */
         Body_upload_resource_file_api_v1_resources_files_post: {
             /** Course Id */
             course_id: string;
             /** File */
             file: string;
+        };
+        /** ChallengeAttemptResponse */
+        ChallengeAttemptResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Challenge Id */
+            challenge_id: string;
+            /** Runtime Instance Id */
+            runtime_instance_id?: string | null;
+            /** Checkpoint Result Id */
+            checkpoint_result_id?: string | null;
+            /** Attempt No */
+            attempt_no: number;
+            /** Accepted */
+            accepted: boolean;
+            /** Remaining Attempts */
+            remaining_attempts: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ChallengeBind */
+        ChallengeBind: {
+            /** Lab Definition Id */
+            lab_definition_id: string;
+            /** Checkpoint Key */
+            checkpoint_key: string;
+        };
+        /** ChallengeCreate */
+        ChallengeCreate: {
+            /** Course Id */
+            course_id: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /**
+             * Difficulty
+             * @default BEGINNER
+             * @enum {string}
+             */
+            difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+            /**
+             * Max Attempts
+             * @default 10
+             */
+            max_attempts: number;
+            /**
+             * Validation Mode
+             * @default FLAG_AND_CHECKPOINT
+             * @enum {string}
+             */
+            validation_mode: "CHECKPOINT_ONLY" | "FLAG_AND_CHECKPOINT";
+            /** Prerequisite Challenge Id */
+            prerequisite_challenge_id?: string | null;
+        };
+        /** ChallengeListResponse */
+        ChallengeListResponse: {
+            /** Items */
+            items: components["schemas"]["ChallengeResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** ChallengeResponse */
+        ChallengeResponse: {
+            /** Challenge Id */
+            challenge_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /** Lab Definition Id */
+            lab_definition_id?: string | null;
+            /** Lab Version Id */
+            lab_version_id?: string | null;
+            /** Checkpoint Key */
+            checkpoint_key?: string | null;
+            /** Prerequisite Challenge Id */
+            prerequisite_challenge_id?: string | null;
+            /**
+             * Unlocked
+             * @default true
+             */
+            unlocked: boolean;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Validation Mode */
+            validation_mode: string;
+            /** Status */
+            status: string;
+            /** Flag Configured */
+            flag_configured: boolean;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Published At */
+            published_at?: string | null;
         };
         /** Checkpoint */
         Checkpoint: {
@@ -4091,6 +4580,95 @@ export interface components {
             /** Source Lab Version Id */
             source_lab_version_id?: string | null;
         };
+        /** ComposeFindingResponse */
+        ComposeFindingResponse: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Service */
+            service?: string | null;
+            /** Blocking */
+            blocking: boolean;
+        };
+        /** ComposeScanResponse */
+        ComposeScanResponse: {
+            /** Passed */
+            passed: boolean;
+            /** Findings */
+            findings: components["schemas"]["ComposeFindingResponse"][];
+        };
+        /**
+         * ContentOrigin
+         * @enum {string}
+         */
+        ContentOrigin: "ORIGINAL" | "THIRD_PARTY" | "REFERENCE_ONLY";
+        /** ContentPackListResponse */
+        ContentPackListResponse: {
+            /** Items */
+            items: components["schemas"]["ContentPackSummaryResponse"][];
+        };
+        /** ContentPackSummaryResponse */
+        ContentPackSummaryResponse: {
+            /** Pack Id */
+            pack_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+            /** Language */
+            language: string;
+            content_origin: components["schemas"]["ContentOrigin"];
+            /** Commercial Bundle Allowed */
+            commercial_bundle_allowed: boolean;
+            /** Theory Lessons */
+            theory_lessons: number;
+            /** Lab Lessons */
+            lab_lessons: number;
+        };
+        /** ContentSourcePolicyListResponse */
+        ContentSourcePolicyListResponse: {
+            /** Items */
+            items: components["schemas"]["ContentSourcePolicyResponse"][];
+        };
+        /** ContentSourcePolicyResponse */
+        ContentSourcePolicyResponse: {
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+            /** License Id */
+            license_id: string;
+            /** Use Mode */
+            use_mode: string;
+            license_decision: components["schemas"]["LicenseDecision"];
+            /** License Reason */
+            license_reason: string;
+        };
+        /** CourseCatalogListResponse */
+        CourseCatalogListResponse: {
+            /** Items */
+            items: components["schemas"]["CourseCatalogResponse"][];
+        };
+        /** CourseCatalogResponse */
+        CourseCatalogResponse: {
+            /** Catalog Key */
+            catalog_key: string;
+            /** Name */
+            name: string;
+            /** Theory Lessons */
+            theory_lessons: number;
+            /** Lab Lessons */
+            lab_lessons: number;
+            /** Question Types */
+            question_types: string[];
+            /** Resource Minimums */
+            resource_minimums: {
+                [key: string]: number;
+            };
+        };
         /** CourseCreate */
         CourseCreate: {
             /** Name */
@@ -4101,6 +4679,11 @@ export interface components {
             major?: string | null;
             /** Description */
             description?: string | null;
+            /**
+             * Catalog Key
+             * @default data_security_v1
+             */
+            catalog_key: string;
         };
         /** CourseLessonListResponse */
         CourseLessonListResponse: {
@@ -4145,6 +4728,70 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** CoursePackLesson */
+        CoursePackLesson: {
+            /** Lesson Code */
+            lesson_code: string;
+            /** Title */
+            title: string;
+            /**
+             * Lesson Type
+             * @enum {string}
+             */
+            lesson_type: "THEORY" | "LAB";
+            /** Summary */
+            summary: string;
+            /** Objectives */
+            objectives: string[];
+            /**
+             * Difficulty
+             * @default BEGINNER
+             * @enum {string}
+             */
+            difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+            /** Category */
+            category: string;
+            /** Lab Profile */
+            lab_profile?: string | null;
+            /**
+             * Challenge Mode
+             * @default false
+             */
+            challenge_mode: boolean;
+            /** Source Refs */
+            source_refs?: components["schemas"]["SourceRef"][];
+        };
+        /** CoursePackManifest */
+        CoursePackManifest: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0";
+            /** Pack Id */
+            pack_id: string;
+            /** Course Id */
+            course_id: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+            /**
+             * Language
+             * @default zh-CN
+             * @constant
+             */
+            language: "zh-CN";
+            content_origin: components["schemas"]["ContentOrigin"];
+            /** Commercial Bundle Allowed */
+            commercial_bundle_allowed: boolean;
+            /** Copyright Notice */
+            copyright_notice: string;
+            /** Sources */
+            sources?: components["schemas"]["SourceRef"][];
+            /** Lessons */
+            lessons: components["schemas"]["CoursePackLesson"][];
+        };
         /** CoursePatch */
         CoursePatch: {
             /** Name */
@@ -4164,6 +4811,8 @@ export interface components {
             name: string;
             /** Term */
             term: string;
+            /** Catalog Key */
+            catalog_key: string;
             /** Owner Teacher Id */
             owner_teacher_id: string;
             /** Major */
@@ -4186,6 +4835,8 @@ export interface components {
             name: string;
             /** Term */
             term: string;
+            /** Catalog Key */
+            catalog_key: string;
             /** Owner Teacher Id */
             owner_teacher_id: string;
             /** Major */
@@ -4267,6 +4918,29 @@ export interface components {
             /** Due At */
             due_at?: string | null;
         };
+        /** DojoModulePreviewResponse */
+        DojoModulePreviewResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** DojoPreviewResponse */
+        DojoPreviewResponse: {
+            /** Dojo Id */
+            dojo_id: string;
+            /** Name */
+            name: string;
+            /** Module Count */
+            module_count: number;
+            /** Modules */
+            modules: components["schemas"]["DojoModulePreviewResponse"][];
+            /**
+             * Content Imported
+             * @default false
+             */
+            content_imported: boolean;
+        };
         /** EventConsumptionResponse */
         EventConsumptionResponse: {
             /** Status */
@@ -4306,6 +4980,118 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+        };
+        /** ExternalLabCandidate */
+        ExternalLabCandidate: {
+            /** Source */
+            source: string;
+            /** Source Path */
+            source_path: string;
+            /** Source Url */
+            source_url: string;
+            /** Name */
+            name: string;
+            /** App */
+            app: string;
+            /** Cves */
+            cves?: string[];
+            /** Tags */
+            tags?: string[];
+            /** Images */
+            images?: string[];
+            /** License Id */
+            license_id?: string | null;
+            /**
+             * Import Status
+             * @default CANDIDATE
+             * @enum {string}
+             */
+            import_status: "CANDIDATE" | "REVIEW_REQUIRED" | "BLOCKED";
+        };
+        /** ExternalLabCandidateListResponse */
+        ExternalLabCandidateListResponse: {
+            /** Items */
+            items: components["schemas"]["ExternalLabCandidate"][];
+            /** Total */
+            total: number;
+        };
+        /** ExternalRuntimeContractListResponse */
+        ExternalRuntimeContractListResponse: {
+            /** Version */
+            version: string;
+            /** Rule */
+            rule: string;
+            /** Items */
+            items: components["schemas"]["ExternalRuntimeContractResponse"][];
+        };
+        /** ExternalRuntimeContractResponse */
+        ExternalRuntimeContractResponse: {
+            /** Source Name */
+            source_name: string;
+            /** License Id */
+            license_id: string;
+            license_decision: components["schemas"]["LicenseDecision"];
+            /** License Reason */
+            license_reason: string;
+            /** Integration Mode */
+            integration_mode: string;
+            /** Source Compose Execution Allowed */
+            source_compose_execution_allowed: boolean;
+            /** External Frontend Embedding Allowed */
+            external_frontend_embedding_allowed: boolean;
+            /** Required Gates */
+            required_gates: string[];
+            /** Current Status */
+            current_status: string;
+            /** Notes */
+            notes: string[];
+        };
+        /** ExternalRuntimeRequirement */
+        ExternalRuntimeRequirement: {
+            /** Source Name */
+            source_name: string;
+            /** Source Ref */
+            source_ref: string;
+            /** License Id */
+            license_id: string;
+            /**
+             * Status
+             * @default REVIEW_REQUIRED
+             * @enum {string}
+             */
+            status: "READY" | "REVIEW_REQUIRED";
+            /** Reason */
+            reason: string;
+        };
+        /** FlagConfigure */
+        FlagConfigure: {
+            /** Flag */
+            flag: string;
+            /**
+             * Case Sensitive
+             * @default true
+             */
+            case_sensitive: boolean;
+        };
+        /** FlagConfiguredResponse */
+        FlagConfiguredResponse: {
+            /** Challenge Id */
+            challenge_id: string;
+            /** Configured */
+            configured: boolean;
+            /** Case Sensitive */
+            case_sensitive: boolean;
+        };
+        /** FlagSubmit */
+        FlagSubmit: {
+            /** Submission */
+            submission?: string | null;
+            /** Class Id */
+            class_id: string;
+            /** Lab Release Id */
+            lab_release_id: string;
+            /** Runtime Instance Id */
+            runtime_instance_id: string;
         };
         /** FreezeRequest */
         FreezeRequest: {
@@ -4513,6 +5299,42 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HintCreate */
+        HintCreate: {
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /**
+             * Unlock After Attempts
+             * @default 1
+             */
+            unlock_after_attempts: number;
+        };
+        /** HintListResponse */
+        HintListResponse: {
+            /** Items */
+            items: components["schemas"]["HintResponse"][];
+            /** Attempts */
+            attempts: number;
+            /** Total */
+            total: number;
+        };
+        /** HintResponse */
+        HintResponse: {
+            /** Hint Id */
+            hint_id: string;
+            /** Challenge Id */
+            challenge_id: string;
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /** Unlock After Attempts */
+            unlock_after_attempts: number;
+        };
         /**
          * IdentityReconciliationScanResponse
          * @description 历史名单身份核对扫描结果；不会改写 class_membership。
@@ -4654,6 +5476,8 @@ export interface components {
             /** Checkpoints */
             checkpoints: components["schemas"]["Checkpoint"][];
             runtime_policy: components["schemas"]["RuntimePolicy"];
+            /** External Requirements */
+            external_requirements?: components["schemas"]["ExternalRuntimeRequirement"][];
         };
         /** LabExplainDiagramResponse */
         LabExplainDiagramResponse: {
@@ -4827,6 +5651,11 @@ export interface components {
             /** Missing Upstream */
             missing_upstream: string[];
         };
+        /**
+         * LicenseDecision
+         * @enum {string}
+         */
+        LicenseDecision: "ALLOW" | "REVIEW" | "BLOCK";
         /** LogDownloadResponse */
         LogDownloadResponse: {
             /** Download Url */
@@ -5717,6 +6546,18 @@ export interface components {
         ResourceReadinessResponse: {
             /** Course Id */
             course_id: string;
+            /** Catalog Key */
+            catalog_key: string;
+            /** Theory Required */
+            theory_required: number;
+            /** Lab Required */
+            lab_required: number;
+            /** Question Types */
+            question_types: string[];
+            /** Resource Minimums */
+            resource_minimums: {
+                [key: string]: number;
+            };
             /** Theory Lessons */
             theory_lessons: number;
             /** Lab Lessons */
@@ -6781,6 +7622,48 @@ export interface components {
              */
             position_y: number;
         };
+        /** SeedDomainMapItemResponse */
+        SeedDomainMapItemResponse: {
+            /** Source Category */
+            source_category: string;
+            /** Yueke Course */
+            yueke_course: string;
+            /** Status */
+            status: string;
+        };
+        /** SeedDomainMapResponse */
+        SeedDomainMapResponse: {
+            /** Version */
+            version: string;
+            /** Source */
+            source: string;
+            /** Source Repository */
+            source_repository: string;
+            /** Source License */
+            source_license: string;
+            /** Commercial Rule */
+            commercial_rule: string;
+            /** Direct Translation Allowed In Yueke Commercial Bundle */
+            direct_translation_allowed_in_yueke_commercial_bundle: boolean;
+            /** Note */
+            note: string;
+            /** Domain Map */
+            domain_map: components["schemas"]["SeedDomainMapItemResponse"][];
+        };
+        /** SourceRef */
+        SourceRef: {
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+            /** License Id */
+            license_id?: string | null;
+            /**
+             * Use Mode
+             * @enum {string}
+             */
+            use_mode: "BUNDLED" | "EXTERNAL_RUNTIME" | "REFERENCE_ONLY";
+        };
         /** StudentAssignmentListItemResponse */
         StudentAssignmentListItemResponse: {
             /** Assignment Id */
@@ -7243,6 +8126,36 @@ export interface components {
             /** Lab File Count */
             lab_file_count?: number | null;
         };
+        /** WebLabReadinessRegistryResponse */
+        WebLabReadinessRegistryResponse: {
+            /** Version */
+            version: string;
+            /** Course Id */
+            course_id: string;
+            /** Safety Rule */
+            safety_rule: string;
+            /** Labs */
+            labs: components["schemas"]["WebLabReadinessResponse"][];
+        };
+        /** WebLabReadinessResponse */
+        WebLabReadinessResponse: {
+            /** Lesson Code */
+            lesson_code: string;
+            /** Lab Definition Id */
+            lab_definition_id: string;
+            /** Title */
+            title: string;
+            /** Source */
+            source: string;
+            /** License */
+            license: string;
+            /** Source Path */
+            source_path?: string | null;
+            /** Runtime Status */
+            runtime_status: string;
+            /** Reason */
+            reason: string;
+        };
         /** RuntimeAuditLogItemResponse */
         app__lab_classroom__schemas__RuntimeAuditLogItemResponse: {
             /** Event Id */
@@ -7306,6 +8219,53 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_course_catalogs_api_v1_course_catalogs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCatalogListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     list_courses_api_v1_courses_get: {
         parameters: {
             query?: never;
@@ -14834,6 +15794,55 @@ export interface operations {
             };
         };
     };
+    student_rejudge_api_v1_classroom_my_runtime__runtime_id__rejudge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtime_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeInstanceDetailResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     student_terminal_api_v1_classroom_my_runtime__runtime_id__terminal_token_get: {
         parameters: {
             query?: never;
@@ -16981,6 +17990,958 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IdentityReconciliationScanResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_challenges_api_v1_challenges_get: {
+        parameters: {
+            query?: {
+                course_id?: string | null;
+                class_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    create_challenge_api_v1_challenges_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_challenge_api_v1_challenges__challenge_id__get: {
+        parameters: {
+            query?: {
+                class_id?: string | null;
+            };
+            header?: never;
+            path: {
+                challenge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    bind_challenge_api_v1_challenges__challenge_id__bind_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                challenge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeBind"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_hints_api_v1_challenges__challenge_id__hints_get: {
+        parameters: {
+            query?: {
+                class_id?: string | null;
+            };
+            header?: never;
+            path: {
+                challenge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HintListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    add_hint_api_v1_challenges__challenge_id__hints_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                challenge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HintCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HintResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    configure_flag_api_v1_challenges__challenge_id__flag_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                challenge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlagConfigure"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlagConfiguredResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    publish_challenge_api_v1_challenges__challenge_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                challenge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    submit_flag_api_v1_challenges__challenge_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                challenge_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlagSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeAttemptResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_content_packs_api_v1_content_packs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPackListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_content_pack_api_v1_content_packs__pack_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoursePackManifest"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_content_sources_api_v1_content_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSourcePolicyListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    web_lab_candidates_api_v1_content_packs_web_security_v1_lab_candidates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebLabReadinessRegistryResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    external_runtime_contracts_api_v1_content_sources_external_runtime_contracts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalRuntimeContractListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    seed_domain_map_api_v1_content_source_maps_seed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeedDomainMapResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_vulhub_index_api_v1_content_sources_vulhub_index_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLabCandidateListResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    scan_compose_api_v1_content_sources_compose_scan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_scan_compose_api_v1_content_sources_compose_scan_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeScanResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_atomic_red_team_api_v1_content_sources_atomic_red_team_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtomicTechniquePreviewResponse"];
+                };
+            };
+            /** @description 标准错误信封 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 标准错误信封 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_pwncollege_dojo_api_v1_content_sources_pwncollege_dojo_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DojoPreviewResponse"];
                 };
             };
             /** @description 标准错误信封 */

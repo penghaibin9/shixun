@@ -9,6 +9,7 @@ class CourseCreate(BaseModel):
     term: str = Field(min_length=1, max_length=64)
     major: str | None = Field(default=None, max_length=128)
     description: str | None = Field(default=None, max_length=4000)
+    catalog_key: str = Field(default="data_security_v1", pattern=r"^[a-z][a-z0-9_]{2,63}$")
 
 
 class CoursePatch(BaseModel):
@@ -174,10 +175,24 @@ class StudentQuizTaskResponse(StudentQuizListItemResponse):
 # are persistence details and must not become part of the public contract.
 
 
+class CourseCatalogResponse(BaseModel):
+    catalog_key: str
+    name: str
+    theory_lessons: int
+    lab_lessons: int
+    question_types: list[str]
+    resource_minimums: dict[str, int]
+
+
+class CourseCatalogListResponse(BaseModel):
+    items: list[CourseCatalogResponse]
+
+
 class CourseResponse(BaseModel):
     course_id: str
     name: str
     term: str
+    catalog_key: str
     owner_teacher_id: str
     major: str | None = None
     description: str | None = None

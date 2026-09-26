@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "pack_id": "mobile_security_v1",
+  "course_id": "course_mobile_security",
+  "title": "移动应用安全基础",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "content_origin": "ORIGINAL",
+  "commercial_bundle_allowed": true,
+  "copyright_notice": "Copyright © 2026 湖南跃科信息工程有限公司。本课程目录、中文讲义目标、实验目标与教学编排为跃科原创；第三方公开资料仅作为知识域参考或独立运行依赖，按其许可证另行管理。",
+  "sources": [],
+  "lessons": [
+    {
+      "lesson_code": "1.1",
+      "title": "移动应用架构与信任边界",
+      "lesson_type": "THEORY",
+      "summary": "围绕“移动应用架构与信任边界”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释移动应用架构与信任边界的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.2",
+      "title": "Android 权限与组件模型",
+      "lesson_type": "THEORY",
+      "summary": "围绕“Android 权限与组件模型”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释Android 权限与组件模型的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.3",
+      "title": "应用签名、安装与更新安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“应用签名、安装与更新安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释应用签名、安装与更新安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.4",
+      "title": "本地存储与敏感数据保护",
+      "lesson_type": "THEORY",
+      "summary": "围绕“本地存储与敏感数据保护”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释本地存储与敏感数据保护的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.5",
+      "title": "移动网络通信与证书验证",
+      "lesson_type": "THEORY",
+      "summary": "围绕“移动网络通信与证书验证”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释移动网络通信与证书验证的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.6",
+      "title": "WebView 与混合应用安全",
+      "lesson_type": "THEORY",
+      "summary": "围绕“WebView 与混合应用安全”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释WebView 与混合应用安全的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.7",
+      "title": "深链、Intent 与组件暴露",
+      "lesson_type": "THEORY",
+      "summary": "围绕“深链、Intent 与组件暴露”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释深链、Intent 与组件暴露的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.8",
+      "title": "移动身份认证与会话管理",
+      "lesson_type": "THEORY",
+      "summary": "围绕“移动身份认证与会话管理”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释移动身份认证与会话管理的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.9",
+      "title": "日志、剪贴板与隐私泄露",
+      "lesson_type": "THEORY",
+      "summary": "围绕“日志、剪贴板与隐私泄露”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释日志、剪贴板与隐私泄露的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.10",
+      "title": "依赖库与 SDK 供应链",
+      "lesson_type": "THEORY",
+      "summary": "围绕“依赖库与 SDK 供应链”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释依赖库与 SDK 供应链的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.11",
+      "title": "移动应用静态/动态分析基础",
+      "lesson_type": "THEORY",
+      "summary": "围绕“移动应用静态/动态分析基础”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释移动应用静态/动态分析基础的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "1.12",
+      "title": "移动安全测试与发布检查",
+      "lesson_type": "THEORY",
+      "summary": "围绕“移动安全测试与发布检查”建立网络空间安全专业所需的核心概念、风险边界、控制方法和验证思路。",
+      "objectives": [
+        "能够解释移动安全测试与发布检查的关键概念",
+        "能够把知识点转化为授权环境中的安全检查或防护要求"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": null,
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验01",
+      "title": "APK 结构与清单文件检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“APK 结构与清单文件检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成APK 结构与清单文件检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验02",
+      "title": "权限与导出组件审计",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“权限与导出组件审计”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成权限与导出组件审计的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验03",
+      "title": "应用签名与完整性验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“应用签名与完整性验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成应用签名与完整性验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验04",
+      "title": "本地敏感数据检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“本地敏感数据检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成本地敏感数据检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验05",
+      "title": "TLS 与证书配置验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“TLS 与证书配置验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成TLS 与证书配置验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验06",
+      "title": "WebView 安全配置检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“WebView 安全配置检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成WebView 安全配置检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验07",
+      "title": "深链与 Intent 边界测试",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“深链与 Intent 边界测试”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成深链与 Intent 边界测试的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验08",
+      "title": "移动会话安全验证",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“移动会话安全验证”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成移动会话安全验证的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "BEGINNER",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验09",
+      "title": "隐私数据暴露检查",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“隐私数据暴露检查”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成隐私数据暴露检查的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": false,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验10",
+      "title": "第三方 SDK 清单审计",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“第三方 SDK 清单审计”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成第三方 SDK 清单审计的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验11",
+      "title": "受控静态动态分析",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“受控静态动态分析”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成受控静态动态分析的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": true,
+      "source_refs": []
+    },
+    {
+      "lesson_code": "实验12",
+      "title": "移动应用发布安全清单",
+      "lesson_type": "LAB",
+      "summary": "在隔离、授权的教学环境中完成“移动应用发布安全清单”，保留操作证据、拒绝路径和复盘记录。",
+      "objectives": [
+        "完成移动应用发布安全清单的可复现验证",
+        "形成可审计的实验结果与安全复盘"
+      ],
+      "difficulty": "INTERMEDIATE",
+      "category": "移动应用安全基础",
+      "lab_profile": "mobile_security",
+      "challenge_mode": true,
+      "source_refs": []
+    }
+  ]
+}

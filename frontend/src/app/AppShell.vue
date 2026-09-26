@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { getCurrentContext, type ApiError, type UserContext } from './api'
 
@@ -23,6 +23,8 @@ const navigation: NavigationItem[] = [
   { to: '/student-attendance', label: '课堂签到', roles: ['student'] },
   { to: '/student-quiz', label: '学生作业与测验', roles: ['student'] },
   { to: '/labs', label: '实验总览', roles: ['teacher'] },
+  { to: '/challenges', label: '挑战训练', roles: ['teacher', 'student'] },
+  { to: '/content-library', label: '内容包中心', roles: ['teacher', 'admin'] },
   { to: '/lab-templates', label: '实验模板库', roles: ['teacher'] },
   { to: '/course-knowledge', label: '知识点讲解图', roles: ['teacher'] },
   { to: '/lab-builder', label: '创建实验', roles: ['teacher'] },
@@ -58,6 +60,7 @@ const resourceNavigation: NavigationItem[] = [
 const context = ref<UserContext | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const selectedCourseName = ref(localStorage.getItem('yk-course-name') || '数据安全技术基础')
 
 const roleLabel: Record<Role, string> = { teacher: '教师', student: '学生', admin: '管理员' }
 const visibleNavigation = computed(() => context.value
@@ -66,6 +69,11 @@ const visibleNavigation = computed(() => context.value
 const visibleResourceNavigation = computed(() => context.value
   ? resourceNavigation.filter(item => item.roles.includes(context.value!.role))
   : [])
+
+function syncCourseName(event: Event) {
+  const detail = (event as CustomEvent<string>).detail
+  selectedCourseName.value = detail || localStorage.getItem('yk-course-name') || '数据安全技术基础'
+}
 
 async function loadContext() {
   loading.value = true
@@ -80,7 +88,11 @@ async function loadContext() {
   }
 }
 
-onMounted(loadContext)
+onMounted(() => {
+  window.addEventListener('yk-course-changed', syncCourseName)
+  loadContext()
+})
+onBeforeUnmount(() => window.removeEventListener('yk-course-changed', syncCourseName))
 </script>
 
 <template>
@@ -97,7 +109,7 @@ onMounted(loadContext)
     </aside>
     <main>
       <header class="topbar">
-        <span>数据安全技术基础</span>
+        <span>{{ selectedCourseName }}</span>
         <span v-if="loading" class="role-badge" aria-live="polite">正在确认当前会话…</span>
         <span v-else-if="context" class="role-badge" data-testid="app-shell-role">当前身份：{{ roleLabel[context.role] }}</span>
         <span v-else class="role-badge session-error" role="alert" data-testid="app-shell-session-error">未取得可信会话身份：{{ errorMessage }}</span>
