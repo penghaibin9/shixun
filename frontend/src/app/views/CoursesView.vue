@@ -10,7 +10,7 @@ type ImportResult = { success_count: number; failure_count: number; duplicate_co
 
 const courses = ref<Course[]>([])
 const catalogs = ref<CourseCatalog[]>([])
-const selectedCatalogKey = ref('data_security_v1')
+const selectedCatalogKey = ref('')
 const classes = ref<ClassInfo[]>([])
 const members = ref<Member[]>([])
 const file = ref<File>()
@@ -27,6 +27,9 @@ async function load() {
   ])
   courses.value = courseResult.items
   catalogs.value = catalogResult.items
+  if (!catalogs.value.some(item => item.catalog_key === selectedCatalogKey.value)) {
+    selectedCatalogKey.value = catalogs.value[0]?.catalog_key || ''
+  }
   if (classId) {
     classes.value = (await api<{ items: ClassInfo[] }>('/api/v1/classes')).items
     members.value = (await api<{ items: Member[] }>(`/api/v1/classes/${classId}/members?page=1&page_size=100`)).items
@@ -49,9 +52,7 @@ async function createCourse() {
       message.value = '请先选择课程模板'
       return
     }
-    const description = catalog.catalog_key === 'data_security_v1'
-      ? '围绕数据安全基础、加密、访问控制和安全治理开展教学。'
-      : `《${catalog.name}》原创中文课程模板，理论、实验和挑战内容按统一内容包合同维护。`
+    const description = `《${catalog.name}》课程模板，理论、实验、题库与实验定义按统一课程目录合同维护。`
     const item = await api<Course>('/api/v1/courses', {
       method: 'POST',
       body: JSON.stringify({
