@@ -86,3 +86,24 @@ def test_web_lab_readiness_keeps_only_four_original_specs_ready():
     external = [item for item in registry["labs"] if item["lesson_code"] not in ready]
     assert len(external) == 8
     assert all(item["runtime_status"] in {"REVIEW_REQUIRED", "EXTERNAL_IMAGE_REQUIRED", "LICENSE_REVIEW_REQUIRED"} for item in external)
+
+
+
+def test_external_runtime_contracts_never_allow_direct_source_execution():
+    path = __import__("pathlib").Path(__file__).parents[1] / "app" / "contentpacks" / "content" / "external-runtime-contracts-v1.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    by_name = {item["source_name"]: item for item in payload["items"]}
+
+    assert {"Vulhub", "OWASP Juice Shop", "WebGoat"} <= set(by_name)
+    for item in by_name.values():
+        assert item["source_compose_execution_allowed"] is False
+        assert item["external_frontend_embedding_allowed"] is False
+        assert "IMAGE_DIGEST_FROZEN" in item["required_gates"]
+        assert "LINUX_NODE_AGENT_PASS" in item["required_gates"]
+        assert "TEACHER_PREVIEW_PASS" in item["required_gates"]
+        assert "CHECKPOINT_PASS" in item["required_gates"]
+
+    assert evaluate_license(by_name["Vulhub"]["license_id"]).decision == LicenseDecision.ALLOW
+    assert evaluate_license(by_name["OWASP Juice Shop"]["license_id"]).decision == LicenseDecision.ALLOW
+    assert evaluate_license(by_name["WebGoat"]["license_id"]).decision == LicenseDecision.REVIEW
+    assert by_name["WebGoat"]["current_status"] == "LICENSE_REVIEW_REQUIRED"
