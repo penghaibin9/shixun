@@ -180,6 +180,8 @@ class CourseCatalogResponse(BaseModel):
     name: str
     theory_lessons: int
     lab_lessons: int
+    question_types: list[str]
+    resource_minimums: dict[str, int]
 
 
 class CourseCatalogListResponse(BaseModel):
@@ -190,6 +192,7 @@ class CourseResponse(BaseModel):
     course_id: str
     name: str
     term: str
+    catalog_key: str
     owner_teacher_id: str
     major: str | None = None
     description: str | None = None
