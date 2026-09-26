@@ -68,6 +68,8 @@ class ChallengeService:
             self.require_class(class_id)
         row = self._get(challenge_id)
         if self.user.role == "student":
+            if row.status != "PUBLISHED":
+                raise ApiError("CHALLENGE.NOT_FOUND", "挑战不存在或尚未发布", 404)
             if not class_id:
                 raise ApiError("CHALLENGE.CLASS_REQUIRED", "查看学生挑战必须指定当前班级", 422)
             if row.prerequisite_challenge_id and not self.repo.accepted(
@@ -154,6 +156,8 @@ class ChallengeService:
         self.require("labs.read", "classroom.lab.read", "classroom.lab.start")
         row = self._get(challenge_id)
         if self.user.role == "student":
+            if row.status != "PUBLISHED":
+                raise ApiError("CHALLENGE.NOT_FOUND", "挑战不存在或尚未发布", 404)
             if not class_id:
                 raise ApiError("CHALLENGE.CLASS_REQUIRED", "查看学生挑战提示必须指定当前班级", 422)
             self.require_class(class_id)

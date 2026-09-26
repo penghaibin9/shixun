@@ -6,10 +6,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.challenges.models import ChallengeDefinition
+from app.challenges.models import ChallengeAttempt, ChallengeDefinition, ChallengeHint
 from app.challenges.schemas import ChallengeCreate, FlagConfigure, FlagSubmit
 from app.challenges.service import ChallengeService
 from app.common.context import UserContext
+from app.common.errors import ApiError
 from app.common.models import Base
 from app.main import app as _loaded_app  # noqa: F401 - loads all model metadata
 from app.teaching.models import Course, CourseChapter, CourseLesson, TeachingClass
@@ -212,5 +213,53 @@ def test_student_list_hides_locked_challenge_but_teacher_sees_full_sequence():
             "class-web",
         )["items"]
         assert {item["challenge_id"] for item in teacher_items} == {"challenge-first", "challenge-second"}
+
+        student = ChallengeService(session, _student_context())
+        with pytest.raises(ApiError) as locked:
+            student.get_challenge("challenge-second", "class-web")
+        assert locked.value.code == "CHALLENGE.LOCKED"
+        with pytest.raises(ApiError) as locked_hints:
+            student.hints("challenge-second", "class-web")
+        assert locked_hints.value.code == "CHALLENGE.LOCKED"
+        with pytest.raises(ApiError) as locked_submit:
+            student.submit("challenge-second", FlagSubmit(class_id="class-web", lab_release_id="release-a", runtime_instance_id="runtime-a"))
+        assert locked_submit.value.code == "CHALLENGE.LOCKED"
+
+        session.add(ChallengeAttempt(
+            attempt_id="attempt-first", challenge_id="challenge-first", student_id="student-challenge",
+            class_id="class-web", lab_release_id=None, runtime_instance_id=None,
+            checkpoint_result_id=None, attempt_no=1, accepted=True, created_at=stamp,
+        ))
+        session.commit()
+        assert student.get_challenge("challenge-second", "class-web")["unlocked"] is True
+        assert [item["challenge_id"] for item in student.list_challenges("course_web_security", "class-web")["items"]] == ["challenge-first", "challenge-second"]
+    finally:
+        session.close()
+
+
+def test_student_cannot_read_unpublished_challenge_or_its_hints_by_id():
+    session = _challenge_session()
+    try:
+        _seed_challenge_course(session)
+        stamp = datetime.utcnow()
+        session.add(ChallengeDefinition(
+            challenge_id="draft-challenge", course_id="course_web_security", lesson_id="lesson-web-01",
+            lab_definition_id=None, lab_version_id=None, checkpoint_key=None,
+            prerequisite_challenge_id=None, title="未发布挑战", description="教师草稿",
+            difficulty="BEGINNER", max_attempts=10, validation_mode="CHECKPOINT_ONLY",
+            status="DRAFT", created_by="teacher-challenge", created_at=stamp, published_at=None,
+        ))
+        session.add(ChallengeHint(
+            hint_id="draft-hint", challenge_id="draft-challenge", sequence=1,
+            title="草稿提示", content="仅供教师", unlock_after_attempts=0,
+            created_by="teacher-challenge", created_at=stamp,
+        ))
+        session.commit()
+        student = ChallengeService(session, _student_context())
+        for read in (student.get_challenge, student.hints):
+            with pytest.raises(ApiError) as error:
+                read("draft-challenge", "class-web")
+            assert error.value.code == "CHALLENGE.NOT_FOUND"
+        assert ChallengeService(session, _teacher_context()).get_challenge("draft-challenge")["status"] == "DRAFT"
     finally:
         session.close()
