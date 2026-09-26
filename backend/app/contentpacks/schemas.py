@@ -177,3 +177,23 @@ class DojoPreviewResponse(BaseModel):
     module_count: int
     modules: list[DojoModulePreviewResponse]
     content_imported: bool = False
+
+
+
+class ExternalRuntimeContractResponse(BaseModel):
+    source_name: str
+    license_id: str
+    license_decision: LicenseDecision
+    license_reason: str
+    integration_mode: str
+    source_compose_execution_allowed: bool
+    external_frontend_embedding_allowed: bool
+    required_gates: list[str]
+    current_status: str
+    notes: list[str]
+
+
+class ExternalRuntimeContractListResponse(BaseModel):
+    version: str
+    rule: str
+    items: list[ExternalRuntimeContractResponse]
