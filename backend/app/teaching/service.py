@@ -313,7 +313,7 @@ class TeachingService:
         self.require("teaching.course.write")
         if not self.user.teacher_id:
             raise ApiError("AUTH.TEACHER_REQUIRED", "当前身份没有关联教师", 403)
-        course_fields = body.model_dump(exclude={"catalog_key"})
+        course_fields = body.model_dump()
         course_id = str(uuid4())
         try:
             catalog = curriculum_rows(course_id, body.catalog_key)
@@ -329,7 +329,7 @@ class TeachingService:
             self.repo.add(m.CourseChapter(**row))
         for row in catalog["lessons"]:
             self.repo.add(m.CourseLesson(**row))
-        self.audit("course.created", "course", item.course_id, {"course_id": item.course_id})
+        self.audit("course.created", "course", item.course_id, {"course_id": item.course_id, "catalog_key": item.catalog_key})
         self.session.commit()
         return entity_dict(item) | {
             "theory_lesson_count": sum(row["lesson_type"] == "THEORY" for row in catalog["lessons"]),
