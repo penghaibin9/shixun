@@ -4645,6 +4645,12 @@ export interface components {
             theory_lessons: number;
             /** Lab Lessons */
             lab_lessons: number;
+            /** Question Types */
+            question_types: string[];
+            /** Resource Minimums */
+            resource_minimums: {
+                [key: string]: number;
+            };
         };
         /** CourseCreate */
         CourseCreate: {
@@ -4788,6 +4794,8 @@ export interface components {
             name: string;
             /** Term */
             term: string;
+            /** Catalog Key */
+            catalog_key: string;
             /** Owner Teacher Id */
             owner_teacher_id: string;
             /** Major */
@@ -4810,6 +4818,8 @@ export interface components {
             name: string;
             /** Term */
             term: string;
+            /** Catalog Key */
+            catalog_key: string;
             /** Owner Teacher Id */
             owner_teacher_id: string;
             /** Major */
@@ -6488,6 +6498,18 @@ export interface components {
         ResourceReadinessResponse: {
             /** Course Id */
             course_id: string;
+            /** Catalog Key */
+            catalog_key: string;
+            /** Theory Required */
+            theory_required: number;
+            /** Lab Required */
+            lab_required: number;
+            /** Question Types */
+            question_types: string[];
+            /** Resource Minimums */
+            resource_minimums: {
+                [key: string]: number;
+            };
             /** Theory Lessons */
             theory_lessons: number;
             /** Lab Lessons */

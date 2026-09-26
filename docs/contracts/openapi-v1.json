@@ -18246,6 +18246,20 @@
           "lab_lessons": {
             "type": "integer",
             "title": "Lab Lessons"
+          },
+          "question_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Question Types"
+          },
+          "resource_minimums": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Resource Minimums"
           }
         },
         "type": "object",
@@ -18253,7 +18267,9 @@
           "catalog_key",
           "name",
           "theory_lessons",
-          "lab_lessons"
+          "lab_lessons",
+          "question_types",
+          "resource_minimums"
         ],
         "title": "CourseCatalogResponse"
       },
@@ -18666,6 +18682,10 @@
             "type": "string",
             "title": "Term"
           },
+          "catalog_key": {
+            "type": "string",
+            "title": "Catalog Key"
+          },
           "owner_teacher_id": {
             "type": "string",
             "title": "Owner Teacher Id"
@@ -18707,6 +18727,7 @@
           "course_id",
           "name",
           "term",
+          "catalog_key",
           "owner_teacher_id",
           "status",
           "created_at"
@@ -18726,6 +18747,10 @@
           "term": {
             "type": "string",
             "title": "Term"
+          },
+          "catalog_key": {
+            "type": "string",
+            "title": "Catalog Key"
           },
           "owner_teacher_id": {
             "type": "string",
@@ -18776,6 +18801,7 @@
           "course_id",
           "name",
           "term",
+          "catalog_key",
           "owner_teacher_id",
           "status",
           "created_at",
@@ -23628,6 +23654,32 @@
             "type": "string",
             "title": "Course Id"
           },
+          "catalog_key": {
+            "type": "string",
+            "title": "Catalog Key"
+          },
+          "theory_required": {
+            "type": "integer",
+            "title": "Theory Required"
+          },
+          "lab_required": {
+            "type": "integer",
+            "title": "Lab Required"
+          },
+          "question_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Question Types"
+          },
+          "resource_minimums": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Resource Minimums"
+          },
           "theory_lessons": {
             "type": "integer",
             "title": "Theory Lessons"
@@ -23662,6 +23714,11 @@
         "type": "object",
         "required": [
           "course_id",
+          "catalog_key",
+          "theory_required",
+          "lab_required",
+          "question_types",
+          "resource_minimums",
           "theory_lessons",
           "lab_lessons",
           "ppt",
