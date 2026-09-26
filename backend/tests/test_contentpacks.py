@@ -76,3 +76,13 @@ def test_all_registered_original_chinese_course_packs_are_valid_and_complete():
         assert sum(lesson.lesson_type == "THEORY" for lesson in pack.lessons) == 12
         assert sum(lesson.lesson_type == "LAB" for lesson in pack.lessons) == 12
         assert all(lesson.title and lesson.summary and lesson.objectives for lesson in pack.lessons)
+
+
+def test_web_lab_readiness_keeps_only_four_original_specs_ready():
+    path = __import__("pathlib").Path(__file__).parents[1] / "app" / "contentpacks" / "content" / "web-security-lab-candidates-v1.json"
+    registry = json.loads(path.read_text(encoding="utf-8"))
+    ready = {item["lesson_code"] for item in registry["labs"] if item["runtime_status"] == "FORMAL_SPEC_READY"}
+    assert ready == {"实验01", "实验08", "实验09", "实验10"}
+    external = [item for item in registry["labs"] if item["lesson_code"] not in ready]
+    assert len(external) == 8
+    assert all(item["runtime_status"] in {"REVIEW_REQUIRED", "EXTERNAL_IMAGE_REQUIRED", "LICENSE_REVIEW_REQUIRED"} for item in external)
