@@ -24,6 +24,7 @@ from .schemas import (
     CoursePackManifest,
     DojoPreviewResponse,
     ExternalLabCandidateListResponse,
+    ExternalRuntimeContractListResponse,
     SeedDomainMapResponse,
     WebLabReadinessRegistryResponse,
 )
@@ -92,6 +93,22 @@ def web_lab_candidates(user: CurrentUser):
     _require(user, "labs.read", "teaching.course.read")
     path = CONTENT_DIR / "web-security-lab-candidates-v1.json"
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+@router.get("/content-sources/external-runtime/contracts", response_model=ExternalRuntimeContractListResponse)
+def external_runtime_contracts(user: CurrentUser):
+    _require(user, "labs.read", "teaching.course.read")
+    path = CONTENT_DIR / "external-runtime-contracts-v1.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    items = []
+    for item in payload["items"]:
+        decision = evaluate_license(item["license_id"])
+        items.append({
+            **item,
+            "license_decision": decision.decision,
+            "license_reason": decision.reason,
+        })
+    return {"version": payload["version"], "rule": payload["rule"], "items": items}
 
 
 @router.get("/content-source-maps/seed", response_model=SeedDomainMapResponse)
